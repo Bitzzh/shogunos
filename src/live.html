@@ -1,0 +1,107 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <title>ShogunOS Live</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #000;
+      color: #fff;
+      font-family: Georgia, 'Times New Roman', serif;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      overflow: hidden;
+      transition: background 0.3s ease;
+    }
+    #content {
+      text-align: center;
+      padding: 60px;
+      max-width: 1000px;
+      width: 100%;
+    }
+    #title {
+      font-family: 'Segoe UI', sans-serif;
+      font-size: 20px;
+      font-weight: 400;
+      color: rgba(255,255,255,0.45);
+      letter-spacing: 0.25em;
+      text-transform: uppercase;
+      margin-bottom: 40px;
+      opacity: 0;
+      transition: opacity 0.5s ease;
+    }
+    #title.visible { opacity: 1; }
+    #lyrics {
+      font-size: 48px;
+      line-height: 1.7;
+      font-weight: 300;
+      letter-spacing: 0.04em;
+      opacity: 0;
+      transform: translateY(10px);
+      transition: opacity 0.4s ease, transform 0.4s ease;
+    }
+    #lyrics.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    #corner-tl, #corner-tr, #corner-bl, #corner-br {
+      position: fixed;
+      width: 24px;
+      height: 24px;
+      opacity: 0.15;
+    }
+    #corner-tl { top: 20px; left: 20px; border-top: 1px solid #00FFB2; border-left: 1px solid #00FFB2; }
+    #corner-tr { top: 20px; right: 20px; border-top: 1px solid #00FFB2; border-right: 1px solid #00FFB2; }
+    #corner-bl { bottom: 20px; left: 20px; border-bottom: 1px solid #00FFB2; border-left: 1px solid #00FFB2; }
+    #corner-br { bottom: 20px; right: 20px; border-bottom: 1px solid #00FFB2; border-right: 1px solid #00FFB2; }
+  </style>
+</head>
+<body>
+  <div id="corner-tl"></div>
+  <div id="corner-tr"></div>
+  <div id="corner-bl"></div>
+  <div id="corner-br"></div>
+  <div id="content">
+    <div id="title"></div>
+    <div id="lyrics"></div>
+  </div>
+  <script>
+    const titleEl = document.getElementById('title')
+    const lyricsEl = document.getElementById('lyrics')
+
+    function update(data) {
+      titleEl.classList.remove('visible')
+      lyricsEl.classList.remove('visible')
+
+      document.body.style.background = data.bgColor || '#000000'
+      lyricsEl.style.fontSize = (data.fontSize || 48) + 'px'
+      lyricsEl.style.textAlign = data.textAlign || 'center'
+
+      setTimeout(() => {
+        titleEl.textContent = data.title || ''
+        lyricsEl.textContent = data.lyrics || ''
+        if (data.title) titleEl.classList.add('visible')
+        if (data.lyrics) lyricsEl.classList.add('visible')
+      }, 200)
+    }
+
+    window.electronAPI?.onUpdateLive?.(update)
+
+    // Also listen via shogunos bridge
+    try {
+      window.shogunos?.onUpdateLive?.(update)
+    } catch(e) {}
+
+    // Direct IPC listener fallback
+    if (typeof require !== 'undefined') {
+      try {
+        const { ipcRenderer } = require('electron')
+        ipcRenderer.on('update-live', (_, data) => update(data))
+      } catch(e) {}
+    }
+  </script>
+</body>
+</html>
