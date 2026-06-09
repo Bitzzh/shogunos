@@ -1,41 +1,40 @@
-import { app, BrowserWindow, ipcMain, screen } from 'electron';
-import path from 'node:path';
-import started from 'electron-squirrel-startup';
+import { app, BrowserWindow, ipcMain, screen } from 'electron'
+import path from 'node:path'
+import started from 'electron-squirrel-startup'
 import {
-  initDatabase, searchSongs, addSong, addSongSection,
-  getSongSections, getDailyVerse, searchBibleVerses,
-  getBibleVerse, deleteSong, getServiceQueue,
-  addToServiceQueue, clearServiceQueue, getThemes
-} from './database';
+  initDatabase,
+  searchSongs, addSong, addSongSection, getSongSections, deleteSong,
+  getDailyVerse, searchBibleVerses, getBibleVerse,
+  getServiceQueue, addToServiceQueue, clearServiceQueue,
+  getThemes,
+  getSlides, getSlide, createSlide, updateSlide, deleteSlide, reorderSlides, duplicateSlide,
+  exportDatabase, importDatabase, getDatabaseStats,
+  loginUser, getUsers, createUser, updateUserPassword, deleteUser,
+  importQSPSongs,
+} from './database'
+import { parseQSP } from './qsp-parser'
 
-if (started) { app.quit(); }
+if (started) { app.quit() }
 
 let mainWindow: BrowserWindow
 let liveWindow: BrowserWindow | null = null
 
 const createWindow = () => {
   mainWindow = new BrowserWindow({
-    width: 1280,
-    height: 800,
-    minWidth: 1024,
-    minHeight: 640,
+    width: 1280, height: 800, minWidth: 1024, minHeight: 640,
     backgroundColor: '#040508',
-    titleBarStyle: 'default',
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
     },
-  });
-
+  })
   if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
-    mainWindow.loadURL(MAIN_WINDOW_VITE_DEV_SERVER_URL);
+    mainWindow.loadURL(MAIN_WINDOW_VITE_DEV_SERVER_URL)
   } else {
-    mainWindow.loadFile(
-      path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/index.html`),
-    );
+    mainWindow.loadFile(path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/index.html`))
   }
-};
+}
 
 const createLiveWindow = (displayId?: number) => {
   const displays = screen.getAllDisplays()
@@ -47,9 +46,7 @@ const createLiveWindow = (displayId?: number) => {
   }
   const { x, y, width, height } = targetDisplay.bounds
   liveWindow = new BrowserWindow({
-    x, y, width, height,
-    fullscreen: true,
-    backgroundColor: '#000',
+    x, y, width, height, fullscreen: true, backgroundColor: '#000',
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -63,28 +60,35 @@ const createLiveWindow = (displayId?: number) => {
 app.on('ready', async () => {
   await initDatabase()
 
-  ipcMain.handle('search-songs', (_e, query: string) => searchSongs(query))
+  // ── SONGS ────────────────────────────────────────────────────────────────
+  ipcMain.handle('search-songs',      (_e, query: string) => searchSongs(query))
   ipcMain.handle('get-song-sections', (_e, id: number) => getSongSections(id))
-  ipcMain.handle('add-song', (_e, title: string, lang: string, src: string, num?: number) => addSong(title, lang, src, num))
-  ipcMain.handle('add-song-section', (_e, id: number, type: string, order: number, content: string) => addSongSection(id, type, order, content))
-  ipcMain.handle('delete-song', (_e, id: number) => deleteSong(id))
-  ipcMain.handle('get-daily-verse', () => getDailyVerse())
-  ipcMain.handle('search-bible', (_e, query: string) => searchBibleVerses(query))
-  ipcMain.handle('get-bible-verse', (_e, book: string, ch: number, v: number) => getBibleVerse(book, ch, v))
-  ipcMain.handle('get-service-queue', () => getServiceQueue())
-  ipcMain.handle('add-to-queue', (_e, title: string, type: string, songId?: number, verseRef?: string) => addToServiceQueue(title, type, songId, verseRef))
-  ipcMain.handle('clear-queue', () => clearServiceQueue())
-  ipcMain.handle('get-themes', () => getThemes())
+  ipcMain.handle('add-song',          (_e, title: string, lang: string, src: string, num?: number) => addSong(title, lang, src, num))
+  ipcMain.handle('add-song-section',  (_e, id: number, type: string, order: number, content: string) => addSongSection(id, type, order, content))
+  ipcMain.handle('delete-song',       (_e, id: number) => deleteSong(id))
 
+  // ── BIBLE ────────────────────────────────────────────────────────────────
+  ipcMain.handle('get-daily-verse',   () => getDailyVerse())
+  ipcMain.handle('search-bible',      (_e, query: string) => searchBibleVerses(query))
+  ipcMain.handle('get-bible-verse',   (_e, book: string, ch: number, v: number) => getBibleVerse(book, ch, v))
+
+  // ── QUEUE ────────────────────────────────────────────────────────────────
+  ipcMain.handle('get-service-queue', () => getServiceQueue())
+  ipcMain.handle('add-to-queue',      (_e, title: string, type: string, songId?: number, verseRef?: string) => addToServiceQueue(title, type, songId, verseRef))
+  ipcMain.handle('clear-queue',       () => clearServiceQueue())
+
+  // ── THEMES ───────────────────────────────────────────────────────────────
+  ipcMain.handle('get-themes',        () => getThemes())
+
+  // ── DISPLAY ──────────────────────────────────────────────────────────────
   ipcMain.handle('get-displays', () =>
     screen.getAllDisplays().map((d, i) => ({
       id: d.id,
       label: `Display ${i + 1} (${d.bounds.width}x${d.bounds.height})`,
-      isPrimary: i === 0
+      isPrimary: i === 0,
     }))
   )
-
-  ipcMain.handle('go-live', (_e, data: { title: string; lyrics: string; displayId?: number; fontSize?: number; textAlign?: string; bgColor?: string }) => {
+  ipcMain.handle('go-live', (_e, data: any) => {
     if (!liveWindow) {
       createLiveWindow(data.displayId)
       setTimeout(() => liveWindow?.webContents.send('update-live', data), 1000)
@@ -92,8 +96,41 @@ app.on('ready', async () => {
       liveWindow.webContents.send('update-live', data)
     }
   })
-
   ipcMain.handle('close-live', () => liveWindow?.close())
+
+  // ── SLIDES ───────────────────────────────────────────────────────────────
+  ipcMain.handle('slides-get-all',   () => getSlides())
+  ipcMain.handle('slides-get',       (_e, id: number) => getSlide(id))
+  ipcMain.handle('slides-create',    (_e, data: any) => createSlide(data))
+  ipcMain.handle('slides-update',    (_e, id: number, data: any) => updateSlide(id, data))
+  ipcMain.handle('slides-delete',    (_e, id: number) => deleteSlide(id))
+  ipcMain.handle('slides-reorder',   (_e, orderedIds: number[]) => reorderSlides(orderedIds))
+  ipcMain.handle('slides-duplicate', (_e, id: number) => duplicateSlide(id))
+
+  // ── IMPORT / EXPORT ──────────────────────────────────────────────────────
+  ipcMain.handle('export-data',  () => exportDatabase())
+  ipcMain.handle('import-data',  (_e, json: string) => importDatabase(json))
+  ipcMain.handle('get-db-stats', () => getDatabaseStats())
+  ipcMain.handle('import-qsp',   (_e, base64: string) => {
+    try {
+      const buf    = Buffer.from(base64, 'base64')
+      const parsed = parseQSP(buf)
+      if (!parsed.success || parsed.songs.length === 0) {
+        return { success: false, error: `No songs found. ${parsed.errors.join(', ')}` }
+      }
+      const result = importQSPSongs(parsed.songs)
+      return { success: true, parsed: parsed.parsed, ...result, errors: parsed.errors }
+    } catch (e: any) {
+      return { success: false, error: e.message }
+    }
+  })
+
+  // ── AUTH ─────────────────────────────────────────────────────────────────
+  ipcMain.handle('auth-login',           (_e, username: string, password: string) => loginUser(username, password))
+  ipcMain.handle('auth-get-users',       () => getUsers())
+  ipcMain.handle('auth-create-user',     (_e, username: string, password: string, role: string, displayName: string) => createUser(username, password, role as any, displayName))
+  ipcMain.handle('auth-update-password', (_e, userId: number, oldPw: string, newPw: string) => updateUserPassword(userId, oldPw, newPw))
+  ipcMain.handle('auth-delete-user',     (_e, userId: number) => deleteUser(userId))
 
   createWindow()
 })
