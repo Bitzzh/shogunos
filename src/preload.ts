@@ -53,4 +53,6 @@ contextBridge.exposeInMainWorld('shogunos', {
   createUser:         (username: string, password: string, role: string, displayName: string) => ipcRenderer.invoke('auth-create-user', username, password, role, displayName),
   updateUserPassword: (userId: number, oldPassword: string, newPassword: string) => ipcRenderer.invoke('auth-update-password', userId, oldPassword, newPassword),
   deleteUser:         (userId: number) => ipcRenderer.invoke('auth-delete-user', userId),
+  adminResetPassword: (userId: number, newPassword: string) => ipcRenderer.invoke('auth-admin-reset-password', userId, newPassword),
+  updateUserRole:     (userId: number, role: string) => ipcRenderer.invoke('auth-update-role', userId, role),
 })

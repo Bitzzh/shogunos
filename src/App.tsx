@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react'
 import Splash from './Splash'
+import UsersTab from './UsersTab'
 
 type Song       = { id: number; title: string; hymn_number: number; source: string; language: string }
 type Section    = { id: number; song_id: number; type: string; order_num: number; content: string }
@@ -972,15 +973,7 @@ export default function App() {
       if(settingsTab==='display') return <DisplaySettingsTab settings={displaySettings} onChange={setDisplaySettings} notify={notify}/>
       if(settingsTab==='import') return <ImportTab notify={notify}/>
       if(settingsTab==='about')  return <AboutTab/>
-      return (
-        <div style={{flex:1,padding:32,overflowY:'auto',background:C.bg1}}>
-          <div style={{fontSize:9,fontWeight:700,letterSpacing:'0.2em',color:C.t4,textTransform:'uppercase' as const,marginBottom:20}}>User Management</div>
-          <div style={{padding:'16px 20px',background:C.bg3,borderRadius:12,border:`1px solid ${C.b1}`,fontSize:13,color:C.t2,lineHeight:1.7}}>
-            User accounts are managed via the admin database. To add or remove users, use an admin account to edit the application database directly.<br/><br/>
-            <span style={{color:C.t4,fontSize:11}}>Data location: AppData\Roaming\shogunos\shogunos.json</span>
-          </div>
-        </div>
-      )
+      if(settingsTab==='users')  return <UsersTab currentUser={currentUser!} notify={notify}/>
     }
     // Library
     if(libTab==='songs') return <SongsTab goLive={(t,l)=>goLive(t,l)} addToQueue={addToQueue} notify={notify}/>

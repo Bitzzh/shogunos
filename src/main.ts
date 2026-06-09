@@ -9,7 +9,7 @@ import {
   getThemes,
   getSlides, getSlide, createSlide, updateSlide, deleteSlide, reorderSlides, duplicateSlide,
   exportDatabase, importDatabase, getDatabaseStats,
-  loginUser, getUsers, createUser, updateUserPassword, deleteUser,
+  loginUser, getUsers, createUser, updateUserPassword, deleteUser, adminResetPassword, updateUserRole,
   importQSPSongs,
   getDisplaySettings, saveDisplaySettings,
 } from './database'
@@ -137,6 +137,8 @@ app.on('ready', async () => {
   ipcMain.handle('auth-create-user',     (_e, username: string, password: string, role: string, displayName: string) => createUser(username, password, role as any, displayName))
   ipcMain.handle('auth-update-password', (_e, userId: number, oldPw: string, newPw: string) => updateUserPassword(userId, oldPw, newPw))
   ipcMain.handle('auth-delete-user',     (_e, userId: number) => deleteUser(userId))
+  ipcMain.handle('auth-admin-reset-password', (_e, userId: number, newPw: string) => adminResetPassword(userId, newPw))
+  ipcMain.handle('auth-update-role',     (_e, userId: number, role: string) => updateUserRole(userId, role as any))
 
   createWindow()
 })

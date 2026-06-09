@@ -328,6 +328,18 @@ export function deleteUser(userId: number): { success: boolean; error?: string }
   if (user.role === 'ADMIN' && db.users.filter(u => u.role === 'ADMIN').length <= 1) return { success: false, error: 'Cannot delete the last admin' }
   db.users = db.users.filter(u => u.id !== userId); save(); return { success: true }
 }
+export function adminResetPassword(userId: number, newPw: string): { success: boolean; error?: string } {
+  const user = db.users.find(u => u.id === userId)
+  if (!user) return { success: false, error: 'User not found' }
+  if (newPw.length < 6) return { success: false, error: 'Password must be at least 6 characters' }
+  user.password_hash = hashPassword(newPw); save(); return { success: true }
+}
+export function updateUserRole(userId: number, role: User['role']): { success: boolean; error?: string } {
+  const user = db.users.find(u => u.id === userId)
+  if (!user) return { success: false, error: 'User not found' }
+  if (user.role === 'ADMIN' && role !== 'ADMIN' && db.users.filter(u => u.role === 'ADMIN').length <= 1) return { success: false, error: 'Cannot demote the last admin' }
+  user.role = role; save(); return { success: true }
+}
 
 // ── SONGS ─────────────────────────────────────────────────────────────────────
 
