@@ -16,6 +16,7 @@ interface DisplaySettings {
   bgColor: string; bgImage: string | null
   fontColor: string; fontSize: number
   textAlign: 'left' | 'center' | 'right'
+  fontFamily: string
 }
 
 const C = {
@@ -681,6 +682,27 @@ function DisplaySettingsTab({ settings, onChange, notify }: { settings:DisplaySe
   function set(k:keyof DisplaySettings,v:any){onChange({...settings,[k]:v})}
   const lbl: React.CSSProperties = {fontSize:10,color:C.t3,fontWeight:600,marginBottom:6,display:'block',letterSpacing:'0.05em',textTransform:'uppercase' as const}
   const inp: React.CSSProperties = {width:'100%',background:C.bg4,border:`1px solid ${C.b1}`,color:C.t1,padding:'9px 12px',fontSize:12,outline:'none',fontFamily:'inherit',borderRadius:8}
+
+  const FONTS = [
+    { label:'Georgia',      value:'Georgia, serif'                         },
+    { label:'Times New Roman', value:"'Times New Roman', serif"            },
+    { label:'Arial',        value:'Arial, sans-serif'                      },
+    { label:'Helvetica',    value:"'Helvetica Neue', Helvetica, sans-serif" },
+    { label:'Trebuchet MS', value:"'Trebuchet MS', sans-serif"             },
+    { label:'Verdana',      value:'Verdana, sans-serif'                    },
+    { label:'Palatino',     value:"'Palatino Linotype', Palatino, serif"   },
+    { label:'Garamond',     value:"Garamond, serif"                        },
+    { label:'Courier New',  value:"'Courier New', monospace"               },
+    { label:'Impact',       value:"Impact, fantasy"                        },
+  ]
+
+  async function handleSave(){
+    try{
+      await(window as any).shogunos.saveDisplaySettings(settings)
+      notify('Display settings saved')
+    }catch{notify('Failed to save settings')}
+  }
+
   return (
     <div style={{flex:1,padding:32,overflowY:'auto',background:C.bg1,display:'flex',flexDirection:'column',gap:20,maxWidth:520}}>
       <div style={{fontSize:9,fontWeight:700,letterSpacing:'0.2em',color:C.t4,textTransform:'uppercase' as const}}>Display Settings</div>
@@ -724,6 +746,18 @@ function DisplaySettingsTab({ settings, onChange, notify }: { settings:DisplaySe
         </div>
       </div>
       <div>
+        <label style={lbl}>Font Family</label>
+        <div style={{display:'flex',flexDirection:'column',gap:4}}>
+          {FONTS.map(f=>(
+            <div key={f.value} onClick={()=>set('fontFamily',f.value)}
+              style={{padding:'9px 14px',borderRadius:8,border:`1px solid ${settings.fontFamily===f.value?C.p1:C.b1}`,background:settings.fontFamily===f.value?`${C.p1}18`:C.bg3,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'space-between',transition:'all 0.1s'}}>
+              <span style={{fontSize:14,fontFamily:f.value,color:settings.fontFamily===f.value?C.t1:C.t2}}>{f.label}</span>
+              <span style={{fontSize:10,fontFamily:f.value,color:C.t4,fontStyle:'italic'}}>Amazing Grace</span>
+            </div>
+          ))}
+        </div>
+      </div>
+      <div>
         <label style={lbl}>Font Size — {settings.fontSize}px</label>
         <input type="range" min={20} max={96} value={settings.fontSize} onChange={e=>set('fontSize',parseInt(e.target.value))} style={{width:'100%',accentColor:C.p1,marginBottom:8}}/>
         <div style={{display:'flex',gap:4}}>
@@ -747,12 +781,12 @@ function DisplaySettingsTab({ settings, onChange, notify }: { settings:DisplaySe
         <div style={{aspectRatio:'16/9',borderRadius:10,overflow:'hidden',border:`1px solid ${C.b1}`,background:settings.bgColor,display:'flex',alignItems:'center',justifyContent:'center',padding:16,position:'relative',
           backgroundImage:settings.bgImage?`url(${settings.bgImage})`:undefined,backgroundSize:'cover',backgroundPosition:'center'}}>
           {settings.bgImage&&<div style={{position:'absolute',inset:0,background:'rgba(0,0,0,0.3)'}}/>}
-          <div style={{position:'relative',zIndex:1,fontSize:settings.fontSize*0.22,color:settings.fontColor,textAlign:settings.textAlign,fontStyle:'italic',fontWeight:300,lineHeight:1.6}}>
+          <div style={{position:'relative',zIndex:1,fontSize:settings.fontSize*0.22,color:settings.fontColor,textAlign:settings.textAlign,fontFamily:settings.fontFamily,fontWeight:300,lineHeight:1.6}}>
             "Amazing grace! How sweet the sound<br/>That saved a wretch like me!"
           </div>
         </div>
       </div>
-      <button onClick={()=>notify('Display settings saved')} style={{padding:'12px 0',background:`linear-gradient(135deg,${C.p1},#5b21b6)`,border:'none',color:'#fff',fontSize:12,fontWeight:700,cursor:'pointer',fontFamily:'inherit',borderRadius:8,letterSpacing:'0.05em'}}>Save Settings</button>
+      <button onClick={handleSave} style={{padding:'12px 0',background:`linear-gradient(135deg,${C.p1},#5b21b6)`,border:'none',color:'#fff',fontSize:12,fontWeight:700,cursor:'pointer',fontFamily:'inherit',borderRadius:8,letterSpacing:'0.05em'}}>Save Settings</button>
     </div>
   )
 }
@@ -769,6 +803,7 @@ export default function App() {
   const [bibleVersion,setBibleVersion]   = useState('KJV')
   const [availableVersions,setAvailableVersions] = useState<string[]>(['KJV'])
   const [results,setResults]             = useState<Song[]>([])
+  const [allSongs,setAllSongs]           = useState<Song[]>([])
   const [bibleResults,setBibleResults]   = useState<BibleVerse[]>([])
   const [selected,setSelected]           = useState<Song|null>(null)
   const [selectedVerse,setSelectedVerse] = useState<BibleVerse|null>(null)
@@ -782,8 +817,16 @@ export default function App() {
   const [blankScreen,setBlankScreen]     = useState(false)
   const [clock,setClock]                 = useState('')
   const [toast,setToast]                 = useState('')
-  const [displaySettings,setDisplaySettings] = useState<DisplaySettings>({bgColor:'#000000',bgImage:null,fontColor:'#ffffff',fontSize:52,textAlign:'center'})
+  const [displaySettings,setDisplaySettings] = useState<DisplaySettings>({bgColor:'#000000',bgImage:null,fontColor:'#ffffff',fontSize:52,textAlign:'center',fontFamily:'Georgia, serif'})
   const toastTimer = useRef<any>(null)
+  // Bible chapter browser state
+  const [bibleMode,setBibleMode]         = useState<'search'|'browse'>('browse')
+  const [bibleBooks,setBibleBooks]       = useState<string[]>([])
+  const [selectedBook,setSelectedBook]   = useState<string|null>(null)
+  const [bibleChapters,setBibleChapters] = useState<number[]>([])
+  const [selectedChapter,setSelectedChapter] = useState<number|null>(null)
+  const [chapterVerses,setChapterVerses] = useState<BibleVerse[]>([])
+  const [loadingChapter,setLoadingChapter] = useState(false)
 
   useEffect(()=>{
     const tick=()=>setClock(new Date().toLocaleTimeString('en-ZW',{hour:'2-digit',minute:'2-digit'}))
@@ -799,6 +842,12 @@ export default function App() {
       const q=await(window as any).shogunos.getServiceQueue()
       setQueue(q.map((x:any)=>({id:String(x.id),title:x.title,type:x.type})))
       try{const v=await(window as any).shogunos.getBibleTranslations();if(v?.length)setAvailableVersions(v)}catch{}
+      // Load saved display settings
+      try{const ds=await(window as any).shogunos.getDisplaySettings();if(ds)setDisplaySettings(ds)}catch{}
+      // Load all hymns for default browse view
+      try{const all=await(window as any).shogunos.searchSongs('');setAllSongs(all.sort((a:Song,b:Song)=>(a.hymn_number||9999)-(b.hymn_number||9999)))}catch{}
+      // Load bible books for chapter browser
+      try{const books=await(window as any).shogunos.getBibleBooks('KJV');setBibleBooks(books)}catch{}
     }
     load()
   },[showSplash])
@@ -808,13 +857,25 @@ export default function App() {
   async function handleSearch(val:string){
     setQuery(val)
     if(val.trim().length<1){setResults([]);return}
-    setResults(await(window as any).shogunos.searchSongs(val))
+    setResults(allSongs.filter(s=>s.title.toLowerCase().includes(val.toLowerCase())))
   }
 
   async function handleBibleSearch(val:string){
     setBibleQuery(val)
     if(val.trim().length<2){setBibleResults([]);return}
     setBibleResults(await(window as any).shogunos.searchBible(val,bibleVersion))
+  }
+
+  async function handleBookSelect(book:string){
+    setSelectedBook(book);setSelectedChapter(null);setChapterVerses([]);setSelectedVerse(null)
+    const chs=await(window as any).shogunos.getBibleChapters(book,bibleVersion)
+    setBibleChapters(chs)
+  }
+
+  async function handleChapterSelect(ch:number){
+    setSelectedChapter(ch);setSelectedVerse(null);setLoadingChapter(true)
+    const verses=await(window as any).shogunos.getBibleChapterVerses(selectedBook,ch,bibleVersion)
+    setChapterVerses(verses);setLoadingChapter(false)
   }
 
   async function handleSelectSong(song:Song){
@@ -825,7 +886,7 @@ export default function App() {
   async function goLive(title:string,lyrics:string,ds?:Partial<DisplaySettings>){
     const s={...displaySettings,...ds}
     setLive(title);setBlankScreen(false)
-    await(window as any).shogunos.goLive({title,lyrics,displayId:selectedDisplay,fontSize:s.fontSize,textAlign:s.textAlign,bgColor:s.bgColor,fontColor:s.fontColor,bgImage:s.bgImage})
+    await(window as any).shogunos.goLive({title,lyrics,displayId:selectedDisplay,fontSize:s.fontSize,textAlign:s.textAlign,bgColor:s.bgColor,fontColor:s.fontColor,bgImage:s.bgImage,fontFamily:s.fontFamily})
   }
 
   async function handleSectionClick(i:number){
@@ -940,42 +1001,114 @@ export default function App() {
         ):<div style={{color:C.t3}}>No verse for today</div>}
       </div>
     )
-    if(libTab==='bible') return (
-      <div style={{flex:1,display:'flex',overflow:'hidden',minHeight:0}}>
-        <div style={{width:290,background:C.bg2,borderRight:`1px solid ${C.b0}`,display:'flex',flexDirection:'column',flexShrink:0}}>
-          <div style={{padding:'8px 14px',background:C.bg1,borderBottom:`1px solid ${C.b0}`}}>
-            <span style={{fontSize:10,color:C.t4,fontWeight:700,letterSpacing:'0.1em'}}>{bibleResults.length} RESULTS · {bibleVersion}</span>
-          </div>
-          <div style={{flex:1,overflowY:'auto',padding:'6px 8px'}}>
-            {bibleResults.map(v=>(
-              <div key={v.id} onClick={()=>setSelectedVerse(v)}
-                style={{padding:'10px 12px',marginBottom:3,cursor:'pointer',borderRadius:8,border:`1px solid ${selectedVerse?.id===v.id?C.b2:'transparent'}`,background:selectedVerse?.id===v.id?C.bg4:'none',transition:'all 0.1s'}}
-                onMouseEnter={e=>(e.currentTarget as HTMLElement).style.background=C.bg3}
-                onMouseLeave={e=>(e.currentTarget as HTMLElement).style.background=selectedVerse?.id===v.id?C.bg4:'none'}>
-                <div style={{fontSize:10,color:C.p2,fontWeight:700,marginBottom:4}}>{v.book} {v.chapter}:{v.verse}</div>
-                <div style={{fontSize:12,color:C.t2,lineHeight:1.5}}>{v.text.substring(0,70)}…</div>
-              </div>
-            ))}
-            {bibleResults.length===0&&<div style={{padding:'28px 16px',textAlign:'center',color:C.t4,fontSize:12}}>Search scripture above</div>}
-          </div>
-        </div>
-        <div style={{flex:1,padding:36,display:'flex',flexDirection:'column',gap:16,overflowY:'auto',background:C.bg1}}>
-          {selectedVerse?<>
-            <div style={{fontSize:13,color:C.p2,fontWeight:700}}>{selectedVerse.book} {selectedVerse.chapter}:{selectedVerse.verse} — {selectedVerse.version}</div>
-            <div style={{fontSize:24,lineHeight:1.9,color:C.t1,fontWeight:300,fontStyle:'italic',flex:1}}>"{selectedVerse.text}"</div>
-            <div style={{display:'flex',gap:10}}>
-              <button onClick={()=>goLive(`${selectedVerse.book} ${selectedVerse.chapter}:${selectedVerse.verse}`,selectedVerse.text)} style={{padding:'11px 28px',background:`linear-gradient(135deg,${C.live},#b91c1c)`,border:'none',color:'#fff',fontSize:12,fontWeight:700,cursor:'pointer',fontFamily:'inherit',borderRadius:9}}>GO LIVE</button>
-              <button onClick={()=>addToQueue(`${selectedVerse.book} ${selectedVerse.chapter}:${selectedVerse.verse}`,'verse')} style={{padding:'11px 18px',background:C.bg4,border:`1px solid ${C.b2}`,color:C.t1,fontSize:11,fontWeight:600,cursor:'pointer',fontFamily:'inherit',borderRadius:9}}>+ Queue</button>
+    if(libTab==='bible') {
+      const displayedVerses = bibleMode==='search' ? bibleResults : chapterVerses
+      return (
+        <div style={{flex:1,display:'flex',overflow:'hidden',minHeight:0}}>
+          {/* Left panel: Book list or Chapter list */}
+          <div style={{width:160,background:C.bg2,borderRight:`1px solid ${C.b0}`,display:'flex',flexDirection:'column',flexShrink:0}}>
+            <div style={{padding:'8px',background:C.bg1,borderBottom:`1px solid ${C.b0}`,display:'flex',gap:4}}>
+              <button onClick={()=>setBibleMode('browse')} style={{flex:1,padding:'5px 0',fontSize:9,fontWeight:700,letterSpacing:'0.08em',border:'none',borderRadius:5,cursor:'pointer',background:bibleMode==='browse'?C.p1:'transparent',color:bibleMode==='browse'?'#fff':C.t3,transition:'all 0.15s'}}>BROWSE</button>
+              <button onClick={()=>setBibleMode('search')} style={{flex:1,padding:'5px 0',fontSize:9,fontWeight:700,letterSpacing:'0.08em',border:'none',borderRadius:5,cursor:'pointer',background:bibleMode==='search'?C.p1:'transparent',color:bibleMode==='search'?'#fff':C.t3,transition:'all 0.15s'}}>SEARCH</button>
             </div>
-          </>:(
-            <div style={{flex:1,display:'flex',alignItems:'center',justifyContent:'center',flexDirection:'column',gap:10,color:C.t4}}>
-              <div style={{fontSize:40,opacity:0.15}}>✦</div>
-              <div style={{fontSize:13}}>Select a verse</div>
+            {bibleMode==='browse'&&(
+              <div style={{flex:1,overflowY:'auto'}}>
+                {/* Book list */}
+                {bibleBooks.map(book=>(
+                  <div key={book} onClick={()=>handleBookSelect(book)}
+                    style={{padding:'7px 10px',cursor:'pointer',fontSize:11,borderLeft:`2px solid ${selectedBook===book?C.p1:'transparent'}`,background:selectedBook===book?C.bg4:'none',color:selectedBook===book?C.t1:C.t2,transition:'all 0.1s'}}
+                    onMouseEnter={e=>{if(selectedBook!==book)(e.currentTarget as HTMLElement).style.background=C.bg3}}
+                    onMouseLeave={e=>{if(selectedBook!==book)(e.currentTarget as HTMLElement).style.background='none'}}>
+                    {book}
+                  </div>
+                ))}
+                {bibleBooks.length===0&&<div style={{padding:16,fontSize:11,color:C.t4,textAlign:'center'}}>Loading books…</div>}
+              </div>
+            )}
+            {bibleMode==='search'&&(
+              <div style={{flex:1,overflowY:'auto',padding:'6px 8px'}}>
+                {bibleResults.map(v=>(
+                  <div key={v.id} onClick={()=>setSelectedVerse(v)}
+                    style={{padding:'9px 10px',marginBottom:3,cursor:'pointer',borderRadius:7,border:`1px solid ${selectedVerse?.id===v.id?C.b2:'transparent'}`,background:selectedVerse?.id===v.id?C.bg4:'none',transition:'all 0.1s'}}
+                    onMouseEnter={e=>(e.currentTarget as HTMLElement).style.background=C.bg3}
+                    onMouseLeave={e=>(e.currentTarget as HTMLElement).style.background=selectedVerse?.id===v.id?C.bg4:'none'}>
+                    <div style={{fontSize:9,color:C.p2,fontWeight:700,marginBottom:3}}>{v.book} {v.chapter}:{v.verse}</div>
+                    <div style={{fontSize:11,color:C.t2,lineHeight:1.4}}>{v.text.substring(0,55)}…</div>
+                  </div>
+                ))}
+                {bibleResults.length===0&&<div style={{padding:'20px 8px',textAlign:'center',color:C.t4,fontSize:11}}>Search above</div>}
+              </div>
+            )}
+          </div>
+
+          {/* Middle panel: Chapters (browse mode) or empty (search mode) */}
+          {bibleMode==='browse'&&(
+            <div style={{width:130,background:C.bg2,borderRight:`1px solid ${C.b0}`,display:'flex',flexDirection:'column',flexShrink:0}}>
+              <div style={{padding:'8px 10px',background:C.bg1,borderBottom:`1px solid ${C.b0}`}}>
+                <span style={{fontSize:9,color:C.t4,fontWeight:700,letterSpacing:'0.1em'}}>{selectedBook||'SELECT BOOK'}</span>
+              </div>
+              <div style={{flex:1,overflowY:'auto',display:'flex',flexWrap:'wrap',alignContent:'flex-start',padding:6,gap:4}}>
+                {bibleChapters.map(ch=>(
+                  <div key={ch} onClick={()=>handleChapterSelect(ch)}
+                    style={{width:36,height:32,display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:600,borderRadius:6,cursor:'pointer',
+                      background:selectedChapter===ch?C.p1:C.bg4,color:selectedChapter===ch?'#fff':C.t2,border:`1px solid ${selectedChapter===ch?C.p1:C.b1}`,transition:'all 0.1s'}}
+                    onMouseEnter={e=>{if(selectedChapter!==ch)(e.currentTarget as HTMLElement).style.background=C.bg5}}
+                    onMouseLeave={e=>{if(selectedChapter!==ch)(e.currentTarget as HTMLElement).style.background=C.bg4}}>
+                    {ch}
+                  </div>
+                ))}
+                {selectedBook&&bibleChapters.length===0&&<div style={{padding:12,fontSize:11,color:C.t4}}>Loading…</div>}
+                {!selectedBook&&<div style={{padding:12,fontSize:11,color:C.t4}}>Select a book</div>}
+              </div>
             </div>
           )}
+
+          {/* Verse list panel */}
+          {bibleMode==='browse'&&(
+            <div style={{width:230,background:C.bg2,borderRight:`1px solid ${C.b0}`,display:'flex',flexDirection:'column',flexShrink:0}}>
+              <div style={{padding:'8px 10px',background:C.bg1,borderBottom:`1px solid ${C.b0}`}}>
+                <span style={{fontSize:9,color:C.t4,fontWeight:700,letterSpacing:'0.1em'}}>
+                  {selectedBook&&selectedChapter?`${selectedBook} ${selectedChapter} · ${chapterVerses.length}v`:'SELECT CHAPTER'}
+                </span>
+              </div>
+              <div style={{flex:1,overflowY:'auto',padding:'4px 6px'}}>
+                {loadingChapter&&<div style={{padding:20,textAlign:'center',color:C.t4,fontSize:11}}>Loading…</div>}
+                {!loadingChapter&&chapterVerses.map(v=>(
+                  <div key={v.id} onClick={()=>setSelectedVerse(v)}
+                    style={{padding:'8px 10px',marginBottom:2,cursor:'pointer',borderRadius:7,border:`1px solid ${selectedVerse?.id===v.id?C.b2:'transparent'}`,background:selectedVerse?.id===v.id?C.bg4:'none',transition:'all 0.1s'}}
+                    onMouseEnter={e=>(e.currentTarget as HTMLElement).style.background=C.bg3}
+                    onMouseLeave={e=>(e.currentTarget as HTMLElement).style.background=selectedVerse?.id===v.id?C.bg4:'none'}>
+                    <div style={{display:'flex',gap:8,alignItems:'flex-start'}}>
+                      <span style={{fontSize:9,color:C.p2,fontWeight:700,minWidth:18,marginTop:2}}>{v.verse}</span>
+                      <span style={{fontSize:11,color:C.t2,lineHeight:1.5}}>{v.text}</span>
+                    </div>
+                  </div>
+                ))}
+                {!loadingChapter&&selectedChapter&&chapterVerses.length===0&&<div style={{padding:20,textAlign:'center',color:C.t4,fontSize:11}}>No verses</div>}
+                {!selectedChapter&&!loadingChapter&&<div style={{padding:20,textAlign:'center',color:C.t4,fontSize:11}}>Select a chapter</div>}
+              </div>
+            </div>
+          )}
+
+          {/* Detail panel */}
+          <div style={{flex:1,padding:32,display:'flex',flexDirection:'column',gap:16,overflowY:'auto',background:C.bg1}}>
+            {selectedVerse?<>
+              <div style={{fontSize:13,color:C.p2,fontWeight:700}}>{selectedVerse.book} {selectedVerse.chapter}:{selectedVerse.verse} — {selectedVerse.version}</div>
+              <div style={{fontSize:24,lineHeight:1.9,color:C.t1,fontWeight:300,fontStyle:'italic',flex:1}}>"{selectedVerse.text}"</div>
+              <div style={{display:'flex',gap:10}}>
+                <button onClick={()=>goLive(`${selectedVerse.book} ${selectedVerse.chapter}:${selectedVerse.verse}`,selectedVerse.text)} style={{padding:'11px 28px',background:`linear-gradient(135deg,${C.live},#b91c1c)`,border:'none',color:'#fff',fontSize:12,fontWeight:700,cursor:'pointer',fontFamily:'inherit',borderRadius:9}}>GO LIVE</button>
+                <button onClick={()=>addToQueue(`${selectedVerse.book} ${selectedVerse.chapter}:${selectedVerse.verse}`,'verse')} style={{padding:'11px 18px',background:C.bg4,border:`1px solid ${C.b2}`,color:C.t1,fontSize:11,fontWeight:600,cursor:'pointer',fontFamily:'inherit',borderRadius:9}}>+ Queue</button>
+              </div>
+            </>:(
+              <div style={{flex:1,display:'flex',alignItems:'center',justifyContent:'center',flexDirection:'column',gap:10,color:C.t4}}>
+                <div style={{fontSize:40,opacity:0.15}}>✦</div>
+                <div style={{fontSize:13}}>{bibleMode==='browse'?'Select a verse from the chapter':'Search and select a verse'}</div>
+              </div>
+            )}
+          </div>
         </div>
-      </div>
-    )
+      )
+    }
     // Hymnal
     if(selected) return (
       <div style={{flex:1,display:'flex',flexDirection:'column',minWidth:0,overflow:'hidden'}}>
@@ -1009,10 +1142,34 @@ export default function App() {
         </div>
       </div>
     )
+    // Default: show full browseable hymnal list
+    const displayList = query.trim().length>0 ? results : allSongs
     return (
-      <div style={{flex:1,display:'flex',alignItems:'center',justifyContent:'center',flexDirection:'column',gap:10,color:C.t4,background:C.bg1}}>
-        <div style={{fontSize:48,opacity:0.1}}>♪</div>
-        <div style={{fontSize:14,letterSpacing:'0.05em'}}>Search for a hymn to get started</div>
+      <div style={{flex:1,display:'flex',overflow:'hidden',minHeight:0}}>
+        <div style={{width:290,background:C.bg2,borderRight:`1px solid ${C.b0}`,display:'flex',flexDirection:'column',flexShrink:0}}>
+          <div style={{padding:'8px 14px',background:C.bg1,borderBottom:`1px solid ${C.b0}`}}>
+            <span style={{fontSize:10,color:C.t4,fontWeight:700,letterSpacing:'0.1em'}}>{displayList.length} {query.trim()?'RESULTS':'HYMNS'}</span>
+          </div>
+          <div style={{flex:1,overflowY:'auto',padding:'4px 6px'}}>
+            {displayList.map(song=>(
+              <div key={song.id} onClick={()=>handleSelectSong(song)}
+                style={{padding:'9px 12px',marginBottom:2,cursor:'pointer',borderRadius:8,border:'1px solid transparent',background:'none',transition:'all 0.1s'}}
+                onMouseEnter={e=>(e.currentTarget as HTMLElement).style.background=C.bg3}
+                onMouseLeave={e=>(e.currentTarget as HTMLElement).style.background='none'}>
+                <div style={{display:'flex',alignItems:'center',gap:8}}>
+                  {song.hymn_number&&<span style={{fontSize:9,color:C.g2,fontWeight:800,minWidth:28,textAlign:'right',flexShrink:0}}>#{song.hymn_number}</span>}
+                  <span style={{fontSize:12,color:C.t1,flex:1}}>{song.title}</span>
+                </div>
+              </div>
+            ))}
+            {displayList.length===0&&query.trim()&&<div style={{padding:'28px 16px',textAlign:'center',color:C.t4,fontSize:12}}>No hymns match "{query}"</div>}
+            {displayList.length===0&&!query.trim()&&<div style={{padding:'28px 16px',textAlign:'center',color:C.t4,fontSize:12}}>Loading hymns…</div>}
+          </div>
+        </div>
+        <div style={{flex:1,display:'flex',alignItems:'center',justifyContent:'center',flexDirection:'column',gap:10,color:C.t4,background:C.bg1}}>
+          <div style={{fontSize:48,opacity:0.1}}>♪</div>
+          <div style={{fontSize:14,letterSpacing:'0.05em'}}>Select a hymn to preview</div>
+        </div>
       </div>
     )
   }
@@ -1047,11 +1204,21 @@ export default function App() {
           <input
             value={navGroup==='library'&&libTab==='bible'?bibleQuery:query}
             onChange={e=>navGroup==='library'&&libTab==='bible'?handleBibleSearch(e.target.value):handleSearch(e.target.value)}
-            placeholder={navGroup==='library'&&libTab==='bible'?`Search ${bibleVersion}...`:'Search hymns and songs...'}
+            placeholder={navGroup==='library'&&libTab==='bible'?`Search ${bibleVersion}...`:navGroup==='library'&&libTab==='hymnal'?'Filter hymns by title…':'Search hymns and songs...'}
             style={{flex:1,background:'none',border:'none',color:C.t1,fontSize:13,outline:'none',padding:'9px 0',fontFamily:'inherit'}}
           />
           {navGroup==='library'&&libTab==='bible'&&(
-            <select value={bibleVersion} onChange={e=>{setBibleVersion(e.target.value);if(bibleQuery)handleBibleSearch(bibleQuery)}} style={{background:'none',border:'none',color:C.p2,fontSize:11,fontWeight:700,outline:'none',fontFamily:'inherit',cursor:'pointer'}}>
+            <select value={bibleVersion} onChange={async e=>{
+              const v=e.target.value;setBibleVersion(v)
+              if(bibleQuery)handleBibleSearch(bibleQuery)
+              try{const books=await(window as any).shogunos.getBibleBooks(v);setBibleBooks(books)}catch{}
+              if(selectedBook){
+                try{const chs=await(window as any).shogunos.getBibleChapters(selectedBook,v);setBibleChapters(chs)}catch{}
+                if(selectedChapter){
+                  try{const vv=await(window as any).shogunos.getBibleChapterVerses(selectedBook,selectedChapter,v);setChapterVerses(vv)}catch{}
+                }
+              }
+            }} style={{background:'none',border:'none',color:C.p2,fontSize:11,fontWeight:700,outline:'none',fontFamily:'inherit',cursor:'pointer'}}>
               {availableVersions.map(v=><option key={v} value={v} style={{background:C.bg3}}>{v}</option>)}
             </select>
           )}

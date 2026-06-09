@@ -32,11 +32,24 @@ interface User {
   role: 'ADMIN'|'OPERATOR'|'PRESENTER'|'VIEWER'
   display_name: string; created_at: string; last_login: string | null
 }
+export interface DisplaySettings {
+  bgColor: string; bgImage: string | null
+  fontColor: string; fontSize: number
+  textAlign: 'left' | 'center' | 'right'
+  fontFamily: string
+}
+
+export const DEFAULT_DISPLAY_SETTINGS: DisplaySettings = {
+  bgColor: '#000000', bgImage: null,
+  fontColor: '#ffffff', fontSize: 52,
+  textAlign: 'center', fontFamily: 'Georgia, serif',
+}
+
 interface DB {
   songs: Song[]; song_sections: SongSection[]; bible_verses: BibleVerse[]
   daily_verses: DailyVerse[]; service_queue: ServiceQueueItem[]
   users: User[]; slides: Slide[]
-  meta: { last_id: number; bible_loaded?: string }
+  meta: { last_id: number; bible_loaded?: string; display_settings?: DisplaySettings }
 }
 
 // ── CORE ──────────────────────────────────────────────────────────────────────
@@ -360,13 +373,34 @@ export function searchBibleVerses(query: string, version?: string) {
     const bExact = b.text.toLowerCase().includes(q) ? 0 : 1
     return (aBook + aExact) - (bBook + bExact)
   })
-  return filtered.slice(0, 200)
+  // Only cap results for very short/empty queries (avoid returning the entire Bible at once)
+  return q.length < 3 ? filtered.slice(0, 200) : filtered
 }
 export function getBibleVerse(book: string, chapter: number, verse: number) {
   return db.bible_verses.find(v => v.book.toLowerCase().includes(book.toLowerCase()) && v.chapter === chapter && v.verse === verse) || null
 }
 export function getBibleTranslations() {
   return Array.from(new Set(db.bible_verses.map(v => v.version)))
+}
+export function getBibleBooks(version?: string) {
+  const verses = version ? db.bible_verses.filter(v => v.version === version) : db.bible_verses
+  const seen = new Set<string>()
+  const books: string[] = []
+  for (const v of verses) {
+    if (!seen.has(v.book)) { seen.add(v.book); books.push(v.book) }
+  }
+  return books
+}
+export function getBibleChapters(book: string, version?: string) {
+  const verses = db.bible_verses.filter(v =>
+    v.book === book && (version ? v.version === version : true)
+  )
+  return Array.from(new Set(verses.map(v => v.chapter))).sort((a, b) => a - b)
+}
+export function getBibleChapterVerses(book: string, chapter: number, version?: string) {
+  return db.bible_verses
+    .filter(v => v.book === book && v.chapter === chapter && (version ? v.version === version : true))
+    .sort((a, b) => a.verse - b.verse)
 }
 
 // ── QUEUE ─────────────────────────────────────────────────────────────────────
@@ -456,6 +490,14 @@ export function importQSPSongs(songs: { title:string; author:string; language:st
 }
 export function getDatabaseStats() {
   return { songs:db.songs.length, custom_songs:db.songs.filter(s=>s.source==='custom').length, hymns:db.songs.filter(s=>s.source==='hymnal').length, sections:db.song_sections.length, bible_verses:db.bible_verses.length, bible_translations:getBibleTranslations(), slides:db.slides.length, queue_items:db.service_queue.length, users:db.users.length, db_path:dbPath }
+}
+
+export function getDisplaySettings(): DisplaySettings {
+  return { ...DEFAULT_DISPLAY_SETTINGS, ...(db.meta.display_settings || {}) }
+}
+
+export function saveDisplaySettings(settings: DisplaySettings) {
+  db.meta.display_settings = settings; save()
 }
 
 export default {}

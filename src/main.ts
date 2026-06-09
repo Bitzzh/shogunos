@@ -4,13 +4,14 @@ import started from 'electron-squirrel-startup'
 import {
   initDatabase,
   searchSongs, addSong, addSongSection, getSongSections, deleteSong,
-  getDailyVerse, searchBibleVerses, getBibleVerse,
+  getDailyVerse, searchBibleVerses, getBibleVerse, getBibleBooks, getBibleChapters, getBibleChapterVerses,
   getServiceQueue, addToServiceQueue, clearServiceQueue,
   getThemes,
   getSlides, getSlide, createSlide, updateSlide, deleteSlide, reorderSlides, duplicateSlide,
   exportDatabase, importDatabase, getDatabaseStats,
   loginUser, getUsers, createUser, updateUserPassword, deleteUser,
   importQSPSongs,
+  getDisplaySettings, saveDisplaySettings,
 } from './database'
 import { parseQSP } from './qsp-parser'
 
@@ -69,8 +70,11 @@ app.on('ready', async () => {
 
   // ── BIBLE ────────────────────────────────────────────────────────────────
   ipcMain.handle('get-daily-verse',   () => getDailyVerse())
-  ipcMain.handle('search-bible',      (_e, query: string) => searchBibleVerses(query))
+  ipcMain.handle('search-bible',      (_e, query: string, version?: string) => searchBibleVerses(query, version))
   ipcMain.handle('get-bible-verse',   (_e, book: string, ch: number, v: number) => getBibleVerse(book, ch, v))
+  ipcMain.handle('get-bible-books',         (_e, version?: string) => getBibleBooks(version))
+  ipcMain.handle('get-bible-chapters',      (_e, book: string, version?: string) => getBibleChapters(book, version))
+  ipcMain.handle('get-bible-chapter-verses',(_e, book: string, ch: number, version?: string) => getBibleChapterVerses(book, ch, version))
 
   // ── QUEUE ────────────────────────────────────────────────────────────────
   ipcMain.handle('get-service-queue', () => getServiceQueue())
@@ -110,7 +114,9 @@ app.on('ready', async () => {
   // ── IMPORT / EXPORT ──────────────────────────────────────────────────────
   ipcMain.handle('export-data',  () => exportDatabase())
   ipcMain.handle('import-data',  (_e, json: string) => importDatabase(json))
-  ipcMain.handle('get-db-stats', () => getDatabaseStats())
+  ipcMain.handle('get-db-stats',            () => getDatabaseStats())
+  ipcMain.handle('get-display-settings',    () => getDisplaySettings())
+  ipcMain.handle('save-display-settings',   (_e, settings: any) => { saveDisplaySettings(settings); return { success: true } })
   ipcMain.handle('import-qsp',   (_e, base64: string) => {
     try {
       const buf    = Buffer.from(base64, 'base64')

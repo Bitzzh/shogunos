@@ -10,8 +10,11 @@ contextBridge.exposeInMainWorld('shogunos', {
 
   // ── BIBLE ──────────────────────────────────────────────────────────────────
   getDailyVerse:      () => ipcRenderer.invoke('get-daily-verse'),
-  searchBible:        (query: string) => ipcRenderer.invoke('search-bible', query),
+  searchBible:        (query: string, version?: string) => ipcRenderer.invoke('search-bible', query, version),
   getBibleVerse:      (book: string, ch: number, v: number) => ipcRenderer.invoke('get-bible-verse', book, ch, v),
+  getBibleBooks:      (version?: string) => ipcRenderer.invoke('get-bible-books', version),
+  getBibleChapters:   (book: string, version?: string) => ipcRenderer.invoke('get-bible-chapters', book, version),
+  getBibleChapterVerses: (book: string, ch: number, version?: string) => ipcRenderer.invoke('get-bible-chapter-verses', book, ch, version),
 
   // ── DISPLAY ────────────────────────────────────────────────────────────────
   getDisplays:        () => ipcRenderer.invoke('get-displays'),
@@ -41,6 +44,8 @@ contextBridge.exposeInMainWorld('shogunos', {
   importData:         (json: string) => ipcRenderer.invoke('import-data', json),
   getDatabaseStats:   () => ipcRenderer.invoke('get-db-stats'),
   importQSP:          (base64: string) => ipcRenderer.invoke('import-qsp', base64),
+  getDisplaySettings: () => ipcRenderer.invoke('get-display-settings'),
+  saveDisplaySettings:(settings: any) => ipcRenderer.invoke('save-display-settings', settings),
 
   // ── AUTH ───────────────────────────────────────────────────────────────────
   login:              (username: string, password: string) => ipcRenderer.invoke('auth-login', username, password),

@@ -77,8 +77,17 @@
       lyricsEl.classList.remove('visible')
 
       document.body.style.background = data.bgColor || '#000000'
+      if (data.bgImage) {
+        document.body.style.backgroundImage = `url(${data.bgImage})`
+        document.body.style.backgroundSize = 'cover'
+        document.body.style.backgroundPosition = 'center'
+      } else {
+        document.body.style.backgroundImage = 'none'
+      }
       lyricsEl.style.fontSize = (data.fontSize || 48) + 'px'
       lyricsEl.style.textAlign = data.textAlign || 'center'
+      lyricsEl.style.fontFamily = data.fontFamily || "Georgia, 'Times New Roman', serif"
+      lyricsEl.style.color = data.fontColor || '#ffffff'
 
       setTimeout(() => {
         titleEl.textContent = data.title || ''
