@@ -9,18 +9,23 @@ contextBridge.exposeInMainWorld('shogunos', {
   deleteSong:         (id: number) => ipcRenderer.invoke('delete-song', id),
 
   // ── BIBLE ──────────────────────────────────────────────────────────────────
-  getDailyVerse:      () => ipcRenderer.invoke('get-daily-verse'),
-  searchBible:        (query: string, version?: string) => ipcRenderer.invoke('search-bible', query, version),
-  getBibleVerse:      (book: string, ch: number, v: number) => ipcRenderer.invoke('get-bible-verse', book, ch, v),
-  getBibleBooks:      (version?: string) => ipcRenderer.invoke('get-bible-books', version),
-  getBibleChapters:   (book: string, version?: string) => ipcRenderer.invoke('get-bible-chapters', book, version),
+  getDailyVerse:         () => ipcRenderer.invoke('get-daily-verse'),
+  searchBible:           (query: string, version?: string) => ipcRenderer.invoke('search-bible', query, version),
+  getBibleVerse:         (book: string, ch: number, v: number) => ipcRenderer.invoke('get-bible-verse', book, ch, v),
+  getBibleBooks:         (version?: string) => ipcRenderer.invoke('get-bible-books', version),
+  getBibleChapters:      (book: string, version?: string) => ipcRenderer.invoke('get-bible-chapters', book, version),
   getBibleChapterVerses: (book: string, ch: number, version?: string) => ipcRenderer.invoke('get-bible-chapter-verses', book, ch, version),
 
   // ── DISPLAY ────────────────────────────────────────────────────────────────
-  getDisplays:        () => ipcRenderer.invoke('get-displays'),
-  goLive:             (data: any) => ipcRenderer.invoke('go-live', data),
-  closeLive:          () => ipcRenderer.invoke('close-live'),
-  onUpdateLive:       (callback: (data: any) => void) => ipcRenderer.on('update-live', (_e: any, data: any) => callback(data)),
+  getDisplays:          () => ipcRenderer.invoke('get-displays'),
+  goLive:               (data: any) => ipcRenderer.invoke('go-live', data),
+  goLiveMedia:          (data: any) => ipcRenderer.invoke('go-live-media', data),
+  closeLive:            () => ipcRenderer.invoke('close-live'),
+  moveLiveToDisplay:    (displayId: number) => ipcRenderer.invoke('move-live-to-display', displayId),
+  onUpdateLive:         (cb: (data: any) => void) => ipcRenderer.on('update-live', (_e: any, d: any) => cb(d)),
+  onLiveClosed:         (cb: () => void) => ipcRenderer.on('live-closed', () => cb()),
+  onDisplaysChanged:    (cb: (displays: any[]) => void) => ipcRenderer.on('displays-changed', (_e: any, d: any) => cb(d)),
+  onLiveDisplayChanged: (cb: (info: any) => void) => ipcRenderer.on('live-display-changed', (_e: any, d: any) => cb(d)),
 
   // ── QUEUE ──────────────────────────────────────────────────────────────────
   getServiceQueue:    () => ipcRenderer.invoke('get-service-queue'),
@@ -39,13 +44,21 @@ contextBridge.exposeInMainWorld('shogunos', {
   reorderSlides:      (orderedIds: number[]) => ipcRenderer.invoke('slides-reorder', orderedIds),
   duplicateSlide:     (id: number) => ipcRenderer.invoke('slides-duplicate', id),
 
+  // ── MEDIA ──────────────────────────────────────────────────────────────────
+  getMediaFolders:      () => ipcRenderer.invoke('media-get-folders'),
+  createMediaFolder:    (name: string, eventDate?: string) => ipcRenderer.invoke('media-create-folder', name, eventDate),
+  deleteMediaFolder:    (id: number) => ipcRenderer.invoke('media-delete-folder', id),
+  getMediaItems:        (folderId: number) => ipcRenderer.invoke('media-get-items', folderId),
+  deleteMediaItem:      (id: number) => ipcRenderer.invoke('media-delete-item', id),
+  openMediaDialog:      (folderId: number) => ipcRenderer.invoke('media-open-file-dialog', folderId),
+
   // ── IMPORT / EXPORT ────────────────────────────────────────────────────────
-  exportData:         () => ipcRenderer.invoke('export-data'),
-  importData:         (json: string) => ipcRenderer.invoke('import-data', json),
-  getDatabaseStats:   () => ipcRenderer.invoke('get-db-stats'),
-  importQSP:          (base64: string) => ipcRenderer.invoke('import-qsp', base64),
-  getDisplaySettings: () => ipcRenderer.invoke('get-display-settings'),
-  saveDisplaySettings:(settings: any) => ipcRenderer.invoke('save-display-settings', settings),
+  exportData:          () => ipcRenderer.invoke('export-data'),
+  importData:          (json: string) => ipcRenderer.invoke('import-data', json),
+  getDatabaseStats:    () => ipcRenderer.invoke('get-db-stats'),
+  importQSP:           (base64: string) => ipcRenderer.invoke('import-qsp', base64),
+  getDisplaySettings:  () => ipcRenderer.invoke('get-display-settings'),
+  saveDisplaySettings: (settings: any) => ipcRenderer.invoke('save-display-settings', settings),
 
   // ── AUTH ───────────────────────────────────────────────────────────────────
   login:              (username: string, password: string) => ipcRenderer.invoke('auth-login', username, password),

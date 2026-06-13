@@ -2,115 +2,188 @@
 <html>
 <head>
   <meta charset="UTF-8" />
-  <title>ShogunOS Live</title>
+  <title>ShogunOS — Live</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body {
+    html, body { width: 100%; height: 100%; overflow: hidden; background: #000; }
+
+    #bg-layer {
+      position: fixed; inset: 0;
       background: #000;
-      color: #fff;
-      font-family: Georgia, 'Times New Roman', serif;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      height: 100vh;
-      overflow: hidden;
-      transition: background 0.3s ease;
+      background-size: cover;
+      background-position: center;
+      transition: background-color 0.4s ease;
     }
-    #content {
-      text-align: center;
-      padding: 60px;
-      max-width: 1000px;
-      width: 100%;
+    #bg-overlay { position: fixed; inset: 0; background: transparent; }
+
+    #text-layer {
+      position: fixed; inset: 0;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      padding: 80px;
+      opacity: 0;
+      transform: translateY(8px);
+      transition: opacity 0.35s ease, transform 0.35s ease;
     }
-    #title {
-      font-family: 'Segoe UI', sans-serif;
-      font-size: 20px;
-      font-weight: 400;
-      color: rgba(255,255,255,0.45);
-      letter-spacing: 0.25em;
+    #text-layer.visible { opacity: 1; transform: translateY(0); }
+
+    #title-el {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      font-size: 18px; font-weight: 400;
+      color: rgba(255,255,255,0.5);
+      letter-spacing: 0.28em;
       text-transform: uppercase;
-      margin-bottom: 40px;
-      opacity: 0;
-      transition: opacity 0.5s ease;
+      margin-bottom: 36px;
     }
-    #title.visible { opacity: 1; }
-    #lyrics {
-      font-size: 48px;
-      line-height: 1.7;
-      font-weight: 300;
-      letter-spacing: 0.04em;
-      opacity: 0;
-      transform: translateY(10px);
-      transition: opacity 0.4s ease, transform 0.4s ease;
+    #lyrics-el {
+      font-size: 52px; line-height: 1.65;
+      font-weight: 300; letter-spacing: 0.03em;
+      color: #fff; text-align: center;
+      white-space: pre-line; word-break: break-word;
     }
-    #lyrics.visible {
-      opacity: 1;
-      transform: translateY(0);
+
+    #video-layer {
+      position: fixed; inset: 0;
+      display: flex; align-items: center; justify-content: center;
+      background: #000;
+      opacity: 0; pointer-events: none;
+      transition: opacity 0.4s ease;
     }
-    #corner-tl, #corner-tr, #corner-bl, #corner-br {
-      position: fixed;
-      width: 24px;
-      height: 24px;
-      opacity: 0.15;
+    #video-layer.visible { opacity: 1; }
+    #video-el {
+      width: 100%; height: 100%;
+      object-fit: contain;
     }
-    #corner-tl { top: 20px; left: 20px; border-top: 1px solid #00FFB2; border-left: 1px solid #00FFB2; }
-    #corner-tr { top: 20px; right: 20px; border-top: 1px solid #00FFB2; border-right: 1px solid #00FFB2; }
-    #corner-bl { bottom: 20px; left: 20px; border-bottom: 1px solid #00FFB2; border-left: 1px solid #00FFB2; }
-    #corner-br { bottom: 20px; right: 20px; border-bottom: 1px solid #00FFB2; border-right: 1px solid #00FFB2; }
+
+    #image-layer {
+      position: fixed; inset: 0;
+      background-size: contain;
+      background-repeat: no-repeat;
+      background-position: center;
+      opacity: 0; pointer-events: none;
+      transition: opacity 0.4s ease;
+    }
+    #image-layer.visible { opacity: 1; }
+
+    #blank-layer {
+      position: fixed; inset: 0;
+      background: #000;
+      opacity: 0; pointer-events: none;
+      transition: opacity 0.3s ease;
+    }
+    #blank-layer.visible { opacity: 1; }
   </style>
 </head>
 <body>
-  <div id="corner-tl"></div>
-  <div id="corner-tr"></div>
-  <div id="corner-bl"></div>
-  <div id="corner-br"></div>
-  <div id="content">
-    <div id="title"></div>
-    <div id="lyrics"></div>
+  <div id="bg-layer"></div>
+  <div id="bg-overlay"></div>
+
+  <div id="image-layer"></div>
+
+  <div id="video-layer">
+    <video id="video-el" playsinline></video>
   </div>
+
+  <div id="text-layer">
+    <div id="title-el"></div>
+    <div id="lyrics-el"></div>
+  </div>
+
+  <div id="blank-layer"></div>
+
   <script>
-    const titleEl = document.getElementById('title')
-    const lyricsEl = document.getElementById('lyrics')
+    const bgLayer    = document.getElementById('bg-layer')
+    const textLayer  = document.getElementById('text-layer')
+    const titleEl    = document.getElementById('title-el')
+    const lyricsEl   = document.getElementById('lyrics-el')
+    const videoLayer = document.getElementById('video-layer')
+    const videoEl    = document.getElementById('video-el')
+    const imageLayer = document.getElementById('image-layer')
+    const blankLayer = document.getElementById('blank-layer')
+
+    function hideAll() {
+      textLayer.classList.remove('visible')
+      videoLayer.classList.remove('visible')
+      imageLayer.classList.remove('visible')
+      blankLayer.classList.remove('visible')
+    }
 
     function update(data) {
-      titleEl.classList.remove('visible')
-      lyricsEl.classList.remove('visible')
+      if (!data) return
+      const type = data.type || 'text'
 
-      document.body.style.background = data.bgColor || '#000000'
-      if (data.bgImage) {
-        document.body.style.backgroundImage = `url(${data.bgImage})`
-        document.body.style.backgroundSize = 'cover'
-        document.body.style.backgroundPosition = 'center'
-      } else {
-        document.body.style.backgroundImage = 'none'
+      if (type === 'blank') {
+        hideAll()
+        blankLayer.classList.add('visible')
+        return
       }
-      lyricsEl.style.fontSize = (data.fontSize || 48) + 'px'
-      lyricsEl.style.textAlign = data.textAlign || 'center'
+
+      if (type === 'clear') {
+        hideAll()
+        videoEl.pause()
+        videoEl.src = ''
+        return
+      }
+
+      if (type === 'video') {
+        hideAll()
+        if (data.filePath) {
+          videoEl.src = 'file://' + data.filePath
+          videoEl.loop   = !!data.loop
+          videoEl.muted  = !!data.muted
+          videoEl.play().catch(() => {})
+          videoLayer.classList.add('visible')
+        }
+        return
+      }
+
+      if (type === 'image') {
+        hideAll()
+        videoEl.pause()
+        if (data.filePath) {
+          imageLayer.style.backgroundImage = `url("file://${data.filePath.replace(/\\/g, '/')}")`
+          imageLayer.style.backgroundSize = data.fitMode === 'fill' ? 'cover' : 'contain'
+          imageLayer.classList.add('visible')
+        }
+        return
+      }
+
+      // Default: text / scripture / announcement / slide
+      videoEl.pause()
+      hideAll()
+
+      bgLayer.style.background = data.bgColor || '#000000'
+      if (data.bgImage) {
+        bgLayer.style.backgroundImage = `url(${data.bgImage})`
+        bgLayer.style.backgroundSize  = 'cover'
+        bgLayer.style.backgroundPosition = 'center'
+      } else {
+        bgLayer.style.backgroundImage = 'none'
+      }
+
+      lyricsEl.style.fontSize   = (data.fontSize || 52) + 'px'
+      lyricsEl.style.textAlign  = data.textAlign  || 'center'
       lyricsEl.style.fontFamily = data.fontFamily || "Georgia, 'Times New Roman', serif"
-      lyricsEl.style.color = data.fontColor || '#ffffff'
+      lyricsEl.style.color      = data.fontColor  || '#ffffff'
+      if (data.textAlign === 'left')  textLayer.style.alignItems = 'flex-start'
+      else if (data.textAlign === 'right') textLayer.style.alignItems = 'flex-end'
+      else textLayer.style.alignItems = 'center'
 
       setTimeout(() => {
-        titleEl.textContent = data.title || ''
+        titleEl.textContent  = data.title  || ''
         lyricsEl.textContent = data.lyrics || ''
-        if (data.title) titleEl.classList.add('visible')
-        if (data.lyrics) lyricsEl.classList.add('visible')
-      }, 200)
+        titleEl.style.display = data.title ? 'block' : 'none'
+        textLayer.classList.add('visible')
+      }, 120)
     }
 
-    window.electronAPI?.onUpdateLive?.(update)
-
-    // Also listen via shogunos bridge
+    // Electron contextBridge
+    try { window.shogunos?.onUpdateLive?.(update) } catch(e) {}
+    // Direct IPC fallback (live window has same preload)
     try {
-      window.shogunos?.onUpdateLive?.(update)
+      const { ipcRenderer } = require('electron')
+      ipcRenderer.on('update-live', (_, data) => update(data))
     } catch(e) {}
-
-    // Direct IPC listener fallback
-    if (typeof require !== 'undefined') {
-      try {
-        const { ipcRenderer } = require('electron')
-        ipcRenderer.on('update-live', (_, data) => update(data))
-      } catch(e) {}
-    }
   </script>
 </body>
 </html>

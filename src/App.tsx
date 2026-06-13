@@ -1,14 +1,15 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react'
 import Splash from './Splash'
 import UsersTab from './UsersTab'
+import MediaTab from './MediaTab'
 
 type Song       = { id: number; title: string; hymn_number: number; source: string; language: string }
 type Section    = { id: number; song_id: number; type: string; order_num: number; content: string }
-type Display    = { id: number; label: string; isPrimary: boolean }
+type Display    = { id: number; label: string; isPrimary: boolean; bounds?: any }
 type DailyVerse = { book: string; chapter: number; verse: number; text: string; version: string }
 type BibleVerse = { id: number; book: string; chapter: number; verse: number; text: string; version: string }
 type QueueItem  = { id: string; title: string; type: string }
-type NavGroup   = 'library' | 'present' | 'service' | 'settings'
+type NavGroup   = 'library' | 'present' | 'media' | 'service' | 'settings'
 type LibTab     = 'hymnal' | 'bible' | 'daily' | 'songs'
 type PresentTab = 'slides' | 'announce'
 type SettingsTab = 'display' | 'import' | 'users' | 'about'
@@ -20,12 +21,16 @@ interface DisplaySettings {
   fontFamily: string
 }
 
+// Refined palette — less purple-heavy, more neutral-dark with indigo accents
 const C = {
-  bg0: '#060609', bg1: '#0b0b12', bg2: '#101018', bg3: '#16161f', bg4: '#1d1d28', bg5: '#242433',
-  b0: '#1a1a2a', b1: '#222235', b2: '#2d2d45',
-  p1: '#7c3aed', p2: '#9f67f5', p3: '#c4a7f8',
+  bg0: '#05050a', bg1: '#09090f', bg2: '#0d0d15', bg3: '#111119', bg4: '#17171f', bg5: '#1d1d27',
+  b0: '#15152a', b1: '#1c1c30', b2: '#252540',
+  // indigo accent (replaces heavy purple)
+  p1: '#6366f1', p2: '#818cf8', p3: '#a5b4fc',
+  // amber
   g1: '#d97706', g2: '#f59e0b', g3: '#fcd34d',
-  t1: '#f0eff8', t2: '#a09fbe', t3: '#5a5875', t4: '#35344a',
+  // text
+  t1: '#eeedf8', t2: '#9b99bc', t3: '#52506a', t4: '#2e2c42',
   live: '#ef4444', safe: '#22c55e', warn: '#f59e0b',
 }
 
@@ -932,16 +937,20 @@ export default function App() {
 
   const section=sections[currentSection]
 
-  const NAV:[NavGroup,string,string[]][] = [
-    ['library','Library',['Hymnal','Bible','Daily Verse','My Songs']],
-    ['present','Present',['Slides','Announce']],
-    ['service','Service',['Queue']],
-    ['settings','Settings',['Display','Import','Users','About']],
+  const NAV:[NavGroup,string][] = [
+    ['library','Library'],
+    ['present','Present'],
+    ['media','Media'],
+    ['service','Service'],
+    ['settings','Settings'],
   ]
 
-  const activeSubId = navGroup==='library'?libTab:navGroup==='present'?presentTab:navGroup==='service'?'queue':settingsTab
+  const activeSubId = navGroup==='library'?libTab:navGroup==='present'?presentTab:navGroup==='service'?'queue':navGroup==='media'?'media':settingsTab
 
   const renderContent = () => {
+    if(navGroup==='media'){
+      return <MediaTab goLive={(t,l,type,extra)=>{ (window as any).shogunos?.goLiveMedia?.(extra||{type:'image'}) }} notify={notify}/>
+    }
     if(navGroup==='present'){
       if(presentTab==='slides') return <SlidesTab goLive={goLive} addToQueue={addToQueue} notify={notify}/>
       return <AnnounceTab goLive={(t,l)=>goLive(t,l)} notify={notify}/>
@@ -1170,6 +1179,7 @@ export default function App() {
   const subItems: Record<NavGroup,{id:string;label:string}[]> = {
     library:  [{id:'hymnal',label:'Hymnal'},{id:'bible',label:'Bible'},{id:'daily',label:'Daily Verse'},{id:'songs',label:'My Songs'}],
     present:  [{id:'slides',label:'Slides'},{id:'announce',label:'Announce'}],
+    media:    [],
     service:  [{id:'queue',label:'Queue'}],
     settings: [{id:'display',label:'Display'},{id:'import',label:'Import'},{id:'users',label:'Users'},{id:'about',label:'About'}],
   }

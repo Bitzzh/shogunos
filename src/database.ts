@@ -513,3 +513,81 @@ export function saveDisplaySettings(settings: DisplaySettings) {
 }
 
 export default {}
+
+// ── MEDIA ─────────────────────────────────────────────────────────────────────
+
+export interface MediaFolder {
+  id: number; name: string; eventDate: string | null
+  created_at: string; item_count: number
+}
+export interface MediaItem {
+  id: number; folder_id: number; name: string
+  file_path: string; mime_type: string; file_size: number
+  loop: boolean; muted: boolean; order_num: number
+  created_at: string
+}
+
+// Extend DB interface — patch at runtime if fields missing
+function ensureMediaTables() {
+  if (!(db as any).media_folders) (db as any).media_folders = []
+  if (!(db as any).media_items)   (db as any).media_items   = []
+}
+
+export function getMediaFolders(): MediaFolder[] {
+  ensureMediaTables()
+  const folders: MediaFolder[] = (db as any).media_folders || []
+  return folders.map(f => ({
+    ...f,
+    item_count: ((db as any).media_items as MediaItem[]).filter(i => i.folder_id === f.id).length,
+  })).sort((a, b) => a.name.localeCompare(b.name))
+}
+
+export function createMediaFolder(name: string, eventDate?: string): MediaFolder {
+  ensureMediaTables()
+  const folder: MediaFolder = {
+    id: nextId(), name, eventDate: eventDate || null,
+    created_at: new Date().toISOString(), item_count: 0,
+  }
+  ;(db as any).media_folders.push(folder); save()
+  return folder
+}
+
+export function deleteMediaFolder(id: number) {
+  ensureMediaTables()
+  ;(db as any).media_folders = ((db as any).media_folders as MediaFolder[]).filter(f => f.id !== id)
+  ;(db as any).media_items   = ((db as any).media_items   as MediaItem[]).filter(i => i.folder_id !== id)
+  save()
+}
+
+export function getMediaItems(folderId: number): MediaItem[] {
+  ensureMediaTables()
+  return ((db as any).media_items as MediaItem[])
+    .filter(i => i.folder_id === folderId)
+    .sort((a, b) => a.order_num - b.order_num)
+}
+
+export function addMediaItem(folderId: number, name: string, filePath: string, mimeType: string, fileSize: number): MediaItem {
+  ensureMediaTables()
+  const items: MediaItem[] = (db as any).media_items
+  const maxOrder = items.filter(i => i.folder_id === folderId).reduce((m, i) => Math.max(m, i.order_num), 0)
+  const item: MediaItem = {
+    id: nextId(), folder_id: folderId, name, file_path: filePath,
+    mime_type: mimeType, file_size: fileSize, loop: false, muted: false,
+    order_num: maxOrder + 1, created_at: new Date().toISOString(),
+  }
+  items.push(item); save(); return item
+}
+
+export function updateMediaItem(id: number, patch: Partial<MediaItem>) {
+  ensureMediaTables()
+  const items: MediaItem[] = (db as any).media_items
+  const idx = items.findIndex(i => i.id === id)
+  if (idx !== -1) { items[idx] = { ...items[idx], ...patch, id }; save() }
+  return (db as any).media_items[idx] as MediaItem
+}
+
+export function deleteMediaItem(id: number) {
+  ensureMediaTables()
+  ;(db as any).media_items = ((db as any).media_items as MediaItem[]).filter(i => i.id !== id)
+  save()
+}
