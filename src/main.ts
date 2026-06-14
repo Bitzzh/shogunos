@@ -10,7 +10,7 @@ import {
   getThemes,
   getSlides, getSlide, createSlide, updateSlide, deleteSlide, reorderSlides, duplicateSlide,
   exportDatabase, importDatabase, getDatabaseStats,
-  loginUser, getUsers, createUser, updateUserPassword, deleteUser, adminResetPassword, updateUserRole,
+  loginUser, getUsers, createUser, updateUserPassword, deleteUser, adminResetPassword, updateUserRole, forcedChangePassword,
   importQSPSongs,
   getDisplaySettings, saveDisplaySettings,
   getMediaFolders, createMediaFolder, deleteMediaFolder, addMediaItem, deleteMediaItem, getMediaItems,
@@ -240,6 +240,7 @@ app.on('ready', async () => {
   ipcMain.handle('auth-delete-user',          (_e, userId: number) => deleteUser(userId))
   ipcMain.handle('auth-admin-reset-password', (_e, userId: number, newPw: string) => adminResetPassword(userId, newPw))
   ipcMain.handle('auth-update-role',          (_e, userId: number, role: string) => updateUserRole(userId, role as any))
+  ipcMain.handle('auth-forced-change-password', (_e, userId: number, newPw: string) => forcedChangePassword(userId, newPw))
 
   createWindow()
 

@@ -5,36 +5,22 @@
 }
 
 body {
-  background: #040508;
+  background: #09090d;
   overflow: hidden;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-::-webkit-scrollbar {
-  width: 3px;
-}
+::-webkit-scrollbar { width: 3px; height: 3px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #2a2a3a; border-radius: 2px; }
+::-webkit-scrollbar-thumb:hover { background: #3d3d54; }
 
-::-webkit-scrollbar-track {
-  background: #080B12;
-}
+select option { background: #101018; color: #dddcf0; }
+input::placeholder, textarea::placeholder { color: #35344a; }
+button { font-family: inherit; }
 
-::-webkit-scrollbar-thumb {
-  background: #004D3D;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: #00FFB2;
-}
-
-select option {
-  background: #0C1018;
-  color: #E8EDF8;
-}
-
-input::placeholder {
-  color: #2D3550;
-}
-
-button {
-  font-family: 'Segoe UI', sans-serif;
-}
+@keyframes pulse-dot { 0%,100%{opacity:1} 50%{opacity:0.3} }
+@keyframes shimmer { 0%{left:-100%} 60%,100%{left:150%} }
+@keyframes spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
+@keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-10px)} }

@@ -466,6 +466,7 @@ function SongsTab({ goLive, addToQueue, notify }: { goLive:(t:string,l:string)=>
   const [cur,setCur]               = useState(0)
   const [search,setSearch]         = useState('')
   const [filter,setFilter]         = useState<'all'|'hymnal'|'custom'>('all')
+  const [langFilter,setLangFilter] = useState<string>('all')
   const [loading,setLoading]       = useState(true)
   const api = (window as any).shogunos
 
@@ -475,8 +476,16 @@ function SongsTab({ goLive, addToQueue, notify }: { goLive:(t:string,l:string)=>
 
   async function select2(song:Song){setSelected(song);setCur(0);setSections(await api.getSongSections(song.id))}
 
+  const LANG_LABELS: Record<string,string> = {
+    all:'All', en:'English', sn:'Shona', nd:'Ndebele', fr:'French',
+    pt:'Portuguese', sw:'Swahili', zu:'Zulu', xh:'Xhosa', st:'Sotho',
+  }
+  const langLabel = (l:string) => LANG_LABELS[l] || (l.charAt(0).toUpperCase()+l.slice(1))
+  const allLangs = ['all', ...Array.from(new Set(songs.map(s=>s.language).filter(Boolean))).sort()]
+
   const visible=songs.filter(s=>{
     if(filter!=='all'&&s.source!==filter)return false
+    if(langFilter!=='all'&&s.language!==langFilter)return false
     if(search)return s.title.toLowerCase().includes(search.toLowerCase())
     return true
   })
@@ -499,6 +508,14 @@ function SongsTab({ goLive, addToQueue, notify }: { goLive:(t:string,l:string)=>
               <button key={f} onClick={()=>setFilter(f)} style={{flex:1,padding:'3px 0',fontSize:9,fontWeight:700,border:`1px solid ${filter===f?C.g2:C.b0}`,color:filter===f?C.g2:C.t4,background:filter===f?`${C.g2}12`:'none',cursor:'pointer',fontFamily:'inherit',borderRadius:4}}>{f.toUpperCase()}</button>
             ))}
           </div>
+          {allLangs.length > 2 && (
+            <div style={{display:'flex',gap:3,flexWrap:'wrap' as const}}>
+              {allLangs.map(lang=>{
+                const active=langFilter===lang
+                return <button key={lang} onClick={()=>setLangFilter(lang)} style={{padding:'2px 8px',fontSize:9,fontWeight:active?700:400,border:`1px solid ${active?C.p1:C.b0}`,color:active?C.p2:C.t4,background:active?`${C.p1}15`:'none',cursor:'pointer',fontFamily:'inherit',borderRadius:4}}>{langLabel(lang)}</button>
+              })}
+            </div>
+          )}
         </div>
         <div style={{flex:1,overflowY:'auto',padding:'6px 8px'}}>
           {loading&&<div style={{padding:20,textAlign:'center',color:C.t3,fontSize:12}}>Loading...</div>}
@@ -826,6 +843,7 @@ export default function App() {
   const [displaySettings,setDisplaySettings] = useState<DisplaySettings>({bgColor:'#000000',bgImage:null,fontColor:'#ffffff',fontSize:52,textAlign:'center',fontFamily:'Georgia, serif'})
   const toastTimer = useRef<any>(null)
   // Bible chapter browser state
+  const [hymnLangFilter,setHymnLangFilter] = useState<string>('all')
   const [bibleMode,setBibleMode]         = useState<'search'|'browse'>('browse')
   const [bibleBooks,setBibleBooks]       = useState<string[]>([])
   const [selectedBook,setSelectedBook]   = useState<string|null>(null)
@@ -1144,33 +1162,63 @@ export default function App() {
         </div>
       </div>
     )
-    // Default: show full browseable hymnal list
-    const displayList = query.trim().length>0 ? results : allSongs
+    // Default: show full browseable hymnal list with language tabs
+    const searchFiltered = query.trim().length>0 ? results : allSongs
+    const hymnLangs = ['all', ...Array.from(new Set(allSongs.map(s=>s.language).filter(Boolean))).sort()]
+    const LANG_LABELS: Record<string,string> = {
+      all:'All', en:'English', sn:'Shona', nd:'Ndebele', fr:'French',
+      pt:'Portuguese', sw:'Swahili', zu:'Zulu', xh:'Xhosa', st:'Sotho',
+    }
+    const langLabel = (l:string) => LANG_LABELS[l] || (l.charAt(0).toUpperCase()+l.slice(1))
+    const displayList = searchFiltered.filter(s => hymnLangFilter==='all' || s.language===hymnLangFilter)
     return (
-      <div style={{flex:1,display:'flex',overflow:'hidden',minHeight:0}}>
-        <div style={{width:290,background:C.bg2,borderRight:`1px solid ${C.b0}`,display:'flex',flexDirection:'column',flexShrink:0}}>
-          <div style={{padding:'8px 14px',background:C.bg1,borderBottom:`1px solid ${C.b0}`}}>
-            <span style={{fontSize:10,color:C.t4,fontWeight:700,letterSpacing:'0.1em'}}>{displayList.length} {query.trim()?'RESULTS':'HYMNS'}</span>
+      <div style={{flex:1,display:'flex',flexDirection:'column',overflow:'hidden',minHeight:0}}>
+        {/* Language filter tabs — only show if more than one language exists */}
+        {hymnLangs.length > 2 && (
+          <div style={{display:'flex',gap:2,padding:'8px 12px',background:C.bg1,borderBottom:`1px solid ${C.b0}`,flexShrink:0,overflowX:'auto'}}>
+            {hymnLangs.map(lang=>{
+              const active = hymnLangFilter===lang
+              const count = lang==='all' ? allSongs.length : allSongs.filter(s=>s.language===lang).length
+              return (
+                <button key={lang} onClick={()=>setHymnLangFilter(lang)}
+                  style={{padding:'5px 14px',fontSize:12,fontWeight:active?600:400,cursor:'pointer',fontFamily:'inherit',whiteSpace:'nowrap',
+                    background:active?C.bg4:'none',
+                    border:`1px solid ${active?C.b2:C.b0}`,
+                    color:active?C.t1:C.t3,
+                    borderRadius:7,transition:'all 0.12s',flexShrink:0}}>
+                  {langLabel(lang)}
+                  <span style={{marginLeft:6,fontSize:10,color:active?C.t3:C.t4,fontWeight:400}}>{count}</span>
+                </button>
+              )
+            })}
           </div>
-          <div style={{flex:1,overflowY:'auto',padding:'4px 6px'}}>
-            {displayList.map(song=>(
-              <div key={song.id} onClick={()=>handleSelectSong(song)}
-                style={{padding:'9px 12px',marginBottom:2,cursor:'pointer',borderRadius:8,border:'1px solid transparent',background:'none',transition:'all 0.1s'}}
-                onMouseEnter={e=>(e.currentTarget as HTMLElement).style.background=C.bg3}
-                onMouseLeave={e=>(e.currentTarget as HTMLElement).style.background='none'}>
-                <div style={{display:'flex',alignItems:'center',gap:8}}>
-                  {song.hymn_number&&<span style={{fontSize:9,color:C.g2,fontWeight:800,minWidth:28,textAlign:'right',flexShrink:0}}>#{song.hymn_number}</span>}
-                  <span style={{fontSize:12,color:C.t1,flex:1}}>{song.title}</span>
+        )}
+        <div style={{flex:1,display:'flex',overflow:'hidden',minHeight:0}}>
+          <div style={{width:290,background:C.bg2,borderRight:`1px solid ${C.b0}`,display:'flex',flexDirection:'column',flexShrink:0}}>
+            <div style={{padding:'8px 14px',background:C.bg1,borderBottom:`1px solid ${C.b0}`,display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+              <span style={{fontSize:11,color:C.t3,fontWeight:500}}>{displayList.length} {query.trim()?'results':hymnLangFilter==='all'?'hymns':`in ${langLabel(hymnLangFilter)}`}</span>
+              {hymnLangFilter!=='all'&&<button onClick={()=>setHymnLangFilter('all')} style={{fontSize:10,color:C.t4,background:'none',border:'none',cursor:'pointer',fontFamily:'inherit',padding:0}}>clear ×</button>}
+            </div>
+            <div style={{flex:1,overflowY:'auto',padding:'4px 6px'}}>
+              {displayList.map(song=>(
+                <div key={song.id} onClick={()=>handleSelectSong(song)}
+                  style={{padding:'9px 12px',marginBottom:2,cursor:'pointer',borderRadius:8,border:'1px solid transparent',background:'none',transition:'all 0.1s'}}
+                  onMouseEnter={e=>(e.currentTarget as HTMLElement).style.background=C.bg3}
+                  onMouseLeave={e=>(e.currentTarget as HTMLElement).style.background='none'}>
+                  <div style={{display:'flex',alignItems:'center',gap:8}}>
+                    {song.hymn_number&&<span style={{fontSize:9,color:C.g2,fontWeight:800,minWidth:28,textAlign:'right',flexShrink:0}}>#{song.hymn_number}</span>}
+                    <span style={{fontSize:12,color:C.t1,flex:1}}>{song.title}</span>
+                  </div>
                 </div>
-              </div>
-            ))}
-            {displayList.length===0&&query.trim()&&<div style={{padding:'28px 16px',textAlign:'center',color:C.t4,fontSize:12}}>No hymns match "{query}"</div>}
-            {displayList.length===0&&!query.trim()&&<div style={{padding:'28px 16px',textAlign:'center',color:C.t4,fontSize:12}}>Loading hymns…</div>}
+              ))}
+              {displayList.length===0&&query.trim()&&<div style={{padding:'28px 16px',textAlign:'center',color:C.t4,fontSize:12}}>No hymns match "{query}"</div>}
+              {displayList.length===0&&!query.trim()&&<div style={{padding:'28px 16px',textAlign:'center',color:C.t4,fontSize:12}}>{hymnLangFilter!=='all'?`No ${langLabel(hymnLangFilter)} hymns found`:'Loading hymns…'}</div>}
+            </div>
           </div>
-        </div>
-        <div style={{flex:1,display:'flex',alignItems:'center',justifyContent:'center',flexDirection:'column',gap:10,color:C.t4,background:C.bg1}}>
-          <div style={{fontSize:48,opacity:0.1}}>♪</div>
-          <div style={{fontSize:14,letterSpacing:'0.05em'}}>Select a hymn to preview</div>
+          <div style={{flex:1,display:'flex',alignItems:'center',justifyContent:'center',flexDirection:'column',gap:10,color:C.t4,background:C.bg1}}>
+            <div style={{fontSize:48,opacity:0.1}}>♪</div>
+            <div style={{fontSize:14,letterSpacing:'0.05em'}}>Select a hymn to preview</div>
+          </div>
         </div>
       </div>
     )

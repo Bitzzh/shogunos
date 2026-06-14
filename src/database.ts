@@ -31,6 +31,7 @@ interface User {
   id: number; username: string; password_hash: string
   role: 'ADMIN'|'OPERATOR'|'PRESENTER'|'VIEWER'
   display_name: string; created_at: string; last_login: string | null
+  must_change_password?: boolean
 }
 export interface DisplaySettings {
   bgColor: string; bgImage: string | null
@@ -178,15 +179,26 @@ function loadSDAHymnal() {
 // ── SEED DATA ─────────────────────────────────────────────────────────────────
 
 function seedUsers() {
-  if (db.users.length > 0) return
-  for (const u of [
-    { username:'admin',     password:'Admin@2024',  role:'ADMIN',     display_name:'Administrator'    },
-    { username:'operator',  password:'Operator@1',  role:'OPERATOR',  display_name:'Default Operator' },
-    { username:'presenter', password:'Present@1',   role:'PRESENTER', display_name:'Presenter'        },
-    { username:'Admin_10',  password:'Shogun@2024', role:'ADMIN',     display_name:'Admin_10'         },
-  ] as any[]) {
-    db.users.push({ id: nextId(), username: u.username, password_hash: hashPassword(u.password), role: u.role, display_name: u.display_name, created_at: new Date().toISOString(), last_login: null })
+  if (db.users.length > 0) {
+    // Migration: ensure existing installs have the field (won't re-prompt established users)
+    let changed = false
+    for (const u of db.users) {
+      if (u.must_change_password === undefined) { u.must_change_password = false; changed = true }
+    }
+    if (changed) save()
+    return
   }
+  // Fresh install — one admin only, forced password change on first login
+  db.users.push({
+    id: nextId(),
+    username: 'admin',
+    password_hash: hashPassword('changeme'),
+    role: 'ADMIN',
+    display_name: 'Administrator',
+    created_at: new Date().toISOString(),
+    last_login: null,
+    must_change_password: true,
+  })
   save()
 }
 
@@ -308,6 +320,17 @@ export function loginUser(u: string, p: string): { success: boolean; user?: Omit
   const { password_hash, ...safe } = user
   return { success: true, user: safe }
 }
+
+export function forcedChangePassword(userId: number, newPw: string): { success: boolean; error?: string } {
+  const user = db.users.find(u => u.id === userId)
+  if (!user) return { success: false, error: 'User not found' }
+  if (newPw.length < 8) return { success: false, error: 'Password must be at least 8 characters' }
+  if (newPw === 'changeme') return { success: false, error: 'Please choose a different password' }
+  user.password_hash = hashPassword(newPw)
+  user.must_change_password = false
+  save()
+  return { success: true }
+}
 export function getUsers() { return db.users.map(({ password_hash, ...u }) => u) }
 export function createUser(username: string, password: string, role: User['role'], displayName: string): { success: boolean; error?: string } {
   if (db.users.find(u => u.username.toLowerCase() === username.toLowerCase())) return { success: false, error: 'Username already exists' }
@@ -332,7 +355,9 @@ export function adminResetPassword(userId: number, newPw: string): { success: bo
   const user = db.users.find(u => u.id === userId)
   if (!user) return { success: false, error: 'User not found' }
   if (newPw.length < 6) return { success: false, error: 'Password must be at least 6 characters' }
-  user.password_hash = hashPassword(newPw); save(); return { success: true }
+  user.password_hash = hashPassword(newPw)
+  user.must_change_password = true  // force change on next login
+  save(); return { success: true }
 }
 export function updateUserRole(userId: number, role: User['role']): { success: boolean; error?: string } {
   const user = db.users.find(u => u.id === userId)

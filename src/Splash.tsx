@@ -25,6 +25,13 @@ export default function Splash({ onDone }: Props) {
   const [loading, setLoading]       = useState(false)
   const [success, setSuccess]       = useState<{ display_name: string; role: string } | null>(null)
   const [showPw, setShowPw]         = useState(false)
+  // Forced password change state
+  const [pendingUser, setPendingUser] = useState<{ id: number; display_name: string; role: string } | null>(null)
+  const [newPw, setNewPw]           = useState('')
+  const [newPw2, setNewPw2]         = useState('')
+  const [showNewPw, setShowNewPw]   = useState(false)
+  const [pwError, setPwError]       = useState('')
+  const [pwSaving, setPwSaving]     = useState(false)
   const [particles, setParticles]   = useState<{ x:number;y:number;size:number;speed:number;opacity:number;hue:number }[]>([])
   const canvasRef                   = useRef<HTMLCanvasElement>(null)
   const animRef                     = useRef<number>(0)
@@ -114,8 +121,14 @@ export default function Splash({ onDone }: Props) {
     try {
       const result = await (window as any).shogunos.login(username.trim(), password)
       if (result.success) {
-        setSuccess(result.user)
-        setTimeout(() => onDone(result.user), 1200)
+        if (result.user.must_change_password) {
+          // Intercept — show forced password change screen
+          setPendingUser({ id: result.user.id, display_name: result.user.display_name, role: result.user.role })
+          setLoading(false)
+        } else {
+          setSuccess(result.user)
+          setTimeout(() => onDone(result.user), 1200)
+        }
       } else {
         setError(result.error === 'User not found' ? 'Username not recognised' : 'Incorrect password')
         setLoading(false)
@@ -125,6 +138,28 @@ export default function Splash({ onDone }: Props) {
     } catch {
       setError('Connection error — restart the app')
       setLoading(false)
+    }
+  }
+
+  async function handleForcedChange() {
+    setPwError('')
+    if (newPw.length < 8) { setPwError('Password must be at least 8 characters'); return }
+    if (newPw === 'changeme') { setPwError('Please choose a different password'); return }
+    if (newPw !== newPw2) { setPwError('Passwords do not match'); return }
+    setPwSaving(true)
+    try {
+      const res = await (window as any).shogunos.forcedChangePassword(pendingUser!.id, newPw)
+      if (res.success) {
+        const user = { ...pendingUser!, must_change_password: false }
+        setSuccess(user)
+        setTimeout(() => onDone(user), 1200)
+      } else {
+        setPwError(res.error || 'Failed to update password')
+        setPwSaving(false)
+      }
+    } catch {
+      setPwError('Connection error — restart the app')
+      setPwSaving(false)
     }
   }
 
@@ -249,6 +284,60 @@ export default function Splash({ onDone }: Props) {
             <div style={{ fontSize: 11, color: C.muted, letterSpacing: '0.1em' }}>{success.role} · Loading workspace...</div>
             <div style={{ marginTop: 20, width: 200, height: 2, background: C.border, margin: '20px auto 0', borderRadius: 1, overflow: 'hidden' }}>
               <div style={{ height: '100%', background: `linear-gradient(to right,${C.purple},${C.gold})`, animation: 'shimmer 1s ease forwards', position: 'relative' }} />
+            </div>
+          </div>
+        ) : pendingUser ? (
+          /* Forced password change */
+          <div style={{ maxWidth: 380 }}>
+            <div style={{ marginBottom: 28 }}>
+              <div style={{ width: 44, height: 44, borderRadius: '50%', background: 'rgba(245,158,11,0.12)', border: `1px solid ${C.gold}`, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 20, fontSize: 20 }}>🔑</div>
+              <div style={{ fontSize: 11, color: C.gold, letterSpacing: '0.2em', fontWeight: 700, marginBottom: 8 }}>ACTION REQUIRED</div>
+              <div style={{ fontSize: 28, fontWeight: 800, color: C.white, letterSpacing: '-0.01em', marginBottom: 8 }}>Set your password</div>
+              <div style={{ fontSize: 13, color: C.muted, lineHeight: 1.6 }}>
+                Welcome, <span style={{ color: C.purpleL }}>{pendingUser.display_name}</span>. This is a default account — choose a strong password before continuing.
+              </div>
+            </div>
+            <div style={{ marginBottom: 16 }}>
+              <label style={{ fontSize: 11, color: C.muted, fontWeight: 600, letterSpacing: '0.08em', display: 'block', marginBottom: 8 }}>NEW PASSWORD</label>
+              <div style={{ position: 'relative' }}>
+                <input
+                  autoFocus
+                  type={showNewPw ? 'text' : 'password'}
+                  value={newPw}
+                  onChange={e => { setNewPw(e.target.value); setPwError('') }}
+                  onKeyDown={e => e.key === 'Enter' && handleForcedChange()}
+                  placeholder="Min. 8 characters"
+                  style={{ width: '100%', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: C.white, padding: '14px 48px 14px 16px', fontSize: 14, outline: 'none', fontFamily: 'inherit', borderRadius: 10, transition: 'all 0.2s' }}
+                />
+                <button onClick={() => setShowNewPw(s => !s)} tabIndex={-1} style={{ position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: C.muted, fontSize: 16, padding: 0 }}>
+                  {showNewPw ? '🙈' : '👁'}
+                </button>
+              </div>
+            </div>
+            <div style={{ marginBottom: 20 }}>
+              <label style={{ fontSize: 11, color: C.muted, fontWeight: 600, letterSpacing: '0.08em', display: 'block', marginBottom: 8 }}>CONFIRM PASSWORD</label>
+              <input
+                type="password"
+                value={newPw2}
+                onChange={e => { setNewPw2(e.target.value); setPwError('') }}
+                onKeyDown={e => e.key === 'Enter' && handleForcedChange()}
+                placeholder="Repeat new password"
+                style={{ width: '100%', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: C.white, padding: '14px 16px', fontSize: 14, outline: 'none', fontFamily: 'inherit', borderRadius: 10, transition: 'all 0.2s' }}
+              />
+            </div>
+            <div style={{ minHeight: 20, marginBottom: 16 }}>
+              {pwError && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <div style={{ width: 4, height: 4, borderRadius: '50%', background: C.red, flexShrink: 0 }} />
+                  <span style={{ fontSize: 12, color: C.red }}>{pwError}</span>
+                </div>
+              )}
+            </div>
+            <button onClick={handleForcedChange} disabled={pwSaving} style={{ width: '100%', padding: '15px 0', background: pwSaving ? 'rgba(124,58,237,0.4)' : `linear-gradient(135deg,${C.purple},#6d28d9)`, border: 'none', color: '#fff', fontSize: 13, fontWeight: 700, cursor: pwSaving ? 'not-allowed' : 'pointer', fontFamily: 'inherit', borderRadius: 10, letterSpacing: '0.08em' }}>
+              {pwSaving ? 'Saving…' : 'Set Password & Continue'}
+            </button>
+            <div style={{ marginTop: 16, fontSize: 11, color: C.dim, textAlign: 'center', lineHeight: 1.6 }}>
+              This password protects your church's ShogunOS installation.<br />Store it somewhere safe.
             </div>
           </div>
         ) : (
