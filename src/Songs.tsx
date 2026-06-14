@@ -7,17 +7,18 @@ interface Props {
 }
 
 const C = {
-  void: '#020305', ash: '#07090F', ember: '#0C0F18', coal: '#111520',
-  crimson: '#CC1A1A', blood: '#FF2020', fire: '#FF6020',
-  amber: '#FF9A00', gold: '#FFB800',
-  ivory: '#F5EED8', bone: '#C8BEA8', ghost: '#7A8099',
-  mist: '#3A4258', border2: '#1E2535',
+  void: '#0a0e14', ash: '#0f1419', ember: '#141923', coal: '#17202c',
+  crimson: '#d32f2f', blood: '#ff5252', fire: '#ff6f00',
+  amber: '#fbc02d', gold: '#ffd54f',
+  ivory: '#f5f5f5', bone: '#e0e0e0', ghost: '#9e9e9e',
+  mist: '#616161', border: '#2c3e50', divider: '#37474f'
 }
 
 interface Song { id: number; title: string; hymn_number: number | null; source: string; language: string; created_at: string }
 interface Section { id: number; song_id: number; type: string; order_num: number; content: string }
 
 const LANG_LABELS: Record<string, string> = { en: 'English', sn: 'Shona', nd: 'Ndebele', fr: 'French' }
+const LANG_ORDER = ['en', 'sn', 'nd', 'fr'] // Display order
 
 export default function Songs({ goLive, addToQueue, notify }: Props) {
   const [songs, setSongs]           = useState<Song[]>([])
@@ -31,6 +32,7 @@ export default function Songs({ goLive, addToQueue, notify }: Props) {
   const [editing, setEditing]       = useState(false)
   const [editSections, setEditSections] = useState<Section[]>([])
   const [editTitle, setEditTitle]   = useState('')
+  const [expandedLangs, setExpandedLangs] = useState<Record<string, boolean>>({})
   const api = (window as any).shogunos
 
   const load = useCallback(async () => {
@@ -38,6 +40,11 @@ export default function Songs({ goLive, addToQueue, notify }: Props) {
     try {
       const all: Song[] = await api.searchSongs('')
       setSongs(all.sort((a, b) => (a.hymn_number || 999) - (b.hymn_number || 999)))
+      // Auto-expand first language on load
+      const langs = Array.from(new Set(all.map(s => s.language)))
+      if (langs.length > 0) {
+        setExpandedLangs({ [langs[0]]: true })
+      }
     } catch { notify('Failed to load songs') }
     setLoading(false)
   }, [])
@@ -84,132 +91,606 @@ export default function Songs({ goLive, addToQueue, notify }: Props) {
     return true
   })
 
+  // Group songs by language
   const languages = Array.from(new Set(songs.map(s => s.language)))
-  const section   = editing ? editSections[currentSec] : sections[currentSec]
+    .sort((a, b) => LANG_ORDER.indexOf(a) - LANG_ORDER.indexOf(b))
+  
+  const songsByLang = languages.reduce((acc, lang) => {
+    acc[lang] = visible.filter(s => s.language === lang)
+    return acc
+  }, {} as Record<string, Song[]>)
 
-  const inp: React.CSSProperties = { width: '100%', background: C.ember, border: `1px solid ${C.border2}`, color: C.ivory, padding: '7px 9px', fontSize: 11, outline: 'none', fontFamily: 'inherit' }
+  const section = editing ? editSections[currentSec] : sections[currentSec]
+
+  const inputStyle: React.CSSProperties = {
+    width: '100%',
+    background: C.coal,
+    border: `1px solid ${C.divider}`,
+    color: C.ivory,
+    padding: '10px 12px',
+    fontSize: 13,
+    outline: 'none',
+    fontFamily: 'inherit',
+    borderRadius: 4,
+    transition: 'border-color 0.2s, background-color 0.2s'
+  }
+
+  const buttonBase: React.CSSProperties = {
+    fontFamily: 'inherit',
+    cursor: 'pointer',
+    transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+    border: 'none',
+    outline: 'none'
+  }
 
   return (
-    <div style={{ flex: 1, display: 'flex', overflow: 'hidden', minHeight: 0 }}>
+    <div style={{ flex: 1, display: 'flex', overflow: 'hidden', minHeight: 0, background: C.void }}>
 
       {/* ── LEFT: LIST ── */}
-      <div style={{ width: 280, background: C.ash, borderRight: `1px solid ${C.border2}`, display: 'flex', flexDirection: 'column', flexShrink: 0 }}>
-        <div style={{ padding: '10px 12px', background: C.void, borderBottom: `1px solid ${C.border2}`, flexShrink: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-            <span style={{ fontSize: 8, color: 'rgba(255,184,0,0.6)', letterSpacing: '0.3em', fontWeight: 900 }}>SONG LIBRARY</span>
-            <span style={{ fontSize: 8, color: C.mist }}>{visible.length} / {songs.length}</span>
+      <div style={{ width: 320, background: C.ash, borderRight: `1px solid ${C.border}`, display: 'flex', flexDirection: 'column', flexShrink: 0 }}>
+        
+        {/* Header */}
+        <div style={{ padding: '16px 18px', background: C.void, borderBottom: `1px solid ${C.border}`, flexShrink: 0 }}>
+          <div style={{ marginBottom: 14 }}>
+            <div style={{ fontSize: 11, color: C.ghost, fontWeight: 600, letterSpacing: '0.15em', marginBottom: 8 }}>LIBRARY</div>
+            <div style={{ fontSize: 20, color: C.ivory, fontWeight: 500, letterSpacing: '-0.02em' }}>Songs & Hymns</div>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', background: C.ember, border: `1px solid ${C.border2}`, padding: '0 9px', gap: 6, marginBottom: 8 }}>
-            <i className="ti ti-search" style={{ color: C.mist, fontSize: 12 }} />
-            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search songs..." style={{ flex: 1, background: 'none', border: 'none', color: C.ivory, fontSize: 11, outline: 'none', padding: '7px 0', fontFamily: 'inherit' }} />
-            {search && <span onClick={() => setSearch('')} style={{ color: C.mist, cursor: 'pointer', fontSize: 14 }}>×</span>}
+
+          {/* Search */}
+          <div style={{ display: 'flex', alignItems: 'center', background: C.coal, border: `1px solid ${C.divider}`, padding: '0 12px', gap: 8, marginBottom: 12, borderRadius: 4 }}>
+            <i className="ti ti-search" style={{ color: C.mist, fontSize: 14 }} />
+            <input
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Search..."
+              style={{
+                flex: 1,
+                background: 'none',
+                border: 'none',
+                color: C.ivory,
+                fontSize: 13,
+                outline: 'none',
+                padding: '10px 0',
+                fontFamily: 'inherit'
+              }}
+            />
+            {search && (
+              <span
+                onClick={() => setSearch('')}
+                style={{
+                  color: C.mist,
+                  cursor: 'pointer',
+                  fontSize: 16,
+                  lineHeight: 1,
+                  userSelect: 'none'
+                }}
+              >
+                ✕
+              </span>
+            )}
           </div>
-          <div style={{ display: 'flex', gap: 4, marginBottom: 6 }}>
-            {(['all','hymnal','custom'] as const).map(val => (
-              <button key={val} onClick={() => setFilter(val)} style={{ flex: 1, padding: '3px 0', fontSize: 7, fontWeight: 900, letterSpacing: '0.08em', border: `1px solid ${filter === val ? C.gold : C.border2}`, color: filter === val ? C.gold : C.mist, background: filter === val ? 'rgba(255,184,0,0.08)' : 'none', cursor: 'pointer', fontFamily: 'inherit' }}>{val.toUpperCase()}</button>
+
+          {/* Filter tabs */}
+          <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
+            {(['all', 'hymnal', 'custom'] as const).map(val => (
+              <button
+                key={val}
+                onClick={() => setFilter(val)}
+                style={{
+                  ...buttonBase,
+                  flex: 1,
+                  padding: '8px 10px',
+                  fontSize: 11,
+                  fontWeight: 600,
+                  letterSpacing: '0.05em',
+                  border: `1px solid ${filter === val ? C.gold : C.divider}`,
+                  color: filter === val ? C.gold : C.mist,
+                  background: filter === val ? 'rgba(255, 213, 79, 0.08)' : 'transparent',
+                  borderRadius: 3
+                }}
+              >
+                {val.charAt(0).toUpperCase() + val.slice(1)}
+              </button>
             ))}
           </div>
-          <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-            <button onClick={() => setLangFilter('all')} style={{ padding: '2px 7px', fontSize: 7, fontWeight: 800, border: `1px solid ${langFilter === 'all' ? C.amber : C.border2}`, color: langFilter === 'all' ? C.amber : C.mist, background: 'none', cursor: 'pointer', fontFamily: 'inherit' }}>ALL</button>
+
+          {/* Language filter pills */}
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            <button
+              onClick={() => setLangFilter('all')}
+              style={{
+                ...buttonBase,
+                padding: '6px 12px',
+                fontSize: 10,
+                fontWeight: 600,
+                border: `1px solid ${langFilter === 'all' ? C.amber : C.divider}`,
+                color: langFilter === 'all' ? C.amber : C.mist,
+                background: langFilter === 'all' ? 'rgba(251, 192, 45, 0.1)' : 'transparent',
+                borderRadius: 12
+              }}
+            >
+              All
+            </button>
             {languages.map(lang => (
-              <button key={lang} onClick={() => setLangFilter(lang)} style={{ padding: '2px 7px', fontSize: 7, fontWeight: 800, border: `1px solid ${langFilter === lang ? C.amber : C.border2}`, color: langFilter === lang ? C.amber : C.mist, background: 'none', cursor: 'pointer', fontFamily: 'inherit' }}>{(LANG_LABELS[lang] || lang).toUpperCase()}</button>
+              <button
+                key={lang}
+                onClick={() => setLangFilter(lang)}
+                style={{
+                  ...buttonBase,
+                  padding: '6px 12px',
+                  fontSize: 10,
+                  fontWeight: 600,
+                  border: `1px solid ${langFilter === lang ? C.amber : C.divider}`,
+                  color: langFilter === lang ? C.amber : C.mist,
+                  background: langFilter === lang ? 'rgba(251, 192, 45, 0.1)' : 'transparent',
+                  borderRadius: 12
+                }}
+              >
+                {LANG_LABELS[lang] || lang}
+              </button>
             ))}
           </div>
         </div>
 
-        <div style={{ flex: 1, overflowY: 'auto', padding: 6 }}>
-          {loading && <div style={{ padding: 20, textAlign: 'center', color: C.mist, fontSize: 11 }}>Loading...</div>}
-          {!loading && visible.length === 0 && <div style={{ padding: 24, textAlign: 'center', color: C.mist }}><div style={{ fontSize: 32, opacity: 0.2, marginBottom: 8 }}>⚔</div><div style={{ fontSize: 10 }}>{search ? 'No songs match' : 'No songs found'}</div></div>}
-          {visible.map(song => {
-            const isActive = selected?.id === song.id
-            const srcColor = song.source === 'hymnal' ? C.amber : C.gold
-            return (
-              <div key={song.id} onClick={() => selectSong(song)} style={{ marginBottom: 4, border: `1px solid ${isActive ? C.gold : C.border2}`, borderLeft: `3px solid ${isActive ? C.gold : srcColor}`, background: isActive ? 'rgba(255,184,0,0.05)' : C.ember, cursor: 'pointer', padding: '8px 10px', transition: 'all 0.12s' }}>
-                <div style={{ display: 'flex', gap: 5, marginBottom: 3 }}>
-                  {song.hymn_number && <span style={{ fontSize: 7, color: C.fire, fontWeight: 900, padding: '1px 5px', border: `1px solid ${C.fire}44`, background: `${C.fire}11` }}>HYM {String(song.hymn_number).padStart(3,'0')}</span>}
-                  <span style={{ fontSize: 7, color: srcColor, fontWeight: 900, padding: '1px 5px', border: `1px solid ${srcColor}44`, background: `${srcColor}11` }}>{song.source.toUpperCase()}</span>
+        {/* Song list */}
+        <div style={{ flex: 1, overflowY: 'auto', padding: '10px 0' }}>
+          {loading ? (
+            <div style={{ padding: 32, textAlign: 'center', color: C.mist, fontSize: 12 }}>Loading...</div>
+          ) : visible.length === 0 ? (
+            <div style={{ padding: 32, textAlign: 'center', color: C.mist }}>
+              <div style={{ fontSize: 36, opacity: 0.2, marginBottom: 10 }}>⚔</div>
+              <div style={{ fontSize: 11 }}>{search ? 'No songs match' : 'No songs'}</div>
+            </div>
+          ) : (
+            languages.map(lang => {
+              const langSongs = songsByLang[lang]
+              if (langSongs.length === 0) return null
+              const isExpanded = expandedLangs[lang] !== false // Default to expanded
+              
+              return (
+                <div key={lang} style={{ marginBottom: 2 }}>
+                  {/* Language group header */}
+                  <button
+                    onClick={() => setExpandedLangs(e => ({ ...e, [lang]: !e[lang] }))}
+                    style={{
+                      ...buttonBase,
+                      width: '100%',
+                      padding: '10px 18px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      background: C.coal,
+                      color: C.gold,
+                      fontSize: 11,
+                      fontWeight: 700,
+                      letterSpacing: '0.1em',
+                      borderLeft: `3px solid ${C.amber}`,
+                      textAlign: 'left'
+                    }}
+                  >
+                    <span>{(LANG_LABELS[lang] || lang).toUpperCase()}</span>
+                    <span style={{ fontSize: 10, color: C.mist }}>
+                      {langSongs.length} • {isExpanded ? '▼' : '▶'}
+                    </span>
+                  </button>
+
+                  {/* Language group items */}
+                  {isExpanded && langSongs.map(song => {
+                    const isActive = selected?.id === song.id
+                    const srcColor = song.source === 'hymnal' ? C.amber : C.fire
+                    
+                    return (
+                      <div
+                        key={song.id}
+                        onClick={() => selectSong(song)}
+                        style={{
+                          borderLeft: `3px solid ${isActive ? C.gold : srcColor}`,
+                          background: isActive ? 'rgba(255, 213, 79, 0.08)' : 'transparent',
+                          borderBottom: `1px solid ${C.border}`,
+                          cursor: 'pointer',
+                          padding: '10px 18px',
+                          transition: 'all 0.15s'
+                        }}
+                      >
+                        <div style={{ display: 'flex', gap: 6, marginBottom: 4, alignItems: 'center' }}>
+                          {song.hymn_number && (
+                            <span
+                              style={{
+                                fontSize: 8,
+                                color: C.fire,
+                                fontWeight: 700,
+                                padding: '2px 7px',
+                                background: 'rgba(255, 111, 0, 0.12)',
+                                border: `1px solid rgba(255, 111, 0, 0.3)`,
+                                borderRadius: 2,
+                                letterSpacing: '0.05em'
+                              }}
+                            >
+                              HYM {String(song.hymn_number).padStart(3, '0')}
+                            </span>
+                          )}
+                          <span
+                            style={{
+                              fontSize: 8,
+                              color: srcColor,
+                              fontWeight: 700,
+                              padding: '2px 7px',
+                              background: `rgba(${srcColor === C.amber ? '251,192,45' : '255,111,0'}, 0.12)`,
+                              border: `1px solid ${srcColor}44`,
+                              borderRadius: 2,
+                              letterSpacing: '0.05em',
+                              textTransform: 'uppercase'
+                            }}
+                          >
+                            {song.source}
+                          </span>
+                        </div>
+                        <div
+                          style={{
+                            fontSize: 13,
+                            color: isActive ? C.ivory : C.bone,
+                            fontWeight: 500,
+                            marginBottom: 2,
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap'
+                          }}
+                        >
+                          {song.title}
+                        </div>
+                      </div>
+                    )
+                  })}
                 </div>
-                <div style={{ fontSize: 11, color: isActive ? C.ivory : C.bone, fontWeight: 600, marginBottom: 2 }}>{song.title}</div>
-                <div style={{ fontSize: 9, color: C.mist }}>{LANG_LABELS[song.language] || song.language}</div>
-              </div>
-            )
-          })}
+              )
+            })
+          )}
         </div>
 
-        <div style={{ padding: '6px 12px', borderTop: `1px solid ${C.border2}`, display: 'flex', gap: 12, flexShrink: 0 }}>
-          {[['HYMNS', songs.filter(s=>s.source==='hymnal').length, C.amber],['CUSTOM', songs.filter(s=>s.source==='custom').length, C.gold],['TOTAL', songs.length, C.ghost]].map(([label,val,color]) => (
+        {/* Footer stats */}
+        <div
+          style={{
+            padding: '14px 18px',
+            borderTop: `1px solid ${C.border}`,
+            background: C.void,
+            display: 'grid',
+            gridTemplateColumns: 'repeat(3, 1fr)',
+            gap: 16,
+            flexShrink: 0
+          }}
+        >
+          {[
+            ['Hymns', songs.filter(s => s.source === 'hymnal').length, C.amber],
+            ['Custom', songs.filter(s => s.source === 'custom').length, C.fire],
+            ['Total', songs.length, C.gold]
+          ].map(([label, val, color]) => (
             <div key={label as string} style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: 14, fontWeight: 200, color: color as string }}>{val as number}</div>
-              <div style={{ fontSize: 7, color: C.mist, letterSpacing: '0.1em' }}>{label as string}</div>
+              <div style={{ fontSize: 16, fontWeight: 600, color: color as string }}>{val as number}</div>
+              <div style={{ fontSize: 9, color: C.mist, letterSpacing: '0.05em', marginTop: 4 }}>{label as string}</div>
             </div>
           ))}
         </div>
       </div>
 
-      {/* ── CENTER: DETAIL ── */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+      {/* ── RIGHT: DETAIL ── */}
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, background: C.coal }}>
         {!selected ? (
-          <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 10, background: C.ember }}>
-            <div style={{ fontSize: 48, opacity: 0.15 }}>⚔</div>
-            <div style={{ fontSize: 11, color: C.mist, letterSpacing: '0.12em' }}>SELECT A SONG</div>
+          <div
+            style={{
+              flex: 1,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexDirection: 'column',
+              gap: 12,
+              background: 'linear-gradient(135deg, rgba(23,32,44,0.5) 0%, rgba(20,25,35,0.8) 100%)'
+            }}
+          >
+            <div style={{ fontSize: 56, opacity: 0.1 }}>⚔</div>
+            <div style={{ fontSize: 12, color: C.mist, letterSpacing: '0.1em', fontWeight: 500 }}>SELECT A SONG TO BEGIN</div>
           </div>
         ) : (
           <>
-            {/* Header */}
-            <div style={{ padding: '10px 16px', background: C.ash, borderBottom: `1px solid ${C.border2}`, display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                {editing
-                  ? <input style={{ ...inp, fontSize: 15, fontWeight: 700 }} value={editTitle} onChange={e => setEditTitle(e.target.value)} />
-                  : <div style={{ fontFamily: "'Cinzel',serif", fontSize: 15, fontWeight: 700, color: C.ivory, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{selected.title}</div>
-                }
-                <div style={{ fontSize: 9, color: C.mist, marginTop: 3 }}>{LANG_LABELS[selected.language] || selected.language} · {selected.source} · {sections.length} sections</div>
+            {/* Header with title and actions */}
+            <div
+              style={{
+                padding: '18px 24px',
+                background: C.ash,
+                borderBottom: `1px solid ${C.border}`,
+                flexShrink: 0
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16, marginBottom: 12 }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  {editing ? (
+                    <input
+                      style={{
+                        ...inputStyle,
+                        fontSize: 18,
+                        fontWeight: 600
+                      }}
+                      value={editTitle}
+                      onChange={e => setEditTitle(e.target.value)}
+                    />
+                  ) : (
+                    <h1
+                      style={{
+                        fontSize: 22,
+                        fontWeight: 600,
+                        color: C.ivory,
+                        margin: 0,
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                        letterSpacing: '-0.01em'
+                      }}
+                    >
+                      {selected.title}
+                    </h1>
+                  )}
+                  <div style={{ fontSize: 11, color: C.mist, marginTop: 6, display: 'flex', gap: 8 }}>
+                    <span>{LANG_LABELS[selected.language] || selected.language}</span>
+                    <span>•</span>
+                    <span>{selected.source === 'hymnal' ? 'Hymnal' : 'Custom'}</span>
+                    <span>•</span>
+                    <span>{sections.length} sections</span>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+                  <button
+                    onClick={() => addToQueue(selected.title, 'song')}
+                    style={{
+                      ...buttonBase,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 6,
+                      padding: '8px 14px',
+                      fontSize: 11,
+                      fontWeight: 600,
+                      border: `1px solid ${C.amber}`,
+                      color: C.amber,
+                      background: 'rgba(251, 192, 45, 0.08)',
+                      borderRadius: 3,
+                      letterSpacing: '0.05em'
+                    }}
+                  >
+                    <i className="ti ti-list-check" /> QUEUE
+                  </button>
+
+                  {selected.source === 'custom' && !editing && (
+                    <button
+                      onClick={startEdit}
+                      style={{
+                        ...buttonBase,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 6,
+                        padding: '8px 14px',
+                        fontSize: 11,
+                        fontWeight: 600,
+                        border: `1px solid ${C.divider}`,
+                        color: C.mist,
+                        background: 'transparent',
+                        borderRadius: 3
+                      }}
+                    >
+                      <i className="ti ti-edit" /> EDIT
+                    </button>
+                  )}
+
+                  {editing && (
+                    <>
+                      <button
+                        onClick={saveEdit}
+                        style={{
+                          ...buttonBase,
+                          padding: '8px 16px',
+                          fontSize: 11,
+                          fontWeight: 700,
+                          border: 'none',
+                          background: C.gold,
+                          color: C.void,
+                          borderRadius: 3,
+                          letterSpacing: '0.05em'
+                        }}
+                      >
+                        SAVE
+                      </button>
+                      <button
+                        onClick={() => setEditing(false)}
+                        style={{
+                          ...buttonBase,
+                          padding: '8px 14px',
+                          fontSize: 11,
+                          fontWeight: 600,
+                          border: `1px solid ${C.divider}`,
+                          color: C.mist,
+                          background: 'transparent',
+                          borderRadius: 3
+                        }}
+                      >
+                        CANCEL
+                      </button>
+                    </>
+                  )}
+
+                  {selected.source === 'custom' && !editing && (
+                    <button
+                      onClick={handleDelete}
+                      style={{
+                        ...buttonBase,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 6,
+                        padding: '8px 14px',
+                        fontSize: 11,
+                        fontWeight: 600,
+                        border: `1px solid ${C.crimson}88`,
+                        color: C.blood,
+                        background: 'transparent',
+                        borderRadius: 3
+                      }}
+                    >
+                      <i className="ti ti-trash" /> DELETE
+                    </button>
+                  )}
+                </div>
               </div>
-              <button onClick={() => addToQueue(selected.title, 'song')} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '5px 10px', fontSize: 9, fontWeight: 900, cursor: 'pointer', border: `1px solid rgba(255,184,0,0.25)`, color: C.amber, background: 'rgba(255,184,0,0.06)', fontFamily: 'inherit' }}>
-                <i className="ti ti-list-check" /> QUEUE
-              </button>
-              {selected.source === 'custom' && !editing && (
-                <button onClick={startEdit} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '5px 10px', fontSize: 9, fontWeight: 700, cursor: 'pointer', border: `1px solid ${C.border2}`, color: C.mist, background: 'none', fontFamily: 'inherit' }}>
-                  <i className="ti ti-edit" /> EDIT
-                </button>
-              )}
-              {editing && <>
-                <button onClick={saveEdit} style={{ padding: '5px 12px', fontSize: 9, fontWeight: 900, cursor: 'pointer', border: 'none', background: C.gold, color: C.void, fontFamily: 'inherit' }}>SAVE</button>
-                <button onClick={() => setEditing(false)} style={{ padding: '5px 10px', fontSize: 9, fontWeight: 700, cursor: 'pointer', border: `1px solid ${C.border2}`, color: C.mist, background: 'none', fontFamily: 'inherit' }}>CANCEL</button>
-              </>}
-              {selected.source === 'custom' && !editing && (
-                <button onClick={handleDelete} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '5px 10px', fontSize: 9, fontWeight: 700, cursor: 'pointer', border: `1px solid rgba(255,32,32,0.3)`, color: C.blood, background: 'none', fontFamily: 'inherit' }}>
-                  <i className="ti ti-trash" /> DELETE
-                </button>
-              )}
             </div>
 
             {/* Section tabs */}
-            <div style={{ display: 'flex', gap: 5, padding: '8px 14px', background: C.ember, borderBottom: `1px solid ${C.border2}`, flexShrink: 0, overflowX: 'auto' }}>
+            <div
+              style={{
+                display: 'flex',
+                gap: 6,
+                padding: '12px 18px',
+                background: C.coal,
+                borderBottom: `1px solid ${C.border}`,
+                flexShrink: 0,
+                overflowX: 'auto',
+                overflowY: 'hidden'
+              }}
+            >
               {sections.map((s, i) => (
-                <button key={s.id} onClick={() => setCurrentSec(i)} style={{ padding: '4px 10px', fontSize: 8, fontWeight: 900, letterSpacing: '0.08em', border: `1px solid ${i === currentSec ? C.gold : C.border2}`, color: i === currentSec ? C.gold : C.mist, background: i === currentSec ? 'rgba(255,184,0,0.08)' : 'none', cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0 }}>
-                  {s.type.toUpperCase()} {s.type === 'verse' ? i + 1 : ''}
+                <button
+                  key={s.id}
+                  onClick={() => setCurrentSec(i)}
+                  style={{
+                    ...buttonBase,
+                    padding: '6px 12px',
+                    fontSize: 10,
+                    fontWeight: 600,
+                    letterSpacing: '0.05em',
+                    border: `1px solid ${i === currentSec ? C.gold : C.divider}`,
+                    color: i === currentSec ? C.gold : C.mist,
+                    background: i === currentSec ? 'rgba(255, 213, 79, 0.1)' : 'transparent',
+                    borderRadius: 3,
+                    flexShrink: 0,
+                    whiteSpace: 'nowrap'
+                  }}
+                >
+                  {s.type === 'verse' ? `Verse ${i + 1}` : s.type.charAt(0).toUpperCase() + s.type.slice(1)}
                 </button>
               ))}
             </div>
 
-            {/* Content */}
-            <div style={{ flex: 1, padding: '24px 32px', overflowY: 'auto', background: C.ember, position: 'relative' }}>
-              <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2, background: `linear-gradient(to right,${C.blood},${C.gold},transparent)` }} />
-              {section && (editing
-                ? <textarea value={editSections[currentSec]?.content || ''} onChange={e => setEditSections(secs => secs.map((s, i) => i === currentSec ? { ...s, content: e.target.value } : s))} rows={12} style={{ ...inp, resize: 'vertical', lineHeight: 1.8, fontSize: 16 }} />
-                : <div style={{ fontSize: 18, lineHeight: 2.4, color: C.ivory, fontWeight: 300, whiteSpace: 'pre-line', letterSpacing: '0.03em' }}>{section.content}</div>
-              )}
+            {/* Content area */}
+            <div
+              style={{
+                flex: 1,
+                padding: '32px 40px',
+                overflowY: 'auto',
+                background: C.coal,
+                position: 'relative'
+              }}
+            >
+              <div
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  height: 1,
+                  background: `linear-gradient(to right, ${C.blood}, ${C.gold}, transparent)`
+                }}
+              />
+
+              {section && (editing ? (
+                <textarea
+                  value={editSections[currentSec]?.content || ''}
+                  onChange={e =>
+                    setEditSections(secs =>
+                      secs.map((s, i) => (i === currentSec ? { ...s, content: e.target.value } : s))
+                    )
+                  }
+                  rows={12}
+                  style={{
+                    ...inputStyle,
+                    resize: 'vertical',
+                    lineHeight: 1.8,
+                    fontSize: 15,
+                    fontFamily: 'inherit'
+                  }}
+                />
+              ) : (
+                <div
+                  style={{
+                    fontSize: 16,
+                    lineHeight: 1.9,
+                    color: C.ivory,
+                    fontWeight: 300,
+                    whiteSpace: 'pre-line',
+                    letterSpacing: '0.01em'
+                  }}
+                >
+                  {section.content}
+                </div>
+              ))}
             </div>
 
-            {/* Actions */}
-            <div style={{ padding: '10px 14px', background: C.void, borderTop: `1px solid ${C.border2}`, display: 'flex', gap: 7, flexShrink: 0 }}>
-              <button onClick={() => section && goLive(selected.title, section.content)} style={{ flex: 1, padding: '11px 0', background: `linear-gradient(to right,${C.crimson},#6B0000)`, border: 'none', borderTop: `1px solid ${C.blood}`, color: C.ivory, fontSize: 10, fontWeight: 900, letterSpacing: '0.25em', cursor: 'pointer', fontFamily: 'inherit' }}>
-                GO LIVE — {section?.type?.toUpperCase()} {section?.type === 'verse' ? currentSec + 1 : ''}
+            {/* Action bar */}
+            <div
+              style={{
+                padding: '12px 18px',
+                background: C.void,
+                borderTop: `1px solid ${C.border}`,
+                display: 'flex',
+                gap: 8,
+                flexShrink: 0
+              }}
+            >
+              <button
+                onClick={() => section && goLive(selected.title, section.content)}
+                style={{
+                  ...buttonBase,
+                  flex: 1,
+                  padding: '12px 16px',
+                  background: `linear-gradient(to right, ${C.crimson}, #991f1f)`,
+                  border: `1px solid ${C.blood}`,
+                  color: C.ivory,
+                  fontSize: 10,
+                  fontWeight: 700,
+                  letterSpacing: '0.1em',
+                  borderRadius: 3
+                }}
+              >
+                GO LIVE
               </button>
-              <button onClick={() => currentSec > 0 && setCurrentSec(i => i - 1)} disabled={currentSec === 0} style={{ padding: '11px 14px', background: 'none', border: `1px solid ${C.border2}`, color: C.mist, fontSize: 14, cursor: currentSec === 0 ? 'not-allowed' : 'pointer', opacity: currentSec === 0 ? 0.3 : 1 }}>
+
+              <button
+                onClick={() => currentSec > 0 && setCurrentSec(i => i - 1)}
+                disabled={currentSec === 0}
+                style={{
+                  ...buttonBase,
+                  padding: '12px 14px',
+                  background: 'transparent',
+                  border: `1px solid ${C.border}`,
+                  color: currentSec === 0 ? C.mist : C.ghost,
+                  fontSize: 16,
+                  cursor: currentSec === 0 ? 'not-allowed' : 'pointer',
+                  opacity: currentSec === 0 ? 0.3 : 1,
+                  borderRadius: 3
+                }}
+              >
                 <i className="ti ti-chevron-left" />
               </button>
-              <button onClick={() => currentSec < sections.length - 1 && setCurrentSec(i => i + 1)} disabled={currentSec === sections.length - 1} style={{ padding: '11px 14px', background: 'none', border: `1px solid ${C.border2}`, color: C.mist, fontSize: 14, cursor: currentSec === sections.length - 1 ? 'not-allowed' : 'pointer', opacity: currentSec === sections.length - 1 ? 0.3 : 1 }}>
+
+              <button
+                onClick={() => currentSec < sections.length - 1 && setCurrentSec(i => i + 1)}
+                disabled={currentSec === sections.length - 1}
+                style={{
+                  ...buttonBase,
+                  padding: '12px 14px',
+                  background: 'transparent',
+                  border: `1px solid ${C.border}`,
+                  color: currentSec === sections.length - 1 ? C.mist : C.ghost,
+                  fontSize: 16,
+                  cursor: currentSec === sections.length - 1 ? 'not-allowed' : 'pointer',
+                  opacity: currentSec === sections.length - 1 ? 0.3 : 1,
+                  borderRadius: 3
+                }}
+              >
                 <i className="ti ti-chevron-right" />
               </button>
             </div>
