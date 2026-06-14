@@ -177,13 +177,24 @@
       }, 120)
     }
 
-    // Electron contextBridge
-    try { window.shogunos?.onUpdateLive?.(update) } catch(e) {}
-    // Direct IPC fallback (live window has same preload)
-    try {
-      const { ipcRenderer } = require('electron')
-      ipcRenderer.on('update-live', (_, data) => update(data))
-    } catch(e) {}
+    // Register IPC listener — must happen after contextBridge is ready.
+    // contextBridge is synchronously available before any script runs in
+    // Electron with preload, but we guard with a short retry just in case.
+    function registerLiveListener() {
+      if (window.shogunos && typeof window.shogunos.onUpdateLive === 'function') {
+        window.shogunos.onUpdateLive(update)
+        return true
+      }
+      return false
+    }
+
+    if (!registerLiveListener()) {
+      // Retry a few times if the bridge wasn't ready immediately
+      let attempts = 0
+      const retry = setInterval(() => {
+        if (registerLiveListener() || ++attempts > 20) clearInterval(retry)
+      }, 50)
+    }
   </script>
 </body>
 </html>

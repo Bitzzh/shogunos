@@ -460,119 +460,248 @@ function AnnounceTab({ goLive, notify }: { goLive:(t:string,l:string)=>void; not
 }
 
 function SongsTab({ goLive, addToQueue, notify }: { goLive:(t:string,l:string)=>void; addToQueue:(t:string,type:string)=>void; notify:(m:string)=>void }) {
-  const [songs,setSongs]           = useState<Song[]>([])
-  const [selected,setSelected]     = useState<Song|null>(null)
-  const [sections,setSections]     = useState<Section[]>([])
-  const [cur,setCur]               = useState(0)
-  const [search,setSearch]         = useState('')
-  const [filter,setFilter]         = useState<'all'|'hymnal'|'custom'>('all')
-  const [langFilter,setLangFilter] = useState<string>('all')
-  const [loading,setLoading]       = useState(true)
+  const [songs,setSongs]             = useState<Song[]>([])
+  const [selected,setSelected]       = useState<Song|null>(null)
+  const [sections,setSections]       = useState<Section[]>([])
+  const [cur,setCur]                 = useState(0)
+  const [search,setSearch]           = useState('')
+  const [filter,setFilter]           = useState<'all'|'hymnal'|'custom'>('all')
+  const [loading,setLoading]         = useState(true)
+  const [expandedLangs,setExpandedLangs] = useState<Record<string,boolean>>({})
   const api = (window as any).shogunos
 
-  useEffect(()=>{
-    api.searchSongs('').then((all:Song[])=>{setSongs(all.sort((a,b)=>(a.hymn_number||9999)-(b.hymn_number||9999)));setLoading(false)}).catch(()=>setLoading(false))
-  },[])
-
-  async function select2(song:Song){setSelected(song);setCur(0);setSections(await api.getSongSections(song.id))}
-
   const LANG_LABELS: Record<string,string> = {
-    all:'All', en:'English', sn:'Shona', nd:'Ndebele', fr:'French',
+    en:'English', sn:'Shona', nd:'Ndebele', fr:'French',
     pt:'Portuguese', sw:'Swahili', zu:'Zulu', xh:'Xhosa', st:'Sotho',
   }
+  const LANG_ORDER = ['en','sn','nd','fr','pt','sw','zu','xh','st']
   const langLabel = (l:string) => LANG_LABELS[l] || (l.charAt(0).toUpperCase()+l.slice(1))
-  const allLangs = ['all', ...Array.from(new Set(songs.map(s=>s.language).filter(Boolean))).sort()]
 
-  const visible=songs.filter(s=>{
-    if(filter!=='all'&&s.source!==filter)return false
-    if(langFilter!=='all'&&s.language!==langFilter)return false
-    if(search)return s.title.toLowerCase().includes(search.toLowerCase())
+  useEffect(()=>{
+    api.searchSongs('').then((all:Song[])=>{
+      const sorted = all.sort((a,b)=>(a.hymn_number||9999)-(b.hymn_number||9999))
+      setSongs(sorted)
+      const langs = Array.from(new Set(sorted.map((s:Song)=>s.language).filter(Boolean)))
+        .sort((a:any,b:any)=>LANG_ORDER.indexOf(a)-LANG_ORDER.indexOf(b))
+      if(langs.length>0) setExpandedLangs({[langs[0] as string]:true})
+      setLoading(false)
+    }).catch(()=>setLoading(false))
+  },[])
+
+  async function selectSong(song:Song){
+    setSelected(song); setCur(0)
+    setSections(await api.getSongSections(song.id))
+  }
+
+  const visible = songs.filter(s=>{
+    if(filter!=='all'&&s.source!==filter) return false
+    if(search) return s.title.toLowerCase().includes(search.toLowerCase()) ||
+      String(s.hymn_number||'').includes(search)
     return true
   })
+
+  const langs = Array.from(new Set(songs.map(s=>s.language).filter(Boolean)))
+    .sort((a,b)=>LANG_ORDER.indexOf(a)-LANG_ORDER.indexOf(b))
+
+  const byLang = langs.reduce((acc,lang)=>{
+    acc[lang]=visible.filter(s=>s.language===lang)
+    return acc
+  },{} as Record<string,Song[]>)
+
   const sec=sections[cur]
+  const btn: React.CSSProperties = {cursor:'pointer',fontFamily:'inherit',border:'none',outline:'none',transition:'all 0.15s'}
+  const LANG_COLORS = [C.p1, C.g1, C.live+'cc', C.safe+'cc', C.p2]
 
   return (
     <div style={{flex:1,display:'flex',overflow:'hidden',minHeight:0}}>
-      <div style={{width:260,background:C.bg2,borderRight:`1px solid ${C.b0}`,display:'flex',flexDirection:'column',flexShrink:0}}>
-        <div style={{padding:'10px 14px',background:C.bg1,borderBottom:`1px solid ${C.b0}`,display:'flex',flexDirection:'column',gap:8,flexShrink:0}}>
-          <div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
-            <span style={{fontSize:9,fontWeight:700,letterSpacing:'0.2em',color:C.t4,textTransform:'uppercase' as const}}>Song Library</span>
-            <span style={{fontSize:10,color:C.t4}}>{visible.length}/{songs.length}</span>
-          </div>
-          <div style={{display:'flex',alignItems:'center',background:C.bg4,border:`1px solid ${C.b1}`,borderRadius:8,padding:'0 10px',gap:6}}>
-            <span style={{color:C.t3,fontSize:14}}>⌕</span>
-            <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search songs..." style={{flex:1,background:'none',border:'none',color:C.t1,fontSize:12,outline:'none',padding:'7px 0',fontFamily:'inherit'}}/>
+      {/* ── LEFT PANEL ── */}
+      <div style={{width:280,background:C.bg2,borderRight:`1px solid ${C.b0}`,display:'flex',flexDirection:'column',flexShrink:0}}>
+        <div style={{padding:'14px 16px',background:C.bg0,borderBottom:`1px solid ${C.b0}`,flexShrink:0}}>
+          <div style={{fontSize:9,fontWeight:700,letterSpacing:'0.2em',color:C.t4,marginBottom:6}}>SONG LIBRARY</div>
+          <div style={{display:'flex',alignItems:'center',background:C.bg4,border:`1px solid ${C.b1}`,borderRadius:6,padding:'0 10px',gap:6,marginBottom:10}}>
+            <span style={{color:C.t3,fontSize:13}}>⌕</span>
+            <input value={search} onChange={e=>setSearch(e.target.value)}
+              placeholder="Search songs or hymn #…"
+              style={{flex:1,background:'none',border:'none',color:C.t1,fontSize:12,outline:'none',padding:'8px 0',fontFamily:'inherit'}}/>
+            {search&&<span onClick={()=>setSearch('')} style={{color:C.t3,cursor:'pointer',fontSize:12,lineHeight:1}}>✕</span>}
           </div>
           <div style={{display:'flex',gap:4}}>
             {(['all','hymnal','custom'] as const).map(f=>(
-              <button key={f} onClick={()=>setFilter(f)} style={{flex:1,padding:'3px 0',fontSize:9,fontWeight:700,border:`1px solid ${filter===f?C.g2:C.b0}`,color:filter===f?C.g2:C.t4,background:filter===f?`${C.g2}12`:'none',cursor:'pointer',fontFamily:'inherit',borderRadius:4}}>{f.toUpperCase()}</button>
+              <button key={f} onClick={()=>setFilter(f)}
+                style={{...btn,flex:1,padding:'5px 0',fontSize:9,fontWeight:700,letterSpacing:'0.06em',
+                  border:`1px solid ${filter===f?C.g2:C.b1}`,
+                  color:filter===f?C.g2:C.t4,
+                  background:filter===f?`${C.g2}15`:'transparent',borderRadius:4}}>
+                {f.toUpperCase()}
+              </button>
             ))}
           </div>
-          {allLangs.length > 2 && (
-            <div style={{display:'flex',gap:3,flexWrap:'wrap' as const}}>
-              {allLangs.map(lang=>{
-                const active=langFilter===lang
-                return <button key={lang} onClick={()=>setLangFilter(lang)} style={{padding:'2px 8px',fontSize:9,fontWeight:active?700:400,border:`1px solid ${active?C.p1:C.b0}`,color:active?C.p2:C.t4,background:active?`${C.p1}15`:'none',cursor:'pointer',fontFamily:'inherit',borderRadius:4}}>{langLabel(lang)}</button>
-              })}
+        </div>
+
+        <div style={{flex:1,overflowY:'auto'}}>
+          {loading&&<div style={{padding:32,textAlign:'center',color:C.t3,fontSize:12}}>Loading songs…</div>}
+          {!loading&&visible.length===0&&(
+            <div style={{padding:32,textAlign:'center',color:C.t3,fontSize:12}}>
+              <div style={{fontSize:32,opacity:0.15,marginBottom:8}}>♪</div>
+              {search?'No songs match your search':'No songs found'}
             </div>
           )}
+          {!loading&&langs.map((lang,li)=>{
+            const group=byLang[lang]
+            if(!group||group.length===0) return null
+            const isOpen=expandedLangs[lang]!==false
+            const accent=LANG_COLORS[li%LANG_COLORS.length]
+            return (
+              <div key={lang}>
+                <button onClick={()=>setExpandedLangs(e=>({...e,[lang]:!isOpen}))}
+                  style={{...btn,width:'100%',padding:'9px 14px 9px 12px',
+                    display:'flex',alignItems:'center',justifyContent:'space-between',
+                    background:C.bg1,borderLeft:`3px solid ${accent}`,
+                    borderBottom:`1px solid ${C.b0}`,color:C.t2,textAlign:'left' as const}}>
+                  <div style={{display:'flex',alignItems:'center',gap:8}}>
+                    <span style={{fontSize:10,fontWeight:700,letterSpacing:'0.12em',color:accent}}>{langLabel(lang).toUpperCase()}</span>
+                    <span style={{fontSize:9,color:C.t4,background:C.bg3,padding:'1px 6px',borderRadius:10,border:`1px solid ${C.b1}`}}>{group.length}</span>
+                  </div>
+                  <span style={{fontSize:9,color:C.t4}}>{isOpen?'▾':'▸'}</span>
+                </button>
+                {isOpen&&group.map(song=>{
+                  const active=selected?.id===song.id
+                  return (
+                    <div key={song.id} onClick={()=>selectSong(song)}
+                      style={{padding:'9px 14px 9px 15px',borderLeft:`3px solid ${active?accent:'transparent'}`,
+                        borderBottom:`1px solid ${C.b0}`,background:active?`${accent}0f`:C.bg2,
+                        cursor:'pointer',transition:'all 0.1s'}}
+                      onMouseEnter={e=>{if(!active)(e.currentTarget as HTMLElement).style.background=C.bg3}}
+                      onMouseLeave={e=>{(e.currentTarget as HTMLElement).style.background=active?`${accent}0f`:C.bg2}}>
+                      <div style={{display:'flex',alignItems:'center',gap:5,marginBottom:3}}>
+                        {song.hymn_number>0&&(
+                          <span style={{fontSize:8,color:C.g1,fontWeight:700,padding:'1px 5px',background:`${C.g1}15`,border:`1px solid ${C.g1}33`,borderRadius:3}}>
+                            #{String(song.hymn_number).padStart(3,'0')}
+                          </span>
+                        )}
+                        <span style={{fontSize:8,color:song.source==='hymnal'?C.g2:C.p2,fontWeight:600,
+                          padding:'1px 5px',background:song.source==='hymnal'?`${C.g2}12`:`${C.p2}12`,
+                          border:`1px solid ${song.source==='hymnal'?C.g2:C.p2}33`,borderRadius:3,
+                          textTransform:'uppercase' as const,letterSpacing:'0.04em'}}>
+                          {song.source}
+                        </span>
+                      </div>
+                      <div style={{fontSize:12,color:active?C.t1:C.t2,fontWeight:active?600:400,
+                        overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' as const}}>
+                        {song.title}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )
+          })}
         </div>
-        <div style={{flex:1,overflowY:'auto',padding:'6px 8px'}}>
-          {loading&&<div style={{padding:20,textAlign:'center',color:C.t3,fontSize:12}}>Loading...</div>}
-          {!loading&&visible.length===0&&<div style={{padding:24,textAlign:'center',color:C.t3,fontSize:12}}>No songs found</div>}
-          {visible.map(song=>(
-            <div key={song.id} onClick={()=>select2(song)}
-              style={{padding:'9px 12px',marginBottom:3,cursor:'pointer',borderRadius:7,border:`1px solid ${selected?.id===song.id?C.b2:'transparent'}`,background:selected?.id===song.id?C.bg4:'none',transition:'all 0.1s'}}
-              onMouseEnter={e=>(e.currentTarget as HTMLElement).style.background=C.bg3}
-              onMouseLeave={e=>(e.currentTarget as HTMLElement).style.background=selected?.id===song.id?C.bg4:'none'}>
-              {song.hymn_number>0&&<div style={{fontSize:9,color:C.t4,fontWeight:700,marginBottom:2}}>#{song.hymn_number}</div>}
-              <div style={{fontSize:12,color:C.t1,fontWeight:500}}>{song.title}</div>
-              <div style={{fontSize:10,color:C.t4,marginTop:2}}>{song.source} · {song.language}</div>
+
+        <div style={{padding:'10px 16px',borderTop:`1px solid ${C.b0}`,background:C.bg0,display:'flex',flexShrink:0}}>
+          {[['Hymns',songs.filter(s=>s.source==='hymnal').length,C.g2],
+            ['Custom',songs.filter(s=>s.source==='custom').length,C.p2],
+            ['Total',songs.length,C.t2]].map(([l,v,col],i)=>(
+            <div key={l as string} style={{flex:1,textAlign:'center' as const,borderRight:i<2?`1px solid ${C.b0}`:'none'}}>
+              <div style={{fontSize:17,fontWeight:300,color:col as string}}>{v as number}</div>
+              <div style={{fontSize:8,color:C.t4,letterSpacing:'0.1em',marginTop:2}}>{l as string}</div>
             </div>
-          ))}
-        </div>
-        <div style={{padding:'8px 12px',borderTop:`1px solid ${C.b0}`,display:'flex',gap:16}}>
-          {[['Hymns',songs.filter(s=>s.source==='hymnal').length,C.g2],['Custom',songs.filter(s=>s.source==='custom').length,C.p2]].map(([l,v,col])=>(
-            <div key={l as string}><div style={{fontSize:16,fontWeight:200,color:col as string}}>{v as number}</div><div style={{fontSize:7,color:C.t4,letterSpacing:'0.1em'}}>{l as string}</div></div>
           ))}
         </div>
       </div>
-      {!selected
-        ?<div style={{flex:1,display:'flex',alignItems:'center',justifyContent:'center',flexDirection:'column',gap:10,color:C.t4,background:C.bg1}}>
-          <div style={{fontSize:48,opacity:0.1}}>♪</div>
-          <div style={{fontSize:13,letterSpacing:'0.05em'}}>Select a song</div>
+
+      {/* ── RIGHT: DETAIL ── */}
+      {!selected ? (
+        <div style={{flex:1,display:'flex',alignItems:'center',justifyContent:'center',
+          flexDirection:'column',gap:10,color:C.t4,background:C.bg1}}>
+          <div style={{fontSize:52,opacity:0.07}}>♪</div>
+          <div style={{fontSize:12,letterSpacing:'0.12em',fontWeight:500}}>SELECT A SONG TO BEGIN</div>
         </div>
-        :<div style={{flex:1,display:'flex',flexDirection:'column',minWidth:0}}>
-          <div style={{padding:'12px 20px',background:C.bg0,borderBottom:`1px solid ${C.b0}`,display:'flex',alignItems:'center',gap:12,flexShrink:0}}>
-            <button onClick={()=>{setSelected(null);setSections([])}} style={{background:'none',border:`1px solid ${C.b1}`,color:C.t3,padding:'5px 12px',fontSize:11,cursor:'pointer',fontFamily:'inherit',borderRadius:7}}>← Back</button>
-            <div style={{flex:1}}>
-              <div style={{fontSize:16,fontWeight:700,color:C.t1}}>{selected.title}</div>
-              <div style={{fontSize:11,color:C.t4,marginTop:2}}>{selected.hymn_number?`Hymn #${selected.hymn_number}`:'Custom'} · {sections.length} sections</div>
-            </div>
-            <button onClick={()=>addToQueue(selected.title,'song')} style={{padding:'7px 16px',background:C.bg4,border:`1px solid ${C.b2}`,color:C.t1,fontSize:11,fontWeight:600,cursor:'pointer',fontFamily:'inherit',borderRadius:8}}>+ Queue</button>
-          </div>
-          <div style={{display:'flex',gap:8,padding:'12px 16px',background:C.bg2,borderBottom:`1px solid ${C.b0}`,flexShrink:0,overflowX:'auto'}}>
-            {sections.map((s,i)=>(
-              <div key={s.id} onClick={()=>setCur(i)} style={{width:90,height:56,borderRadius:8,overflow:'hidden',border:`2px solid ${i===cur?C.p1:C.b1}`,flexShrink:0,cursor:'pointer',background:'#000',position:'relative',boxShadow:i===cur?`0 0 12px ${C.p1}44`:'none',transition:'all 0.15s'}}>
-                <div style={{position:'absolute',top:3,left:5,fontSize:7,color:i===cur?C.p2:C.t4,fontWeight:700,letterSpacing:'0.04em'}}>{s.type.toUpperCase()} {s.type==='verse'?i+1:''}</div>
-                <div style={{position:'absolute',bottom:3,left:5,right:5,fontSize:7,color:i===cur?C.t2:C.t4,lineHeight:1.3}}>{s.content.substring(0,28)}…</div>
+      ) : (
+        <div style={{flex:1,display:'flex',flexDirection:'column',minWidth:0}}>
+          <div style={{padding:'16px 24px',background:C.bg0,borderBottom:`1px solid ${C.b0}`,
+            display:'flex',alignItems:'flex-start',gap:14,flexShrink:0}}>
+            <div style={{flex:1,minWidth:0}}>
+              <div style={{fontSize:18,fontWeight:600,color:C.t1,overflow:'hidden',
+                textOverflow:'ellipsis',whiteSpace:'nowrap' as const,letterSpacing:'-0.01em'}}>
+                {selected.title}
               </div>
+              <div style={{fontSize:11,color:C.t4,marginTop:5,display:'flex',gap:8,alignItems:'center'}}>
+                <span style={{color:LANG_COLORS[langs.indexOf(selected.language)%LANG_COLORS.length]}}>
+                  {langLabel(selected.language)}
+                </span>
+                <span style={{color:C.b2}}>•</span>
+                <span>{selected.source==='hymnal'?`Hymn #${selected.hymn_number}`:'Custom'}</span>
+                <span style={{color:C.b2}}>•</span>
+                <span>{sections.length} sections</span>
+              </div>
+            </div>
+            <button onClick={()=>addToQueue(selected.title,'song')}
+              style={{...btn,padding:'8px 14px',fontSize:10,fontWeight:700,letterSpacing:'0.06em',
+                border:`1px solid ${C.g2}`,color:C.g2,background:`${C.g2}10`,borderRadius:5}}>
+              + QUEUE
+            </button>
+          </div>
+
+          <div style={{display:'flex',gap:6,padding:'10px 16px',background:C.bg2,
+            borderBottom:`1px solid ${C.b0}`,flexShrink:0,overflowX:'auto'}}>
+            {sections.map((s,i)=>(
+              <button key={s.id} onClick={()=>setCur(i)}
+                style={{...btn,padding:'5px 12px',fontSize:10,fontWeight:600,letterSpacing:'0.04em',
+                  border:`1px solid ${i===cur?C.p1:C.b1}`,
+                  color:i===cur?C.p2:C.t4,
+                  background:i===cur?`${C.p1}15`:'transparent',borderRadius:4,
+                  flexShrink:0,whiteSpace:'nowrap' as const,
+                  boxShadow:i===cur?`0 0 10px ${C.p1}30`:'none'}}>
+                {s.type==='verse'?`Verse ${i+1}`:s.type.charAt(0).toUpperCase()+s.type.slice(1)}
+              </button>
             ))}
           </div>
-          <div style={{flex:1,padding:'36px 52px',overflowY:'auto',background:C.bg1}}>
-            {sec&&<>
-              <div style={{fontSize:10,color:C.t4,letterSpacing:'0.2em',fontWeight:600,marginBottom:24,textTransform:'uppercase' as const}}>{sec.type} {sec.type==='verse'?cur+1:''}</div>
-              <div style={{fontSize:24,lineHeight:2.1,color:C.t1,fontWeight:300,whiteSpace:'pre-line',letterSpacing:'0.01em'}}>{sec.content}</div>
-            </>}
+
+          <div style={{flex:1,padding:'40px 56px',overflowY:'auto',background:C.bg1,position:'relative'}}>
+            <div style={{position:'absolute',top:0,left:0,right:0,height:1,
+              background:`linear-gradient(to right,${C.p1},${C.g1},transparent)`}} />
+            {sec&&(
+              <>
+                <div style={{fontSize:9,color:C.t4,letterSpacing:'0.2em',fontWeight:700,marginBottom:20,textTransform:'uppercase' as const}}>
+                  {sec.type}{sec.type==='verse'?` ${cur+1}`:''}
+                </div>
+                <div style={{fontSize:22,lineHeight:2.0,color:C.t1,fontWeight:300,
+                  whiteSpace:'pre-line' as const,letterSpacing:'0.01em'}}>
+                  {sec.content}
+                </div>
+              </>
+            )}
           </div>
-          <div style={{padding:'14px 24px',background:C.bg0,borderTop:`1px solid ${C.b0}`,display:'flex',alignItems:'center',gap:12,flexShrink:0}}>
-            <button onClick={()=>cur>0&&setCur(i=>i-1)} disabled={cur===0} style={{padding:'9px 18px',background:'none',border:`1px solid ${C.b1}`,color:C.t2,cursor:cur===0?'not-allowed':'pointer',fontSize:20,borderRadius:8,opacity:cur===0?0.3:1}}>‹</button>
-            <div style={{fontSize:12,color:C.t3,flex:1,textAlign:'center'}}>{cur+1} / {sections.length}</div>
-            <button onClick={()=>cur<sections.length-1&&setCur(i=>i+1)} disabled={cur===sections.length-1} style={{padding:'9px 18px',background:'none',border:`1px solid ${C.b1}`,color:C.t2,cursor:cur===sections.length-1?'not-allowed':'pointer',fontSize:20,borderRadius:8,opacity:cur===sections.length-1?0.3:1}}>›</button>
-            <button onClick={()=>sec&&goLive(selected.title,sec.content)} style={{padding:'11px 28px',background:`linear-gradient(135deg,${C.live},#b91c1c)`,border:'none',color:'#fff',fontSize:12,fontWeight:700,cursor:'pointer',fontFamily:'inherit',borderRadius:9,letterSpacing:'0.06em'}}>GO LIVE</button>
+
+          <div style={{padding:'12px 20px',background:C.bg0,borderTop:`1px solid ${C.b0}`,
+            display:'flex',alignItems:'center',gap:8,flexShrink:0}}>
+            <button onClick={()=>cur>0&&setCur(i=>i-1)} disabled={cur===0}
+              style={{...btn,padding:'10px 14px',background:'transparent',border:`1px solid ${C.b1}`,
+                color:C.t2,fontSize:16,borderRadius:6,opacity:cur===0?0.25:1,cursor:cur===0?'not-allowed':'pointer'}}>
+              ‹
+            </button>
+            <div style={{fontSize:11,color:C.t3,flex:1,textAlign:'center' as const}}>
+              {cur+1} <span style={{color:C.t4}}>of</span> {sections.length}
+            </div>
+            <button onClick={()=>cur<sections.length-1&&setCur(i=>i+1)} disabled={cur===sections.length-1}
+              style={{...btn,padding:'10px 14px',background:'transparent',border:`1px solid ${C.b1}`,
+                color:C.t2,fontSize:16,borderRadius:6,
+                opacity:cur===sections.length-1?0.25:1,
+                cursor:cur===sections.length-1?'not-allowed':'pointer'}}>
+              ›
+            </button>
+            <button onClick={()=>sec&&goLive(selected.title,sec.content)}
+              style={{...btn,padding:'11px 32px',
+                background:`linear-gradient(135deg,${C.live},#b91c1c)`,
+                border:`1px solid ${C.live}55`,
+                color:'#fff',fontSize:11,fontWeight:700,borderRadius:6,
+                letterSpacing:'0.08em',boxShadow:`0 4px 16px ${C.live}40`}}>
+              GO LIVE
+            </button>
           </div>
         </div>
-      }
+      )}
     </div>
   )
 }
@@ -844,6 +973,7 @@ export default function App() {
   const toastTimer = useRef<any>(null)
   // Bible chapter browser state
   const [hymnLangFilter,setHymnLangFilter] = useState<string>('all')
+  const [expandedHymnLangs,setExpandedHymnLangs] = useState<Record<string,boolean>>({})
   const [bibleMode,setBibleMode]         = useState<'search'|'browse'>('browse')
   const [bibleBooks,setBibleBooks]       = useState<string[]>([])
   const [selectedBook,setSelectedBook]   = useState<string|null>(null)
@@ -1162,63 +1292,94 @@ export default function App() {
         </div>
       </div>
     )
-    // Default: show full browseable hymnal list with language tabs
-    const searchFiltered = query.trim().length>0 ? results : allSongs
-    const hymnLangs = ['all', ...Array.from(new Set(allSongs.map(s=>s.language).filter(Boolean))).sort()]
+    // Default: show hymnal grouped by language
     const LANG_LABELS: Record<string,string> = {
-      all:'All', en:'English', sn:'Shona', nd:'Ndebele', fr:'French',
+      en:'English', sn:'Shona', nd:'Ndebele', fr:'French',
       pt:'Portuguese', sw:'Swahili', zu:'Zulu', xh:'Xhosa', st:'Sotho',
     }
+    const LANG_ORDER = ['en','sn','nd','fr','pt','sw','zu','xh','st']
+    const LANG_COLORS = [C.p1, C.g1, C.live+'cc', C.safe+'cc', C.p2]
     const langLabel = (l:string) => LANG_LABELS[l] || (l.charAt(0).toUpperCase()+l.slice(1))
-    const displayList = searchFiltered.filter(s => hymnLangFilter==='all' || s.language===hymnLangFilter)
+    const searchFiltered = query.trim().length>0 ? results : allSongs
+    const hymnLangs = Array.from(new Set(allSongs.map(s=>s.language).filter(Boolean)))
+      .sort((a,b)=>LANG_ORDER.indexOf(a)-LANG_ORDER.indexOf(b))
+    // Auto-expand first lang on first load
+    if(Object.keys(expandedHymnLangs).length===0 && hymnLangs.length>0) {
+      setTimeout(()=>setExpandedHymnLangs({[hymnLangs[0]]:true}),0)
+    }
+    const byLang = hymnLangs.reduce((acc,lang)=>{
+      acc[lang]=searchFiltered.filter(s=>s.language===lang)
+      return acc
+    },{} as Record<string,Song[]>)
+    const btn2: React.CSSProperties = {cursor:'pointer',fontFamily:'inherit',border:'none',outline:'none',transition:'all 0.15s'}
     return (
-      <div style={{flex:1,display:'flex',flexDirection:'column',overflow:'hidden',minHeight:0}}>
-        {/* Language filter tabs — only show if more than one language exists */}
-        {hymnLangs.length > 2 && (
-          <div style={{display:'flex',gap:2,padding:'8px 12px',background:C.bg1,borderBottom:`1px solid ${C.b0}`,flexShrink:0,overflowX:'auto'}}>
-            {hymnLangs.map(lang=>{
-              const active = hymnLangFilter===lang
-              const count = lang==='all' ? allSongs.length : allSongs.filter(s=>s.language===lang).length
+      <div style={{flex:1,display:'flex',overflow:'hidden',minHeight:0}}>
+        {/* Left: grouped song list */}
+        <div style={{width:300,background:C.bg2,borderRight:`1px solid ${C.b0}`,display:'flex',flexDirection:'column',flexShrink:0}}>
+          <div style={{padding:'8px 14px',background:C.bg0,borderBottom:`1px solid ${C.b0}`,flexShrink:0,display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+            <span style={{fontSize:9,fontWeight:700,letterSpacing:'0.15em',color:C.t4}}>HYMNAL</span>
+            <span style={{fontSize:10,color:C.t4}}>{searchFiltered.length} hymns</span>
+          </div>
+          <div style={{flex:1,overflowY:'auto'}}>
+            {allSongs.length===0 && <div style={{padding:32,textAlign:'center',color:C.t3,fontSize:12}}>Loading hymns…</div>}
+            {searchFiltered.length===0 && query.trim() && (
+              <div style={{padding:32,textAlign:'center',color:C.t3,fontSize:12}}>No hymns match "{query}"</div>
+            )}
+            {hymnLangs.map((lang,li)=>{
+              const group = byLang[lang]
+              if(!group||group.length===0) return null
+              const isOpen = expandedHymnLangs[lang]!==false
+              const accent = LANG_COLORS[li%LANG_COLORS.length]
               return (
-                <button key={lang} onClick={()=>setHymnLangFilter(lang)}
-                  style={{padding:'5px 14px',fontSize:12,fontWeight:active?600:400,cursor:'pointer',fontFamily:'inherit',whiteSpace:'nowrap',
-                    background:active?C.bg4:'none',
-                    border:`1px solid ${active?C.b2:C.b0}`,
-                    color:active?C.t1:C.t3,
-                    borderRadius:7,transition:'all 0.12s',flexShrink:0}}>
-                  {langLabel(lang)}
-                  <span style={{marginLeft:6,fontSize:10,color:active?C.t3:C.t4,fontWeight:400}}>{count}</span>
-                </button>
+                <div key={lang}>
+                  <button
+                    onClick={()=>setExpandedHymnLangs(e=>({...e,[lang]:!isOpen}))}
+                    style={{...btn2,width:'100%',padding:'10px 14px 10px 12px',
+                      display:'flex',alignItems:'center',justifyContent:'space-between',
+                      background:C.bg1,borderLeft:`3px solid ${accent}`,
+                      borderBottom:`1px solid ${C.b0}`,color:C.t2,textAlign:'left' as const}}>
+                    <div style={{display:'flex',alignItems:'center',gap:8}}>
+                      <span style={{fontSize:11,fontWeight:700,letterSpacing:'0.1em',color:accent}}>{langLabel(lang).toUpperCase()}</span>
+                      <span style={{fontSize:9,color:C.t4,background:C.bg3,padding:'1px 7px',borderRadius:10,border:`1px solid ${C.b1}`}}>{group.length}</span>
+                    </div>
+                    <span style={{fontSize:9,color:C.t4}}>{isOpen?'▾':'▸'}</span>
+                  </button>
+                  {isOpen && group.map(song=>(
+                    <div key={song.id} onClick={()=>handleSelectSong(song)}
+                      style={{padding:'9px 14px 9px 15px',
+                        borderLeft:`3px solid transparent`,
+                        borderBottom:`1px solid ${C.b0}`,
+                        background:C.bg2,cursor:'pointer',transition:'all 0.1s'}}
+                      onMouseEnter={e=>{
+                        const el=e.currentTarget as HTMLElement
+                        el.style.background=C.bg3
+                        el.style.borderLeftColor=accent
+                      }}
+                      onMouseLeave={e=>{
+                        const el=e.currentTarget as HTMLElement
+                        el.style.background=C.bg2
+                        el.style.borderLeftColor='transparent'
+                      }}>
+                      <div style={{display:'flex',alignItems:'center',gap:8}}>
+                        {song.hymn_number>0 && (
+                          <span style={{fontSize:9,color:C.g1,fontWeight:700,minWidth:28,textAlign:'right' as const,flexShrink:0,
+                            padding:'1px 5px',background:`${C.g1}15`,border:`1px solid ${C.g1}33`,borderRadius:3}}>
+                            #{String(song.hymn_number).padStart(3,'0')}
+                          </span>
+                        )}
+                        <span style={{fontSize:12,color:C.t1,flex:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' as const}}>{song.title}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               )
             })}
           </div>
-        )}
-        <div style={{flex:1,display:'flex',overflow:'hidden',minHeight:0}}>
-          <div style={{width:290,background:C.bg2,borderRight:`1px solid ${C.b0}`,display:'flex',flexDirection:'column',flexShrink:0}}>
-            <div style={{padding:'8px 14px',background:C.bg1,borderBottom:`1px solid ${C.b0}`,display:'flex',alignItems:'center',justifyContent:'space-between'}}>
-              <span style={{fontSize:11,color:C.t3,fontWeight:500}}>{displayList.length} {query.trim()?'results':hymnLangFilter==='all'?'hymns':`in ${langLabel(hymnLangFilter)}`}</span>
-              {hymnLangFilter!=='all'&&<button onClick={()=>setHymnLangFilter('all')} style={{fontSize:10,color:C.t4,background:'none',border:'none',cursor:'pointer',fontFamily:'inherit',padding:0}}>clear ×</button>}
-            </div>
-            <div style={{flex:1,overflowY:'auto',padding:'4px 6px'}}>
-              {displayList.map(song=>(
-                <div key={song.id} onClick={()=>handleSelectSong(song)}
-                  style={{padding:'9px 12px',marginBottom:2,cursor:'pointer',borderRadius:8,border:'1px solid transparent',background:'none',transition:'all 0.1s'}}
-                  onMouseEnter={e=>(e.currentTarget as HTMLElement).style.background=C.bg3}
-                  onMouseLeave={e=>(e.currentTarget as HTMLElement).style.background='none'}>
-                  <div style={{display:'flex',alignItems:'center',gap:8}}>
-                    {song.hymn_number&&<span style={{fontSize:9,color:C.g2,fontWeight:800,minWidth:28,textAlign:'right',flexShrink:0}}>#{song.hymn_number}</span>}
-                    <span style={{fontSize:12,color:C.t1,flex:1}}>{song.title}</span>
-                  </div>
-                </div>
-              ))}
-              {displayList.length===0&&query.trim()&&<div style={{padding:'28px 16px',textAlign:'center',color:C.t4,fontSize:12}}>No hymns match "{query}"</div>}
-              {displayList.length===0&&!query.trim()&&<div style={{padding:'28px 16px',textAlign:'center',color:C.t4,fontSize:12}}>{hymnLangFilter!=='all'?`No ${langLabel(hymnLangFilter)} hymns found`:'Loading hymns…'}</div>}
-            </div>
-          </div>
-          <div style={{flex:1,display:'flex',alignItems:'center',justifyContent:'center',flexDirection:'column',gap:10,color:C.t4,background:C.bg1}}>
-            <div style={{fontSize:48,opacity:0.1}}>♪</div>
-            <div style={{fontSize:14,letterSpacing:'0.05em'}}>Select a hymn to preview</div>
-          </div>
+        </div>
+        {/* Right: empty state */}
+        <div style={{flex:1,display:'flex',alignItems:'center',justifyContent:'center',flexDirection:'column',gap:10,color:C.t4,background:C.bg1}}>
+          <div style={{fontSize:48,opacity:0.08}}>♪</div>
+          <div style={{fontSize:12,letterSpacing:'0.1em',fontWeight:500}}>SELECT A HYMN TO PREVIEW</div>
         </div>
       </div>
     )
