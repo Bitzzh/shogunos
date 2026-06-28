@@ -37,6 +37,19 @@ const C = {
 type SlideType  = 'text' | 'scripture' | 'announcement' | 'blank'
 type SlideAlign = 'left' | 'center' | 'right'
 
+// ── DRAG & DROP ──────────────────────────────────────────────────────────────
+// Shared MIME type used when dragging a song or verse out of the library onto the queue.
+const DRAG_MIME = 'application/x-shogun-item'
+function dragSource(title: string, type: string) {
+  return {
+    draggable: true,
+    onDragStart: (e: React.DragEvent) => {
+      e.dataTransfer.effectAllowed = 'copy'
+      e.dataTransfer.setData(DRAG_MIME, JSON.stringify({ title, type }))
+    },
+  }
+}
+
 interface Slide {
   id: number; title: string; type: SlideType; content: string; notes: string
   bg_color: string; bg_image: string | null; font_color: string; font_size: number
@@ -217,7 +230,7 @@ function SlidesTab({ goLive, addToQueue, notify }: {
         </div>
         {(selected||isNew)&&(
           <div style={{padding:'12px 20px',background:C.bg0,borderTop:`1px solid ${C.b0}`,display:'flex',gap:8}}>
-            <button onClick={()=>selected&&!isNew&&sendLive(selected)} disabled={!selected||isNew} style={{flex:1,padding:'12px 0',background:C.live,border:'none',color:'#fff',fontSize:12,fontWeight:700,letterSpacing:'0.08em',cursor:selected&&!isNew?'pointer':'not-allowed',fontFamily:'inherit',borderRadius:8,opacity:selected&&!isNew?1:0.35}}>GO LIVE</button>
+            <button className="shimmer-btn" onClick={()=>selected&&!isNew&&sendLive(selected)} disabled={!selected||isNew} style={{flex:1,padding:'12px 0',background:C.live,border:'none',color:'#fff',fontSize:12,fontWeight:700,letterSpacing:'0.08em',cursor:selected&&!isNew?'pointer':'not-allowed',fontFamily:'inherit',borderRadius:8,opacity:selected&&!isNew?1:0.35}}>GO LIVE</button>
             <button onClick={()=>selected&&!isNew&&addToQueue(selected.title||'Slide','slide')} disabled={!selected||isNew} style={{padding:'12px 18px',background:C.bg4,border:`1px solid ${C.b2}`,color:C.t1,fontSize:11,fontWeight:600,cursor:selected&&!isNew?'pointer':'not-allowed',fontFamily:'inherit',borderRadius:8,opacity:selected&&!isNew?1:0.35}}>+ Queue</button>
           </div>
         )}
@@ -468,6 +481,12 @@ function SongsTab({ goLive, addToQueue, notify }: { goLive:(t:string,l:string)=>
   const [filter,setFilter]           = useState<'all'|'hymnal'|'custom'>('all')
   const [loading,setLoading]         = useState(true)
   const [expandedLangs,setExpandedLangs] = useState<Record<string,boolean>>({})
+  const [showAddForm,setShowAddForm]     = useState(false)
+  const [newTitle,setNewTitle]           = useState('')
+  const [newHymnNum,setNewHymnNum]       = useState('')
+  const [newLang,setNewLang]             = useState('en')
+  const [newSections,setNewSections]     = useState<{type:string;content:string}[]>([{type:'verse',content:''}])
+  const [saving,setSaving]               = useState(false)
   const api = (window as any).shogunos
 
   const LANG_LABELS: Record<string,string> = {
@@ -477,18 +496,62 @@ function SongsTab({ goLive, addToQueue, notify }: { goLive:(t:string,l:string)=>
   const LANG_ORDER = ['en','sn','nd','fr','pt','sw','zu','xh','st']
   const langLabel = (l:string) => LANG_LABELS[l] || (l.charAt(0).toUpperCase()+l.slice(1))
 
-  useEffect(()=>{
-    api.searchSongs('').then((all:Song[])=>{
+  async function loadSongs(){
+    try{
+      const all:Song[] = await api.searchSongs('')
       const sorted = all.sort((a,b)=>(a.hymn_number||9999)-(b.hymn_number||9999))
       setSongs(sorted)
-      const langs = Array.from(new Set(sorted.map((s:Song)=>s.language).filter(Boolean)))
+      const songLangs = Array.from(new Set(sorted.map((s:Song)=>s.language).filter(Boolean)))
         .sort((a:any,b:any)=>LANG_ORDER.indexOf(a)-LANG_ORDER.indexOf(b))
-      if(langs.length>0) setExpandedLangs({[langs[0] as string]:true})
+      setExpandedLangs(e=>Object.keys(e).length>0?e:(songLangs.length>0?{[songLangs[0] as string]:true}:e))
       setLoading(false)
-    }).catch(()=>setLoading(false))
-  },[])
+      return sorted
+    }catch{ setLoading(false); return [] }
+  }
+
+  useEffect(()=>{ loadSongs() },[])
+
+  function resetAddForm(){
+    setNewTitle('');setNewHymnNum('');setNewLang('en');setNewSections([{type:'verse',content:''}])
+  }
+
+  function updateNewSection(i:number,patch:Partial<{type:string;content:string}>){
+    setNewSections(s=>s.map((sec,idx)=>idx===i?{...sec,...patch}:sec))
+  }
+  function addNewSection(){
+    setNewSections(s=>[...s,{type:s.length===0?'verse':'chorus',content:''}])
+  }
+  function removeNewSection(i:number){
+    setNewSections(s=>s.length<=1?s:s.filter((_,idx)=>idx!==i))
+  }
+
+  const canSaveNewSong = newTitle.trim().length>0 && newSections.some(s=>s.content.trim().length>0)
+
+  async function saveNewSong(){
+    if(!canSaveNewSong||saving) return
+    setSaving(true)
+    try{
+      const songId = await api.addSong(newTitle.trim(), newLang, 'custom', newHymnNum?parseInt(newHymnNum):undefined)
+      let order=1
+      for(const sec of newSections){
+        if(!sec.content.trim()) continue
+        await api.addSongSection(songId, sec.type, order++, sec.content.trim())
+      }
+      const reloaded = await loadSongs()
+      setExpandedLangs(e=>({...e,[newLang]:true}))
+      const created = reloaded.find((s:Song)=>s.id===songId)
+      if(created) await selectSong(created)
+      notify(`"${newTitle.trim()}" added to ${langLabel(newLang)}`)
+      setShowAddForm(false)
+      resetAddForm()
+    }catch(e:any){
+      notify('Failed to save song — '+(e?.message||'unknown error'))
+    }
+    setSaving(false)
+  }
 
   async function selectSong(song:Song){
+    setShowAddForm(false)
     setSelected(song); setCur(0)
     setSections(await api.getSongSections(song.id))
   }
@@ -525,7 +588,7 @@ function SongsTab({ goLive, addToQueue, notify }: { goLive:(t:string,l:string)=>
               style={{flex:1,background:'none',border:'none',color:C.t1,fontSize:12,outline:'none',padding:'8px 0',fontFamily:'inherit'}}/>
             {search&&<span onClick={()=>setSearch('')} style={{color:C.t3,cursor:'pointer',fontSize:12,lineHeight:1}}>✕</span>}
           </div>
-          <div style={{display:'flex',gap:4}}>
+          <div style={{display:'flex',gap:4,marginBottom:10}}>
             {(['all','hymnal','custom'] as const).map(f=>(
               <button key={f} onClick={()=>setFilter(f)}
                 style={{...btn,flex:1,padding:'5px 0',fontSize:9,fontWeight:700,letterSpacing:'0.06em',
@@ -536,6 +599,11 @@ function SongsTab({ goLive, addToQueue, notify }: { goLive:(t:string,l:string)=>
               </button>
             ))}
           </div>
+          <button onClick={()=>{setShowAddForm(true);setSelected(null)}}
+            style={{...btn,width:'100%',padding:'8px 0',fontSize:10,fontWeight:700,letterSpacing:'0.08em',
+              border:`1px solid ${C.p1}55`,color:C.p2,background:`${C.p1}12`,borderRadius:6}}>
+            + ADD SONG
+          </button>
         </div>
 
         <div style={{flex:1,overflowY:'auto'}}>
@@ -568,12 +636,14 @@ function SongsTab({ goLive, addToQueue, notify }: { goLive:(t:string,l:string)=>
                   const active=selected?.id===song.id
                   return (
                     <div key={song.id} onClick={()=>selectSong(song)}
+                      {...dragSource(song.title,'song')}
                       style={{padding:'9px 14px 9px 15px',borderLeft:`3px solid ${active?accent:'transparent'}`,
                         borderBottom:`1px solid ${C.b0}`,background:active?`${accent}0f`:C.bg2,
-                        cursor:'pointer',transition:'all 0.1s'}}
+                        cursor:'grab',transition:'all 0.1s'}}
                       onMouseEnter={e=>{if(!active)(e.currentTarget as HTMLElement).style.background=C.bg3}}
                       onMouseLeave={e=>{(e.currentTarget as HTMLElement).style.background=active?`${accent}0f`:C.bg2}}>
                       <div style={{display:'flex',alignItems:'center',gap:5,marginBottom:3}}>
+                        <span style={{color:C.t4,fontSize:9,flexShrink:0,opacity:0.6}}>⠿</span>
                         {song.hymn_number>0&&(
                           <span style={{fontSize:8,color:C.g1,fontWeight:700,padding:'1px 5px',background:`${C.g1}15`,border:`1px solid ${C.g1}33`,borderRadius:3}}>
                             #{String(song.hymn_number).padStart(3,'0')}
@@ -611,7 +681,75 @@ function SongsTab({ goLive, addToQueue, notify }: { goLive:(t:string,l:string)=>
       </div>
 
       {/* ── RIGHT: DETAIL ── */}
-      {!selected ? (
+      {showAddForm ? (
+        <div style={{flex:1,overflowY:'auto',background:C.bg1,padding:'28px 40px'}}>
+          <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:24}}>
+            <div>
+              <div style={{fontSize:9,fontWeight:700,letterSpacing:'0.2em',color:C.p2,marginBottom:6}}>NEW SONG</div>
+              <div style={{fontSize:20,fontWeight:700,color:C.t1}}>Add a hymn or song</div>
+            </div>
+            <button onClick={()=>{setShowAddForm(false);resetAddForm()}}
+              style={{...btn,padding:'7px 14px',background:'none',border:`1px solid ${C.b1}`,color:C.t3,fontSize:11,borderRadius:7}}>
+              Cancel
+            </button>
+          </div>
+
+          <div style={{display:'flex',gap:14,marginBottom:18}}>
+            <div style={{flex:1}}>
+              <label style={{fontSize:10,color:C.t3,fontWeight:600,letterSpacing:'0.06em',display:'block',marginBottom:6}}>TITLE</label>
+              <input value={newTitle} onChange={e=>setNewTitle(e.target.value)} placeholder="e.g. Amazing Grace" autoFocus
+                style={{width:'100%',background:C.bg3,border:`1px solid ${C.b1}`,color:C.t1,padding:'10px 12px',fontSize:13,outline:'none',fontFamily:'inherit',borderRadius:8}}/>
+            </div>
+            <div style={{width:110}}>
+              <label style={{fontSize:10,color:C.t3,fontWeight:600,letterSpacing:'0.06em',display:'block',marginBottom:6}}>HYMN #</label>
+              <input value={newHymnNum} onChange={e=>setNewHymnNum(e.target.value.replace(/[^0-9]/g,''))} placeholder="Optional"
+                style={{width:'100%',background:C.bg3,border:`1px solid ${C.b1}`,color:C.t1,padding:'10px 12px',fontSize:13,outline:'none',fontFamily:'inherit',borderRadius:8}}/>
+            </div>
+            <div style={{width:170}}>
+              <label style={{fontSize:10,color:C.t3,fontWeight:600,letterSpacing:'0.06em',display:'block',marginBottom:6}}>LANGUAGE</label>
+              <select value={newLang} onChange={e=>setNewLang(e.target.value)}
+                style={{width:'100%',background:C.bg3,border:`1px solid ${C.b1}`,color:C.t1,padding:'10px 12px',fontSize:13,outline:'none',fontFamily:'inherit',borderRadius:8}}>
+                {LANG_ORDER.map(l=><option key={l} value={l}>{langLabel(l)}</option>)}
+              </select>
+            </div>
+          </div>
+
+          <div style={{marginBottom:14,display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+            <label style={{fontSize:10,color:C.t3,fontWeight:600,letterSpacing:'0.06em'}}>SECTIONS</label>
+            <button onClick={addNewSection}
+              style={{...btn,padding:'5px 12px',background:'none',border:`1px solid ${C.b1}`,color:C.t2,fontSize:10,fontWeight:600,borderRadius:6}}>
+              + Add Section
+            </button>
+          </div>
+
+          <div style={{display:'flex',flexDirection:'column',gap:10,marginBottom:24}}>
+            {newSections.map((sec,i)=>(
+              <div key={i} style={{background:C.bg2,border:`1px solid ${C.b1}`,borderRadius:10,padding:14}}>
+                <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:8}}>
+                  <select value={sec.type} onChange={e=>updateNewSection(i,{type:e.target.value})}
+                    style={{background:C.bg4,border:`1px solid ${C.b1}`,color:C.p2,padding:'5px 8px',fontSize:10,fontWeight:700,letterSpacing:'0.05em',outline:'none',fontFamily:'inherit',borderRadius:5,textTransform:'uppercase' as const}}>
+                    {['verse','chorus','bridge','intro','outro'].map(t=><option key={t} value={t}>{t.toUpperCase()}</option>)}
+                  </select>
+                  <div style={{flex:1}}/>
+                  {newSections.length>1&&(
+                    <button onClick={()=>removeNewSection(i)} style={{background:'none',border:'none',color:C.t3,cursor:'pointer',fontSize:14,padding:0}}>✕</button>
+                  )}
+                </div>
+                <textarea value={sec.content} onChange={e=>updateNewSection(i,{content:e.target.value})}
+                  placeholder="Lyrics for this section…" rows={4}
+                  style={{width:'100%',background:C.bg3,border:`1px solid ${C.b1}`,color:C.t1,padding:'10px 12px',fontSize:13,outline:'none',fontFamily:'inherit',borderRadius:7,resize:'vertical' as const,lineHeight:1.6}}/>
+              </div>
+            ))}
+          </div>
+
+          <button onClick={saveNewSong} disabled={!canSaveNewSong||saving} className="shimmer-btn"
+            style={{padding:'12px 32px',background:canSaveNewSong&&!saving?`linear-gradient(135deg,${C.p1},#5b21b6)`:C.bg4,
+              border:'none',color:canSaveNewSong&&!saving?'#fff':C.t4,fontSize:12,fontWeight:700,
+              cursor:canSaveNewSong&&!saving?'pointer':'not-allowed',fontFamily:'inherit',borderRadius:9,letterSpacing:'0.06em',transition:'all 0.15s'}}>
+            {saving?'Saving…':'Save Song'}
+          </button>
+        </div>
+      ) : !selected ? (
         <div style={{flex:1,display:'flex',alignItems:'center',justifyContent:'center',
           flexDirection:'column',gap:10,color:C.t4,background:C.bg1}}>
           <div style={{fontSize:52,opacity:0.07}}>♪</div>
@@ -641,6 +779,19 @@ function SongsTab({ goLive, addToQueue, notify }: { goLive:(t:string,l:string)=>
                 border:`1px solid ${C.g2}`,color:C.g2,background:`${C.g2}10`,borderRadius:5}}>
               + QUEUE
             </button>
+            {selected.source==='custom'&&(
+              <button onClick={async()=>{
+                  if(!confirm(`Delete "${selected.title}"? This can't be undone.`))return
+                  await api.deleteSong(selected.id)
+                  setSelected(null);setSections([])
+                  await loadSongs()
+                  notify('Song deleted')
+                }}
+                style={{...btn,padding:'8px 14px',fontSize:10,fontWeight:700,letterSpacing:'0.06em',
+                  border:`1px solid ${C.live}55`,color:C.live,background:`${C.live}10`,borderRadius:5}}>
+                DELETE
+              </button>
+            )}
           </div>
 
           <div style={{display:'flex',gap:6,padding:'10px 16px',background:C.bg2,
@@ -691,7 +842,7 @@ function SongsTab({ goLive, addToQueue, notify }: { goLive:(t:string,l:string)=>
                 cursor:cur===sections.length-1?'not-allowed':'pointer'}}>
               ›
             </button>
-            <button onClick={()=>sec&&goLive(selected.title,sec.content)}
+            <button onClick={()=>sec&&goLive(selected.title,sec.content)} className="shimmer-btn"
               style={{...btn,padding:'11px 32px',
                 background:`linear-gradient(135deg,${C.live},#b91c1c)`,
                 border:`1px solid ${C.live}55`,
@@ -758,9 +909,16 @@ function ImportTab({ notify }: { notify:(m:string)=>void }) {
   const [result,setResult]       = useState<{success:boolean;message:string}|null>(null)
   const [mode,setMode]           = useState<'json'|'qsp'>('json')
   const [dragOver,setDragOver]   = useState(false)
+  const [qspLang,setQspLang]     = useState('en')
   const fileRef  = useRef<HTMLInputElement>(null)
   const qspRef   = useRef<HTMLInputElement>(null)
   const api = (window as any).shogunos
+
+  const QSP_LANGS: { id:string; label:string }[] = [
+    { id:'en', label:'English' }, { id:'sn', label:'Shona' }, { id:'nd', label:'Ndebele' },
+    { id:'fr', label:'French' }, { id:'pt', label:'Portuguese' }, { id:'sw', label:'Swahili' },
+    { id:'zu', label:'Zulu' }, { id:'xh', label:'Xhosa' }, { id:'st', label:'Sotho' },
+  ]
 
   async function handleJson(file:File){
     if(!file.name.endsWith('.json')){setResult({success:false,message:'Please select a .json ShogunOS backup file'});return}
@@ -782,7 +940,7 @@ function ImportTab({ notify }: { notify:(m:string)=>void }) {
       const u8=new Uint8Array(ab)
       let bin='';for(let i=0;i<u8.length;i++)bin+=String.fromCharCode(u8[i])
       const b64=btoa(bin)
-      const r=await api.importQSP(b64)
+      const r=await api.importQSP(b64,qspLang)
       if(r.success){
         const msg=`Quelea import — ${r.counts.songs} songs added${r.skipped>0?`, ${r.skipped} duplicates skipped`:''}`
         setResult({success:true,message:msg});notify(`QSP: ${r.counts.songs} songs imported`)
@@ -810,7 +968,13 @@ function ImportTab({ notify }: { notify:(m:string)=>void }) {
       {mode==='qsp'&&(
         <div style={{padding:'12px 16px',background:`${C.p1}12`,border:`1px solid ${C.p1}44`,borderRadius:10}}>
           <div style={{fontSize:11,color:C.p2,fontWeight:700,marginBottom:4}}>Quelea Song Pack Import</div>
-          <div style={{fontSize:12,color:C.t3,lineHeight:1.6}}>In Quelea, go to <strong style={{color:C.t2}}>Database → Export → Song Pack (.qsp)</strong>, then drop the file below.</div>
+          <div style={{fontSize:12,color:C.t3,lineHeight:1.6,marginBottom:12}}>In Quelea, go to <strong style={{color:C.t2}}>Database → Export → Song Pack (.qsp)</strong>, then drop the file below.</div>
+          <label style={{fontSize:10,color:C.t3,fontWeight:600,letterSpacing:'0.05em',textTransform:'uppercase' as const,display:'block',marginBottom:6}}>Tag all songs in this pack as</label>
+          <select value={qspLang} onChange={e=>setQspLang(e.target.value)}
+            style={{width:'100%',background:C.bg4,border:`1px solid ${C.b1}`,color:C.t1,padding:'9px 12px',fontSize:12,outline:'none',fontFamily:'inherit',borderRadius:8}}>
+            {QSP_LANGS.map(l=><option key={l.id} value={l.id}>{l.label}</option>)}
+          </select>
+          <div style={{fontSize:10,color:C.t4,marginTop:6,lineHeight:1.5}}>Quelea song packs don't store a language, so pick the one that matches this pack — it'll be used to group these songs in the Hymnal and My Songs views.</div>
         </div>
       )}
       <div onDragOver={e=>{e.preventDefault();setDragOver(true)}} onDragLeave={()=>setDragOver(false)} onDrop={onDrop} onClick={()=>mode==='qsp'?qspRef.current?.click():fileRef.current?.click()}
@@ -981,6 +1145,9 @@ export default function App() {
   const [selectedChapter,setSelectedChapter] = useState<number|null>(null)
   const [chapterVerses,setChapterVerses] = useState<BibleVerse[]>([])
   const [loadingChapter,setLoadingChapter] = useState(false)
+  // Drag-and-drop queue state
+  const [draggedQueueIdx,setDraggedQueueIdx] = useState<number|null>(null)
+  const [queueDragOver,setQueueDragOver]     = useState(false)
 
   useEffect(()=>{
     const tick=()=>setClock(new Date().toLocaleTimeString('en-ZW',{hour:'2-digit',minute:'2-digit'}))
@@ -1069,13 +1236,65 @@ export default function App() {
   }
 
   async function addToQueue(title:string,type:string){
-    await(window as any).shogunos.addToQueue(title,type)
-    setQueue(q=>[...q,{id:Date.now().toString(),title,type}])
+    const item=await(window as any).shogunos.addToQueue(title,type)
+    setQueue(q=>[...q,{id:String(item.id),title,type}])
     notify('Added to queue')
   }
 
-  async function removeFromQueue(id:string){setQueue(q=>q.filter(x=>x.id!==id))}
+  async function removeFromQueue(id:string){
+    await(window as any).shogunos.removeFromQueue(Number(id))
+    setQueue(q=>q.filter(x=>x.id!==id))
+  }
   async function clearQueue(){await(window as any).shogunos.clearQueue();setQueue([])}
+
+  async function reorderQueueItems(next:QueueItem[]){
+    setQueue(next)
+    await(window as any).shogunos.reorderQueue(next.map(x=>Number(x.id)))
+  }
+
+  // Drop a song/verse dragged from the library onto the queue
+  function onQueueZoneDragOver(e:React.DragEvent){
+    if(e.dataTransfer.types.includes(DRAG_MIME)){
+      e.preventDefault();e.dataTransfer.dropEffect='copy';setQueueDragOver(true)
+    }
+  }
+  function onQueueZoneDragLeave(){ setQueueDragOver(false) }
+  async function onQueueZoneDrop(e:React.DragEvent){
+    e.preventDefault();setQueueDragOver(false)
+    const raw=e.dataTransfer.getData(DRAG_MIME)
+    if(!raw)return
+    try{ const {title,type}=JSON.parse(raw); await addToQueue(title,type) }catch{}
+  }
+  // Reordering existing queue items by dragging them over each other
+  function onQueueItemDragStart(e:React.DragEvent,idx:number){
+    e.dataTransfer.effectAllowed='move'
+    e.dataTransfer.setData('application/x-queue-reorder',String(idx))
+    setDraggedQueueIdx(idx)
+  }
+  function onQueueItemDragOver(e:React.DragEvent){
+    if(e.dataTransfer.types.includes('application/x-queue-reorder')){
+      e.preventDefault();e.dataTransfer.dropEffect='move'
+    }else if(e.dataTransfer.types.includes(DRAG_MIME)){
+      e.preventDefault();e.dataTransfer.dropEffect='copy';setQueueDragOver(true)
+    }
+  }
+  async function onQueueItemDrop(e:React.DragEvent,idx:number){
+    e.preventDefault();setQueueDragOver(false)
+    if(e.dataTransfer.types.includes('application/x-queue-reorder')){
+      const from=draggedQueueIdx
+      setDraggedQueueIdx(null)
+      if(from==null||from===idx)return
+      const next=[...queue]
+      const [moved]=next.splice(from,1)
+      next.splice(idx,0,moved)
+      await reorderQueueItems(next)
+    }else{
+      const raw=e.dataTransfer.getData(DRAG_MIME)
+      if(!raw)return
+      try{ const {title,type}=JSON.parse(raw); await addToQueue(title,type) }catch{}
+    }
+  }
+  function onQueueItemDragEnd(){ setDraggedQueueIdx(null);setQueueDragOver(false) }
 
   function notify(msg:string){
     setToast(msg)
@@ -1085,12 +1304,12 @@ export default function App() {
 
   const section=sections[currentSection]
 
-  const NAV:[NavGroup,string][] = [
-    ['library','Library'],
-    ['present','Present'],
-    ['media','Media'],
-    ['service','Service'],
-    ['settings','Settings'],
+  const NAV:[NavGroup,string,string][] = [
+    ['library','Library','♫'],
+    ['present','Present','▣'],
+    ['media','Media','◈'],
+    ['service','Service','☰'],
+    ['settings','Settings','⚙'],
   ]
 
   const activeSubId = navGroup==='library'?libTab:navGroup==='present'?presentTab:navGroup==='service'?'queue':navGroup==='media'?'media':settingsTab
@@ -1105,14 +1324,22 @@ export default function App() {
     }
     if(navGroup==='service'){
       return (
-        <div style={{flex:1,padding:32,overflowY:'auto',background:C.bg1,display:'flex',flexDirection:'column',gap:14}}>
+        <div onDragOver={onQueueZoneDragOver} onDragLeave={onQueueZoneDragLeave} onDrop={onQueueZoneDrop}
+          style={{flex:1,padding:32,overflowY:'auto',background:C.bg1,display:'flex',flexDirection:'column',gap:14}}>
           <div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
             <div style={{fontSize:9,fontWeight:700,letterSpacing:'0.2em',color:C.t4,textTransform:'uppercase' as const}}>Service Queue — {queue.length} items</div>
             {queue.length>0&&<button onClick={clearQueue} style={{padding:'5px 12px',background:'none',border:`1px solid ${C.b1}`,color:C.t3,fontSize:11,cursor:'pointer',fontFamily:'inherit',borderRadius:6}}>Clear All</button>}
           </div>
-          {queue.length===0&&<div style={{padding:40,textAlign:'center',color:C.t4,fontSize:13}}>Queue is empty — add items from Hymnal, Bible or Slides</div>}
+          {queue.length===0&&(
+            <div style={{padding:40,textAlign:'center',color:queueDragOver?C.p2:C.t4,fontSize:13,border:`1.5px dashed ${queueDragOver?C.p1:C.b1}`,borderRadius:12,background:queueDragOver?`${C.p1}0c`:'transparent',transition:'all 0.15s'}}>
+              {queueDragOver?'Drop to add to queue':'Queue is empty — drag a hymn or verse here, or add from Hymnal, Bible or Slides'}
+            </div>
+          )}
           {queue.map((item,i)=>(
-            <div key={item.id} style={{display:'flex',alignItems:'center',gap:14,padding:'14px 18px',background:i===0?C.bg3:C.bg2,borderRadius:10,border:`1px solid ${i===0?C.b2:C.b1}`}}>
+            <div key={item.id}
+              draggable onDragStart={e=>onQueueItemDragStart(e,i)} onDragOver={onQueueItemDragOver} onDrop={e=>onQueueItemDrop(e,i)} onDragEnd={onQueueItemDragEnd}
+              style={{display:'flex',alignItems:'center',gap:14,padding:'14px 18px',background:i===0?C.bg3:C.bg2,borderRadius:10,border:`1px solid ${i===0?C.b2:C.b1}`,cursor:'grab',opacity:draggedQueueIdx===i?0.35:1,transition:'opacity 0.15s'}}>
+              <span style={{color:C.t4,fontSize:13,opacity:0.6,flexShrink:0}}>⠿</span>
               <div style={{width:28,height:28,borderRadius:'50%',background:i===0?C.p1:C.bg4,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
                 <span style={{fontSize:11,color:i===0?'#fff':C.t3,fontWeight:700}}>{i+1}</span>
               </div>
@@ -1140,11 +1367,12 @@ export default function App() {
           Daily Verse — {new Date().toLocaleDateString('en-ZW',{weekday:'long',year:'numeric',month:'long',day:'numeric'})}
         </div>
         {dailyVerse?(
-          <div style={{background:C.bg2,borderRadius:14,padding:32,border:`1px solid ${C.b1}`,flex:1}}>
+          <div {...dragSource(`${dailyVerse.book} ${dailyVerse.chapter}:${dailyVerse.verse}`,'verse')}
+            style={{background:C.bg2,borderRadius:14,padding:32,border:`1px solid ${C.b1}`,flex:1,cursor:'grab'}}>
             <div style={{fontSize:13,color:C.g2,fontWeight:700,marginBottom:20}}>{dailyVerse.book} {dailyVerse.chapter}:{dailyVerse.verse} — {dailyVerse.version}</div>
             <div style={{fontSize:24,lineHeight:1.9,color:C.t1,fontStyle:'italic',fontWeight:300}}>"{dailyVerse.text}"</div>
             <div style={{display:'flex',gap:10,marginTop:28}}>
-              <button onClick={()=>goLive(`${dailyVerse.book} ${dailyVerse.chapter}:${dailyVerse.verse}`,dailyVerse.text)} style={{padding:'11px 28px',background:`linear-gradient(135deg,${C.live},#b91c1c)`,border:'none',color:'#fff',fontSize:12,fontWeight:700,cursor:'pointer',fontFamily:'inherit',borderRadius:9}}>GO LIVE</button>
+              <button className="shimmer-btn" onClick={()=>goLive(`${dailyVerse.book} ${dailyVerse.chapter}:${dailyVerse.verse}`,dailyVerse.text)} style={{padding:'11px 28px',background:`linear-gradient(135deg,${C.live},#b91c1c)`,border:'none',color:'#fff',fontSize:12,fontWeight:700,cursor:'pointer',fontFamily:'inherit',borderRadius:9}}>GO LIVE</button>
               <button onClick={()=>addToQueue(`${dailyVerse.book} ${dailyVerse.chapter}:${dailyVerse.verse}`,'verse')} style={{padding:'11px 18px',background:C.bg4,border:`1px solid ${C.b2}`,color:C.t1,fontSize:11,fontWeight:600,cursor:'pointer',fontFamily:'inherit',borderRadius:9}}>+ Queue</button>
             </div>
           </div>
@@ -1179,7 +1407,8 @@ export default function App() {
               <div style={{flex:1,overflowY:'auto',padding:'6px 8px'}}>
                 {bibleResults.map(v=>(
                   <div key={v.id} onClick={()=>setSelectedVerse(v)}
-                    style={{padding:'9px 10px',marginBottom:3,cursor:'pointer',borderRadius:7,border:`1px solid ${selectedVerse?.id===v.id?C.b2:'transparent'}`,background:selectedVerse?.id===v.id?C.bg4:'none',transition:'all 0.1s'}}
+                    {...dragSource(`${v.book} ${v.chapter}:${v.verse}`,'verse')}
+                    style={{padding:'9px 10px',marginBottom:3,cursor:'grab',borderRadius:7,border:`1px solid ${selectedVerse?.id===v.id?C.b2:'transparent'}`,background:selectedVerse?.id===v.id?C.bg4:'none',transition:'all 0.1s'}}
                     onMouseEnter={e=>(e.currentTarget as HTMLElement).style.background=C.bg3}
                     onMouseLeave={e=>(e.currentTarget as HTMLElement).style.background=selectedVerse?.id===v.id?C.bg4:'none'}>
                     <div style={{fontSize:9,color:C.p2,fontWeight:700,marginBottom:3}}>{v.book} {v.chapter}:{v.verse}</div>
@@ -1225,7 +1454,8 @@ export default function App() {
                 {loadingChapter&&<div style={{padding:20,textAlign:'center',color:C.t4,fontSize:11}}>Loading…</div>}
                 {!loadingChapter&&chapterVerses.map(v=>(
                   <div key={v.id} onClick={()=>setSelectedVerse(v)}
-                    style={{padding:'8px 10px',marginBottom:2,cursor:'pointer',borderRadius:7,border:`1px solid ${selectedVerse?.id===v.id?C.b2:'transparent'}`,background:selectedVerse?.id===v.id?C.bg4:'none',transition:'all 0.1s'}}
+                    {...dragSource(`${v.book} ${v.chapter}:${v.verse}`,'verse')}
+                    style={{padding:'8px 10px',marginBottom:2,cursor:'grab',borderRadius:7,border:`1px solid ${selectedVerse?.id===v.id?C.b2:'transparent'}`,background:selectedVerse?.id===v.id?C.bg4:'none',transition:'all 0.1s'}}
                     onMouseEnter={e=>(e.currentTarget as HTMLElement).style.background=C.bg3}
                     onMouseLeave={e=>(e.currentTarget as HTMLElement).style.background=selectedVerse?.id===v.id?C.bg4:'none'}>
                     <div style={{display:'flex',gap:8,alignItems:'flex-start'}}>
@@ -1246,7 +1476,7 @@ export default function App() {
               <div style={{fontSize:13,color:C.p2,fontWeight:700}}>{selectedVerse.book} {selectedVerse.chapter}:{selectedVerse.verse} — {selectedVerse.version}</div>
               <div style={{fontSize:24,lineHeight:1.9,color:C.t1,fontWeight:300,fontStyle:'italic',flex:1}}>"{selectedVerse.text}"</div>
               <div style={{display:'flex',gap:10}}>
-                <button onClick={()=>goLive(`${selectedVerse.book} ${selectedVerse.chapter}:${selectedVerse.verse}`,selectedVerse.text)} style={{padding:'11px 28px',background:`linear-gradient(135deg,${C.live},#b91c1c)`,border:'none',color:'#fff',fontSize:12,fontWeight:700,cursor:'pointer',fontFamily:'inherit',borderRadius:9}}>GO LIVE</button>
+                <button className="shimmer-btn" onClick={()=>goLive(`${selectedVerse.book} ${selectedVerse.chapter}:${selectedVerse.verse}`,selectedVerse.text)} style={{padding:'11px 28px',background:`linear-gradient(135deg,${C.live},#b91c1c)`,border:'none',color:'#fff',fontSize:12,fontWeight:700,cursor:'pointer',fontFamily:'inherit',borderRadius:9}}>GO LIVE</button>
                 <button onClick={()=>addToQueue(`${selectedVerse.book} ${selectedVerse.chapter}:${selectedVerse.verse}`,'verse')} style={{padding:'11px 18px',background:C.bg4,border:`1px solid ${C.b2}`,color:C.t1,fontSize:11,fontWeight:600,cursor:'pointer',fontFamily:'inherit',borderRadius:9}}>+ Queue</button>
               </div>
             </>:(
@@ -1288,7 +1518,7 @@ export default function App() {
           <button onClick={()=>currentSection>0&&handleSectionClick(currentSection-1)} disabled={currentSection===0} style={{padding:'9px 18px',background:'none',border:`1px solid ${C.b1}`,color:C.t2,cursor:currentSection===0?'not-allowed':'pointer',fontSize:20,borderRadius:8,opacity:currentSection===0?0.3:1}}>‹</button>
           <div style={{fontSize:12,color:C.t3,flex:1,textAlign:'center'}}>{currentSection+1} / {sections.length}</div>
           <button onClick={()=>currentSection<sections.length-1&&handleSectionClick(currentSection+1)} disabled={currentSection===sections.length-1} style={{padding:'9px 18px',background:'none',border:`1px solid ${C.b1}`,color:C.t2,cursor:currentSection===sections.length-1?'not-allowed':'pointer',fontSize:20,borderRadius:8,opacity:currentSection===sections.length-1?0.3:1}}>›</button>
-          <button onClick={()=>section&&goLive(selected.title,section.content)} style={{padding:'11px 28px',background:`linear-gradient(135deg,${C.live},#b91c1c)`,border:'none',color:'#fff',fontSize:12,fontWeight:700,cursor:'pointer',fontFamily:'inherit',borderRadius:9,letterSpacing:'0.06em'}}>GO LIVE</button>
+          <button className="shimmer-btn" onClick={()=>section&&goLive(selected.title,section.content)} style={{padding:'11px 28px',background:`linear-gradient(135deg,${C.live},#b91c1c)`,border:'none',color:'#fff',fontSize:12,fontWeight:700,cursor:'pointer',fontFamily:'inherit',borderRadius:9,letterSpacing:'0.06em'}}>GO LIVE</button>
         </div>
       </div>
     )
@@ -1346,10 +1576,11 @@ export default function App() {
                   </button>
                   {isOpen && group.map(song=>(
                     <div key={song.id} onClick={()=>handleSelectSong(song)}
+                      {...dragSource(song.title,'song')}
                       style={{padding:'9px 14px 9px 15px',
                         borderLeft:`3px solid transparent`,
                         borderBottom:`1px solid ${C.b0}`,
-                        background:C.bg2,cursor:'pointer',transition:'all 0.1s'}}
+                        background:C.bg2,cursor:'grab',transition:'all 0.1s'}}
                       onMouseEnter={e=>{
                         const el=e.currentTarget as HTMLElement
                         el.style.background=C.bg3
@@ -1361,6 +1592,7 @@ export default function App() {
                         el.style.borderLeftColor='transparent'
                       }}>
                       <div style={{display:'flex',alignItems:'center',gap:8}}>
+                        <span style={{color:C.t4,fontSize:10,flexShrink:0,opacity:0.6}}>⠿</span>
                         {song.hymn_number>0 && (
                           <span style={{fontSize:9,color:C.g1,fontWeight:700,minWidth:28,textAlign:'right' as const,flexShrink:0,
                             padding:'1px 5px',background:`${C.g1}15`,border:`1px solid ${C.g1}33`,borderRadius:3}}>
@@ -1394,12 +1626,35 @@ export default function App() {
   }
 
   return (
-    <div style={{display:'flex',flexDirection:'column',height:'100vh',background:C.bg0,fontFamily:"'Inter','Segoe UI',sans-serif",overflow:'hidden',color:C.t1,fontSize:13}}>
-      <style>{`*{box-sizing:border-box}::-webkit-scrollbar{width:4px;height:4px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:${C.b2};border-radius:2px}input::placeholder,textarea::placeholder{color:${C.t4}}`}</style>
+    <div style={{display:'flex',flexDirection:'column',height:'100vh',background:C.bg0,fontFamily:"'Inter','Segoe UI',sans-serif",overflow:'hidden',color:C.t1,fontSize:13,position:'relative'}}>
+      <style>{`
+        *{box-sizing:border-box}
+        ::-webkit-scrollbar{width:4px;height:4px}
+        ::-webkit-scrollbar-track{background:transparent}
+        ::-webkit-scrollbar-thumb{background:${C.b2};border-radius:2px}
+        input::placeholder,textarea::placeholder{color:${C.t4}}
+        input:focus,select:focus,textarea:focus{outline:none;border-color:${C.p1}aa!important;box-shadow:0 0 0 3px ${C.p1}1f!important}
+        @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-3px)}}
+        @keyframes pulseGlow{0%,100%{opacity:1}50%{opacity:0.45}}
+        @keyframes shimmerSweep{0%{left:-100%}60%,100%{left:150%}}
+        @keyframes slideDown{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:translateY(0)}}
+        .logo-mark{animation:float 5s ease-in-out infinite}
+        .live-dot{animation:pulseGlow 1.6s ease-in-out infinite}
+        .shimmer-btn{position:relative;overflow:hidden}
+        .shimmer-btn::after{content:'';position:absolute;top:0;left:-100%;width:60%;height:100%;background:linear-gradient(to right,transparent,rgba(255,255,255,0.12),transparent);transform:skewX(-20deg);animation:shimmerSweep 3.2s ease infinite;pointer-events:none}
+        .toast-anim{animation:slideDown 0.25s ease}
+      `}</style>
+
+      {/* Ambient depth wash — same aurora feel as the sign-in screen */}
+      <div style={{position:'absolute',inset:0,pointerEvents:'none',zIndex:60,
+        background:`radial-gradient(ellipse 50% 40% at 10% 6%, ${C.p1}0d, transparent 60%), radial-gradient(ellipse 45% 35% at 94% 94%, ${C.g1}0a, transparent 60%)`}} />
+      {/* Top accent line */}
+      <div style={{position:'absolute',top:0,left:0,right:0,height:2,zIndex:61,pointerEvents:'none',
+        background:`linear-gradient(to right,transparent,${C.p1},${C.g1},${C.p1},transparent)`}} />
 
       {/* TOPBAR */}
       <div style={{height:52,background:C.bg1,borderBottom:`1px solid ${C.b0}`,display:'flex',alignItems:'center',flexShrink:0,paddingLeft:4,paddingRight:14,gap:0}}>
-        <div style={{width:52,height:'100%',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+        <div className="logo-mark" style={{width:52,height:'100%',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
           <svg width="28" height="28" viewBox="0 0 100 100">
             <defs>
               <radialGradient id="tg1" cx="50%" cy="30%" r="70%"><stop offset="0%" stopColor="#1a0a2e"/><stop offset="100%" stopColor="#060609"/></radialGradient>
@@ -1453,10 +1708,13 @@ export default function App() {
 
         {/* SIDEBAR */}
         <div style={{width:196,background:C.bg1,borderRight:`1px solid ${C.b0}`,display:'flex',flexDirection:'column',flexShrink:0,overflowY:'auto'}}>
-          {NAV.map(([gid,gLabel])=>(
+          {NAV.map(([gid,gLabel,gIcon])=>(
             <div key={gid}>
               <button onClick={()=>setNavGroup(gid as NavGroup)}
-                style={{width:'100%',display:'flex',alignItems:'center',padding:'11px 16px',background:navGroup===gid?C.bg3:'none',border:'none',borderLeft:`3px solid ${navGroup===gid?C.p1:'transparent'}`,color:navGroup===gid?C.t1:C.t3,cursor:'pointer',fontFamily:'inherit',fontSize:13,fontWeight:navGroup===gid?600:400,transition:'all 0.12s',textAlign:'left'}}>
+                style={{width:'100%',display:'flex',alignItems:'center',gap:10,padding:'11px 16px',background:navGroup===gid?C.bg3:'none',border:'none',borderLeft:`3px solid ${navGroup===gid?C.p1:'transparent'}`,color:navGroup===gid?C.t1:C.t3,cursor:'pointer',fontFamily:'inherit',fontSize:13,fontWeight:navGroup===gid?600:400,transition:'all 0.15s',textAlign:'left',boxShadow:navGroup===gid?`inset 0 0 24px ${C.p1}0f`:'none'}}
+                onMouseEnter={e=>{if(navGroup!==gid)(e.currentTarget as HTMLElement).style.background=C.bg2}}
+                onMouseLeave={e=>{if(navGroup!==gid)(e.currentTarget as HTMLElement).style.background='none'}}>
+                <span style={{fontSize:13,opacity:navGroup===gid?1:0.55,color:navGroup===gid?C.p2:C.t3,width:16,textAlign:'center' as const,flexShrink:0}}>{gIcon}</span>
                 {gLabel}
               </button>
               {navGroup===gid&&subItems[gid as NavGroup].map(sub=>(
@@ -1466,7 +1724,9 @@ export default function App() {
                     if(gid==='present')setPresentTab(sub.id as PresentTab)
                     if(gid==='settings')setSettingsTab(sub.id as SettingsTab)
                   }}
-                  style={{width:'100%',display:'flex',alignItems:'center',padding:'8px 16px 8px 28px',background:activeSubId===sub.id?`${C.p1}15`:'none',border:'none',borderLeft:`3px solid ${activeSubId===sub.id?C.p1:'transparent'}`,color:activeSubId===sub.id?C.p2:C.t3,cursor:'pointer',fontFamily:'inherit',fontSize:12,fontWeight:activeSubId===sub.id?600:400,transition:'all 0.1s',textAlign:'left'}}>
+                  style={{width:'100%',display:'flex',alignItems:'center',padding:'8px 16px 8px 28px',background:activeSubId===sub.id?`${C.p1}15`:'none',border:'none',borderLeft:`3px solid ${activeSubId===sub.id?C.p1:'transparent'}`,color:activeSubId===sub.id?C.p2:C.t3,cursor:'pointer',fontFamily:'inherit',fontSize:12,fontWeight:activeSubId===sub.id?600:400,transition:'all 0.1s',textAlign:'left'}}
+                  onMouseEnter={e=>{if(activeSubId!==sub.id)(e.currentTarget as HTMLElement).style.background=C.bg2}}
+                  onMouseLeave={e=>{if(activeSubId!==sub.id)(e.currentTarget as HTMLElement).style.background='none'}}>
                   {sub.label}
                 </button>
               ))}
@@ -1477,8 +1737,8 @@ export default function App() {
         {/* MAIN */}
         <div style={{flex:1,display:'flex',flexDirection:'column',minWidth:0,overflow:'hidden'}}>
           {toast&&(
-            <div style={{padding:'7px 18px',background:C.bg3,borderBottom:`1px solid ${C.b0}`,fontSize:12,color:C.t2,flexShrink:0,display:'flex',alignItems:'center',gap:8}}>
-              <div style={{width:5,height:5,borderRadius:'50%',background:C.p1,flexShrink:0}}/>
+            <div className="toast-anim" style={{padding:'8px 18px',background:C.bg3,borderBottom:`1px solid ${C.b0}`,fontSize:12,color:C.t2,flexShrink:0,display:'flex',alignItems:'center',gap:8}}>
+              <div className="live-dot" style={{width:5,height:5,borderRadius:'50%',background:C.p1,boxShadow:`0 0 6px ${C.p1}`,flexShrink:0}}/>
               {toast}
             </div>
           )}
@@ -1505,7 +1765,7 @@ export default function App() {
             <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:8}}>
               <div style={{fontSize:8,fontWeight:700,letterSpacing:'0.2em',color:C.t4,textTransform:'uppercase'}}>Live</div>
               <div style={{display:'flex',alignItems:'center',gap:5}}>
-                <div style={{width:6,height:6,borderRadius:'50%',background:live?C.live:C.t4,boxShadow:live?`0 0 8px ${C.live}`:'none',transition:'all 0.3s'}}/>
+                <div style={{width:6,height:6,borderRadius:'50%',background:live?C.live:C.t4,boxShadow:live?`0 0 8px ${C.live}`:'none',transition:'all 0.3s'}} className={live?'live-dot':undefined}/>
                 <span style={{fontSize:9,color:live?C.live:C.t4,fontWeight:700}}>{live?'ON AIR':'OFF'}</span>
               </div>
             </div>
@@ -1522,10 +1782,13 @@ export default function App() {
             <div style={{fontSize:8,fontWeight:700,letterSpacing:'0.2em',color:C.t4,textTransform:'uppercase'}}>Queue ({queue.length})</div>
             {queue.length>0&&<button onClick={clearQueue} style={{background:'none',border:'none',color:C.t4,cursor:'pointer',fontSize:10,fontFamily:'inherit'}}>Clear</button>}
           </div>
-          <div style={{flex:1,overflowY:'auto',padding:'4px 8px'}}>
-            {queue.length===0&&<div style={{padding:'12px 8px',fontSize:11,color:C.t4,textAlign:'center'}}>Queue is empty</div>}
+          <div onDragOver={onQueueZoneDragOver} onDragLeave={onQueueZoneDragLeave} onDrop={onQueueZoneDrop}
+            style={{flex:1,overflowY:'auto',padding:'4px 8px',border:queueDragOver?`1.5px dashed ${C.p1}`:'1.5px dashed transparent',borderRadius:8,background:queueDragOver?`${C.p1}0a`:'transparent',transition:'all 0.15s',margin:queueDragOver?2:0}}>
+            {queue.length===0&&<div style={{padding:'12px 8px',fontSize:11,color:queueDragOver?C.p2:C.t4,textAlign:'center'}}>{queueDragOver?'Drop here':'Queue is empty — drag items here'}</div>}
             {queue.map((item,i)=>(
-              <div key={item.id} style={{display:'flex',alignItems:'center',gap:8,padding:'7px 8px',marginBottom:2,borderRadius:7,background:i===0?C.bg3:'none',border:`1px solid ${i===0?C.b2:'transparent'}`}}>
+              <div key={item.id}
+                draggable onDragStart={e=>onQueueItemDragStart(e,i)} onDragOver={onQueueItemDragOver} onDrop={e=>onQueueItemDrop(e,i)} onDragEnd={onQueueItemDragEnd}
+                style={{display:'flex',alignItems:'center',gap:8,padding:'7px 8px',marginBottom:2,borderRadius:7,background:i===0?C.bg3:'none',border:`1px solid ${i===0?C.b2:'transparent'}`,cursor:'grab',opacity:draggedQueueIdx===i?0.35:1,transition:'opacity 0.15s'}}>
                 <span style={{fontSize:10,color:i===0?C.p2:C.t4,width:16,textAlign:'center',flexShrink:0,fontWeight:700}}>{i+1}</span>
                 <span style={{fontSize:11,color:C.t2,flex:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{item.title}</span>
                 <button onClick={()=>removeFromQueue(item.id)} style={{background:'none',border:'none',color:C.t4,cursor:'pointer',fontSize:14,padding:0,flexShrink:0}}>×</button>
@@ -1544,7 +1807,10 @@ export default function App() {
                 else if(libTab==='bible'&&selectedVerse) goLive(`${selectedVerse.book} ${selectedVerse.chapter}:${selectedVerse.verse}`,selectedVerse.text)
                 else if(libTab==='daily'&&dailyVerse) goLive(`${dailyVerse.book} ${dailyVerse.chapter}:${dailyVerse.verse}`,dailyVerse.text)
               }
-            }} style={{padding:'11px 0',background:`linear-gradient(135deg,${C.live},#b91c1c)`,border:'none',color:'#fff',fontSize:12,fontWeight:700,letterSpacing:'0.08em',cursor:'pointer',fontFamily:'inherit',borderRadius:8}}>GO LIVE</button>
+            }} className="shimmer-btn"
+              onMouseEnter={e=>{(e.currentTarget as HTMLElement).style.boxShadow=`0 4px 18px ${C.live}55`;(e.currentTarget as HTMLElement).style.transform='translateY(-1px)'}}
+              onMouseLeave={e=>{(e.currentTarget as HTMLElement).style.boxShadow='none';(e.currentTarget as HTMLElement).style.transform='translateY(0)'}}
+              style={{padding:'11px 0',background:`linear-gradient(135deg,${C.live},#b91c1c)`,border:'none',color:'#fff',fontSize:12,fontWeight:700,letterSpacing:'0.08em',cursor:'pointer',fontFamily:'inherit',borderRadius:8,transition:'all 0.15s'}}>GO LIVE</button>
             <div style={{display:'flex',gap:4}}>
               <button onClick={handleBlank} style={{flex:1,padding:'8px 0',background:blankScreen?C.bg5:'none',border:`1px solid ${blankScreen?C.b2:C.b1}`,color:blankScreen?C.t1:C.t3,fontSize:11,fontWeight:600,cursor:'pointer',fontFamily:'inherit',borderRadius:7,transition:'all 0.15s'}}>
                 {blankScreen?'⊡ Blanked':'⊡ Blank'}

@@ -40,7 +40,7 @@ function detectType(sectionTitle: string): string {
 
 // ── Song XML parser ───────────────────────────────────────────────────────────
 
-function parseSongXml(xml: string, filename: string): ParsedSong | null {
+function parseSongXml(xml: string, filename: string, language: string): ParsedSong | null {
   try {
     // Title
     const titleMatch = xml.match(/<title>([\s\S]*?)<\/title>/)
@@ -96,7 +96,7 @@ function parseSongXml(xml: string, filename: string): ParsedSong | null {
     }
 
     if (sections.length === 0) return null
-    return { title, author, language: 'en', sections }
+    return { title, author, language, sections }
   } catch {
     return null
   }
@@ -163,7 +163,7 @@ function extractZipEntries(buf: Buffer): ZipEntry[] {
 
 // ── Main export ───────────────────────────────────────────────────────────────
 
-export function parseQSP(zipBuffer: Buffer): QSPImportResult {
+export function parseQSP(zipBuffer: Buffer, language: string = 'en'): QSPImportResult {
   const result: QSPImportResult = { success: false, songs: [], errors: [], total: 0, parsed: 0 }
 
   try {
@@ -178,7 +178,7 @@ export function parseQSP(zipBuffer: Buffer): QSPImportResult {
     for (const entry of songEntries) {
       try {
         const xml  = entry.data.toString('utf-8').replace(/^\uFEFF/, '')
-        const song = parseSongXml(xml, entry.name)
+        const song = parseSongXml(xml, entry.name, language)
         if (song) {
           result.songs.push(song)
           result.parsed++

@@ -444,7 +444,24 @@ export function getBibleChapterVerses(book: string, chapter: number, version?: s
 
 export function getServiceQueue() { return db.service_queue.sort((a,b) => a.order_num - b.order_num) }
 export function addToServiceQueue(title: string, type: string, songId?: number, verseRef?: string) {
-  db.service_queue.push({ id: nextId(), title, type, song_id: songId||null, verse_ref: verseRef||null, order_num: db.service_queue.length+1 }); save()
+  const item: ServiceQueueItem = { id: nextId(), title, type, song_id: songId||null, verse_ref: verseRef||null, order_num: db.service_queue.length+1 }
+  db.service_queue.push(item); save()
+  return item
+}
+export function removeFromServiceQueue(id: number) {
+  db.service_queue = db.service_queue.filter(q => q.id !== id)
+  db.service_queue.forEach((q, i) => q.order_num = i+1)
+  save()
+}
+export function reorderServiceQueue(orderedIds: number[]) {
+  const byId = new Map(db.service_queue.map(q => [q.id, q]))
+  const reordered: ServiceQueueItem[] = []
+  for (const id of orderedIds) { const item = byId.get(id); if (item) reordered.push(item) }
+  // append any items not present in orderedIds (defensive — keeps data safe)
+  for (const item of db.service_queue) if (!orderedIds.includes(item.id)) reordered.push(item)
+  reordered.forEach((q, i) => q.order_num = i+1)
+  db.service_queue = reordered
+  save()
 }
 export function clearServiceQueue() { db.service_queue = []; save() }
 

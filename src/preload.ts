@@ -31,6 +31,8 @@ contextBridge.exposeInMainWorld('shogunos', {
   getServiceQueue:    () => ipcRenderer.invoke('get-service-queue'),
   addToQueue:         (title: string, type: string, songId?: number, verseRef?: string) => ipcRenderer.invoke('add-to-queue', title, type, songId, verseRef),
   clearQueue:         () => ipcRenderer.invoke('clear-queue'),
+  removeFromQueue:    (id: number) => ipcRenderer.invoke('remove-from-queue', id),
+  reorderQueue:       (ids: number[]) => ipcRenderer.invoke('reorder-queue', ids),
 
   // ── THEMES ─────────────────────────────────────────────────────────────────
   getThemes:          () => ipcRenderer.invoke('get-themes'),
@@ -56,7 +58,7 @@ contextBridge.exposeInMainWorld('shogunos', {
   exportData:          () => ipcRenderer.invoke('export-data'),
   importData:          (json: string) => ipcRenderer.invoke('import-data', json),
   getDatabaseStats:    () => ipcRenderer.invoke('get-db-stats'),
-  importQSP:           (base64: string) => ipcRenderer.invoke('import-qsp', base64),
+  importQSP:           (base64: string, language?: string) => ipcRenderer.invoke('import-qsp', base64, language),
   getDisplaySettings:  () => ipcRenderer.invoke('get-display-settings'),
   saveDisplaySettings: (settings: any) => ipcRenderer.invoke('save-display-settings', settings),
 

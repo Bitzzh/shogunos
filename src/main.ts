@@ -6,7 +6,7 @@ import {
   initDatabase,
   searchSongs, addSong, addSongSection, getSongSections, deleteSong,
   getDailyVerse, searchBibleVerses, getBibleVerse, getBibleBooks, getBibleChapters, getBibleChapterVerses,
-  getServiceQueue, addToServiceQueue, clearServiceQueue,
+  getServiceQueue, addToServiceQueue, clearServiceQueue, removeFromServiceQueue, reorderServiceQueue,
   getThemes,
   getSlides, getSlide, createSlide, updateSlide, deleteSlide, reorderSlides, duplicateSlide,
   exportDatabase, importDatabase, getDatabaseStats,
@@ -121,6 +121,8 @@ app.on('ready', async () => {
   ipcMain.handle('get-service-queue', () => getServiceQueue())
   ipcMain.handle('add-to-queue',      (_e, title: string, type: string, songId?: number, verseRef?: string) => addToServiceQueue(title, type, songId, verseRef))
   ipcMain.handle('clear-queue',       () => clearServiceQueue())
+  ipcMain.handle('remove-from-queue', (_e, id: number) => { removeFromServiceQueue(id); return { success: true } })
+  ipcMain.handle('reorder-queue',     (_e, orderedIds: number[]) => { reorderServiceQueue(orderedIds); return { success: true } })
 
   // ── THEMES ───────────────────────────────────────────────────────────────
   ipcMain.handle('get-themes',        () => getThemes())
@@ -218,15 +220,15 @@ app.on('ready', async () => {
   ipcMain.handle('get-db-stats',            () => getDatabaseStats())
   ipcMain.handle('get-display-settings',    () => getDisplaySettings())
   ipcMain.handle('save-display-settings',   (_e, settings: any) => { saveDisplaySettings(settings); return { success: true } })
-  ipcMain.handle('import-qsp',   (_e, base64: string) => {
+  ipcMain.handle('import-qsp',   (_e, base64: string, language?: string) => {
     try {
       const buf    = Buffer.from(base64, 'base64')
-      const parsed = parseQSP(buf)
+      const parsed = parseQSP(buf, language || 'en')
       if (!parsed.success || parsed.songs.length === 0) {
         return { success: false, error: `No songs found. ${parsed.errors.join(', ')}` }
       }
       const result = importQSPSongs(parsed.songs)
-      return { success: true, parsed: parsed.parsed, ...result, errors: parsed.errors }
+      return { parsed: parsed.parsed, ...result, errors: parsed.errors }
     } catch (e: any) {
       return { success: false, error: e.message }
     }
