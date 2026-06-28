@@ -21,17 +21,20 @@ interface DisplaySettings {
   fontFamily: string
 }
 
-// Refined palette — less purple-heavy, more neutral-dark with indigo accents
+// Shogun palette — ink, lacquer, aged gold
 const C = {
-  bg0: '#05050a', bg1: '#09090f', bg2: '#0d0d15', bg3: '#111119', bg4: '#17171f', bg5: '#1d1d27',
-  b0: '#15152a', b1: '#1c1c30', b2: '#252540',
-  // indigo accent (replaces heavy purple)
-  p1: '#6366f1', p2: '#818cf8', p3: '#a5b4fc',
-  // amber
-  g1: '#d97706', g2: '#f59e0b', g3: '#fcd34d',
-  // text
-  t1: '#eeedf8', t2: '#9b99bc', t3: '#52506a', t4: '#2e2c42',
-  live: '#ef4444', safe: '#22c55e', warn: '#f59e0b',
+  // Backgrounds — near-black ink, layered
+  bg0: '#060406', bg1: '#0b090b', bg2: '#100e10', bg3: '#151215', bg4: '#1b181b', bg5: '#211e21',
+  // Borders — subtle stone
+  b0: '#1e1a1e', b1: '#272227', b2: '#332e33',
+  // Lacquer red — live states only
+  p1: '#8b1a1a', p2: '#b22222', p3: '#d44',
+  // Aged gold — active/selected states
+  g1: '#7a6218', g2: '#b8952a', g3: '#d4af5a',
+  // Text — warm stone scale
+  t1: '#e8e2d8', t2: '#a89e8e', t3: '#5a5048', t4: '#322c28',
+  // Status
+  live: '#b22222', safe: '#4a7c59', warn: '#b8952a',
 }
 
 type SlideType  = 'text' | 'scripture' | 'announcement' | 'blank'
@@ -1000,17 +1003,51 @@ function DisplaySettingsTab({ settings, onChange, notify }: { settings:DisplaySe
   const inp: React.CSSProperties = {width:'100%',background:C.bg4,border:`1px solid ${C.b1}`,color:C.t1,padding:'9px 12px',fontSize:12,outline:'none',fontFamily:'inherit',borderRadius:8}
 
   const FONTS = [
-    { label:'Georgia',      value:'Georgia, serif'                         },
-    { label:'Times New Roman', value:"'Times New Roman', serif"            },
-    { label:'Arial',        value:'Arial, sans-serif'                      },
-    { label:'Helvetica',    value:"'Helvetica Neue', Helvetica, sans-serif" },
-    { label:'Trebuchet MS', value:"'Trebuchet MS', sans-serif"             },
-    { label:'Verdana',      value:'Verdana, sans-serif'                    },
-    { label:'Palatino',     value:"'Palatino Linotype', Palatino, serif"   },
-    { label:'Garamond',     value:"Garamond, serif"                        },
-    { label:'Courier New',  value:"'Courier New', monospace"               },
-    { label:'Impact',       value:"Impact, fantasy"                        },
+    // Serif — classic worship feel
+    { label:'Georgia',             value:'Georgia, serif'                           },
+    { label:'Lora',                value:"'Lora', serif"                            },
+    { label:'Playfair Display',    value:"'Playfair Display', serif"                },
+    { label:'EB Garamond',         value:"'EB Garamond', serif"                     },
+    { label:'Cormorant Garamond',  value:"'Cormorant Garamond', serif"              },
+    { label:'Libre Baskerville',   value:"'Libre Baskerville', serif"               },
+    { label:'Source Serif 4',      value:"'Source Serif 4', serif"                  },
+    { label:'Palatino',            value:"'Palatino Linotype', Palatino, serif"     },
+    { label:'Times New Roman',     value:"'Times New Roman', serif"                 },
+    { label:'Garamond',            value:'Garamond, serif'                          },
+    // Sans — clean modern projection
+    { label:'Inter',               value:"'Inter', sans-serif"                      },
+    { label:'Raleway',             value:"'Raleway', sans-serif"                    },
+    { label:'Montserrat',          value:"'Montserrat', sans-serif"                 },
+    { label:'Open Sans',           value:"'Open Sans', sans-serif"                  },
+    { label:'Nunito',              value:"'Nunito', sans-serif"                     },
+    { label:'Lato',                value:"'Lato', sans-serif"                       },
+    { label:'Helvetica',           value:"'Helvetica Neue', Helvetica, sans-serif"  },
+    { label:'Trebuchet MS',        value:"'Trebuchet MS', sans-serif"               },
+    { label:'Verdana',             value:'Verdana, sans-serif'                      },
+    // Display / Decorative
+    { label:'Cinzel',              value:"'Cinzel', serif"                          },
+    { label:'Cinzel Decorative',   value:"'Cinzel Decorative', serif"               },
+    { label:'Uncial Antiqua',      value:"'Uncial Antiqua', serif"                  },
+    { label:'MedievalSharp',       value:"'MedievalSharp', serif"                   },
+    { label:'Impact',              value:'Impact, fantasy'                          },
+    // Monospace
+    { label:'Courier New',         value:"'Courier New', monospace"                 },
   ]
+
+  // Inject Google Fonts once
+  React.useEffect(()=>{
+    const id='shogun-gfonts'
+    if(document.getElementById(id))return
+    const families=[
+      'Lora','Playfair+Display','EB+Garamond','Cormorant+Garamond',
+      'Libre+Baskerville','Source+Serif+4','Inter','Raleway','Montserrat',
+      'Open+Sans','Nunito','Lato','Cinzel','Cinzel+Decorative','Uncial+Antiqua'
+    ].join('|')
+    const link=document.createElement('link')
+    link.id=id; link.rel='stylesheet'
+    link.href=`https://fonts.googleapis.com/css2?family=${families}&display=swap`
+    document.head.appendChild(link)
+  },[])
 
   async function handleSave(){
     try{
@@ -1148,6 +1185,10 @@ export default function App() {
   // Drag-and-drop queue state
   const [draggedQueueIdx,setDraggedQueueIdx] = useState<number|null>(null)
   const [queueDragOver,setQueueDragOver]     = useState(false)
+  const [showDailyPopup,setShowDailyPopup]   = useState(false)
+  const [previewDragOver,setPreviewDragOver] = useState(false)
+  const [liveDragOver,setLiveDragOver]       = useState(false)
+  const [showQueue,setShowQueue]             = useState(false)
 
   useEffect(()=>{
     const tick=()=>setClock(new Date().toLocaleTimeString('en-ZW',{hour:'2-digit',minute:'2-digit'}))
@@ -1296,6 +1337,54 @@ export default function App() {
   }
   function onQueueItemDragEnd(){ setDraggedQueueIdx(null);setQueueDragOver(false) }
 
+  // Preview panel drop — sets the preview without going live
+  function onPreviewDragOver(e:React.DragEvent){
+    if(e.dataTransfer.types.includes(DRAG_MIME)){e.preventDefault();e.dataTransfer.dropEffect='copy';setPreviewDragOver(true)}
+  }
+  function onPreviewDragLeave(){ setPreviewDragOver(false) }
+  async function onPreviewDrop(e:React.DragEvent){
+    e.preventDefault();setPreviewDragOver(false)
+    const raw=e.dataTransfer.getData(DRAG_MIME); if(!raw)return
+    try{
+      const {title}=JSON.parse(raw)
+      // Show in preview — find the song or verse and set section
+      const songs=await(window as any).shogunos.searchSongs(title)
+      if(songs&&songs.length>0){
+        const song=songs[0]
+        setSelected(song)
+        const secs=await(window as any).shogunos.getSongSections(song.id)
+        setSections(secs); if(secs.length>0)setSection(secs[0]); setCurrentSection(0)
+      }
+      notify(`Preview: ${title}`)
+    }catch{}
+  }
+
+  // Live panel drop — goes live immediately
+  function onLiveDragOver(e:React.DragEvent){
+    if(e.dataTransfer.types.includes(DRAG_MIME)){e.preventDefault();e.dataTransfer.dropEffect='copy';setLiveDragOver(true)}
+  }
+  function onLiveDragLeave(){ setLiveDragOver(false) }
+  async function onLiveDrop(e:React.DragEvent){
+    e.preventDefault();setLiveDragOver(false)
+    const raw=e.dataTransfer.getData(DRAG_MIME); if(!raw)return
+    try{
+      const {title,type}=JSON.parse(raw)
+      if(type==='verse'){
+        // For bible verses the content is in the title string like "John 3:16"
+        // Find it and go live
+        const results=await(window as any).shogunos.searchBible(title,bibleVersion)
+        if(results&&results.length>0){const v=results[0];goLive(`${v.book} ${v.chapter}:${v.verse}`,v.text)}
+      } else {
+        const songs=await(window as any).shogunos.searchSongs(title)
+        if(songs&&songs.length>0){
+          const song=songs[0]
+          const secs=await(window as any).shogunos.getSongSections(song.id)
+          if(secs.length>0)goLive(song.title,secs[0].content)
+        }
+      }
+    }catch{}
+  }
+
   function notify(msg:string){
     setToast(msg)
     if(toastTimer.current)clearTimeout(toastTimer.current)
@@ -1361,24 +1450,6 @@ export default function App() {
     }
     // Library
     if(libTab==='songs') return <SongsTab goLive={(t,l)=>goLive(t,l)} addToQueue={addToQueue} notify={notify}/>
-    if(libTab==='daily') return (
-      <div style={{flex:1,padding:40,overflowY:'auto',background:C.bg1,display:'flex',flexDirection:'column',gap:20}}>
-        <div style={{fontSize:10,color:C.t4,fontWeight:700,letterSpacing:'0.15em',textTransform:'uppercase' as const}}>
-          Daily Verse — {new Date().toLocaleDateString('en-ZW',{weekday:'long',year:'numeric',month:'long',day:'numeric'})}
-        </div>
-        {dailyVerse?(
-          <div {...dragSource(`${dailyVerse.book} ${dailyVerse.chapter}:${dailyVerse.verse}`,'verse')}
-            style={{background:C.bg2,borderRadius:14,padding:32,border:`1px solid ${C.b1}`,flex:1,cursor:'grab'}}>
-            <div style={{fontSize:13,color:C.g2,fontWeight:700,marginBottom:20}}>{dailyVerse.book} {dailyVerse.chapter}:{dailyVerse.verse} — {dailyVerse.version}</div>
-            <div style={{fontSize:24,lineHeight:1.9,color:C.t1,fontStyle:'italic',fontWeight:300}}>"{dailyVerse.text}"</div>
-            <div style={{display:'flex',gap:10,marginTop:28}}>
-              <button className="shimmer-btn" onClick={()=>goLive(`${dailyVerse.book} ${dailyVerse.chapter}:${dailyVerse.verse}`,dailyVerse.text)} style={{padding:'11px 28px',background:`linear-gradient(135deg,${C.live},#b91c1c)`,border:'none',color:'#fff',fontSize:12,fontWeight:700,cursor:'pointer',fontFamily:'inherit',borderRadius:9}}>GO LIVE</button>
-              <button onClick={()=>addToQueue(`${dailyVerse.book} ${dailyVerse.chapter}:${dailyVerse.verse}`,'verse')} style={{padding:'11px 18px',background:C.bg4,border:`1px solid ${C.b2}`,color:C.t1,fontSize:11,fontWeight:600,cursor:'pointer',fontFamily:'inherit',borderRadius:9}}>+ Queue</button>
-            </div>
-          </div>
-        ):<div style={{color:C.t3}}>No verse for today</div>}
-      </div>
-    )
     if(libTab==='bible') {
       const displayedVerses = bibleMode==='search' ? bibleResults : chapterVerses
       return (
@@ -1618,61 +1689,67 @@ export default function App() {
   }
 
   const subItems: Record<NavGroup,{id:string;label:string}[]> = {
-    library:  [{id:'hymnal',label:'Hymnal'},{id:'bible',label:'Bible'},{id:'daily',label:'Daily Verse'},{id:'songs',label:'My Songs'}],
+    library:  [{id:'hymnal',label:'Hymnal'},{id:'bible',label:'Bible'},{id:'songs',label:'My Songs'}],
     present:  [{id:'slides',label:'Slides'},{id:'announce',label:'Announce'}],
     media:    [],
     service:  [{id:'queue',label:'Queue'}],
     settings: [{id:'display',label:'Display'},{id:'import',label:'Import'},{id:'users',label:'Users'},{id:'about',label:'About'}],
   }
 
+  const NAV_ICONS: Record<NavGroup,string> = {
+    library:'♪', present:'▶', media:'◫', service:'☰', settings:'⚙'
+  }
+
   return (
-    <div style={{display:'flex',flexDirection:'column',height:'100vh',background:C.bg0,fontFamily:"'Inter','Segoe UI',sans-serif",overflow:'hidden',color:C.t1,fontSize:13,position:'relative'}}>
+    <div style={{display:'flex',flexDirection:'column',height:'100vh',background:C.bg0,fontFamily:"'Inter','Segoe UI',system-ui,sans-serif",overflow:'hidden',color:C.t1,fontSize:13,position:'relative'}}>
       <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@300;400;700&display=swap');
         *{box-sizing:border-box}
-        ::-webkit-scrollbar{width:4px;height:4px}
+        ::-webkit-scrollbar{width:3px;height:3px}
         ::-webkit-scrollbar-track{background:transparent}
-        ::-webkit-scrollbar-thumb{background:${C.b2};border-radius:2px}
+        ::-webkit-scrollbar-thumb{background:${C.b2};border-radius:1px}
         input::placeholder,textarea::placeholder{color:${C.t4}}
-        input:focus,select:focus,textarea:focus{outline:none;border-color:${C.p1}aa!important;box-shadow:0 0 0 3px ${C.p1}1f!important}
-        @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-3px)}}
-        @keyframes pulseGlow{0%,100%{opacity:1}50%{opacity:0.45}}
+        input:focus,select:focus,textarea:focus{outline:none;border-color:${C.g2}88!important}
+        @keyframes pulseGlow{0%,100%{opacity:1}50%{opacity:0.3}}
+        @keyframes slideDown{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:translateY(0)}}
+        @keyframes slideUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
         @keyframes shimmerSweep{0%{left:-100%}60%,100%{left:150%}}
-        @keyframes slideDown{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:translateY(0)}}
-        .logo-mark{animation:float 5s ease-in-out infinite}
-        .live-dot{animation:pulseGlow 1.6s ease-in-out infinite}
+        .live-dot{animation:pulseGlow 1.8s ease-in-out infinite}
         .shimmer-btn{position:relative;overflow:hidden}
-        .shimmer-btn::after{content:'';position:absolute;top:0;left:-100%;width:60%;height:100%;background:linear-gradient(to right,transparent,rgba(255,255,255,0.12),transparent);transform:skewX(-20deg);animation:shimmerSweep 3.2s ease infinite;pointer-events:none}
-        .toast-anim{animation:slideDown 0.25s ease}
+        .shimmer-btn::after{content:'';position:absolute;top:0;left:-100%;width:50%;height:100%;background:linear-gradient(to right,transparent,rgba(255,255,255,0.08),transparent);transform:skewX(-20deg);animation:shimmerSweep 4s ease infinite;pointer-events:none}
+        .toast-anim{animation:slideDown 0.2s ease}
+        .queue-anim{animation:slideUp 0.2s ease}
+        .nav-icon:hover{background:${C.bg3}!important;color:${C.t2}!important}
+        .sub-btn:hover{background:${C.bg3}!important;color:${C.t1}!important}
       `}</style>
 
-      {/* Ambient depth wash — same aurora feel as the sign-in screen */}
-      <div style={{position:'absolute',inset:0,pointerEvents:'none',zIndex:60,
-        background:`radial-gradient(ellipse 50% 40% at 10% 6%, ${C.p1}0d, transparent 60%), radial-gradient(ellipse 45% 35% at 94% 94%, ${C.g1}0a, transparent 60%)`}} />
-      {/* Top accent line */}
-      <div style={{position:'absolute',top:0,left:0,right:0,height:2,zIndex:61,pointerEvents:'none',
-        background:`linear-gradient(to right,transparent,${C.p1},${C.g1},${C.p1},transparent)`}} />
+      {/* Gold hairline */}
+      <div style={{position:'absolute',top:0,left:0,right:0,height:1,background:`linear-gradient(to right,transparent 0%,${C.g2}88 30%,${C.g3} 50%,${C.g2}88 70%,transparent 100%)`,zIndex:100,pointerEvents:'none'}}/>
 
-      {/* TOPBAR */}
-      <div style={{height:52,background:C.bg1,borderBottom:`1px solid ${C.b0}`,display:'flex',alignItems:'center',flexShrink:0,paddingLeft:4,paddingRight:14,gap:0}}>
-        <div className="logo-mark" style={{width:52,height:'100%',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
-          <svg width="28" height="28" viewBox="0 0 100 100">
+      {/* ── TOPBAR ─────────────────────────────────────── */}
+      <div style={{height:48,background:C.bg1,borderBottom:`1px solid ${C.b0}`,display:'flex',alignItems:'center',flexShrink:0,zIndex:10,position:'relative'}}>
+        {/* Logo */}
+        <div style={{width:56,height:'100%',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,borderRight:`1px solid ${C.b0}`}}>
+          <svg width="24" height="24" viewBox="0 0 100 100">
             <defs>
-              <radialGradient id="tg1" cx="50%" cy="30%" r="70%"><stop offset="0%" stopColor="#1a0a2e"/><stop offset="100%" stopColor="#060609"/></radialGradient>
-              <linearGradient id="tg2" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stopColor="#7c3aed"/><stop offset="50%" stopColor="#f59e0b"/><stop offset="100%" stopColor="#7c3aed"/></linearGradient>
-              <linearGradient id="tg3" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#fcd34d"/><stop offset="100%" stopColor="#d97706"/></linearGradient>
+              <linearGradient id="lg1" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={C.g3}/><stop offset="100%" stopColor={C.g1}/></linearGradient>
+              <linearGradient id="lg2" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stopColor={C.p2}/><stop offset="100%" stopColor={C.g1}/></linearGradient>
             </defs>
-            <circle cx="50" cy="50" r="48" fill="url(#tg1)" stroke="url(#tg2)" strokeWidth="3"/>
-            <text x="50" y="65" textAnchor="middle" fontSize="44" fill="url(#tg3)" fontFamily="serif" fontWeight="700">将</text>
+            <circle cx="50" cy="50" r="46" fill="none" stroke="url(#lg2)" strokeWidth="3"/>
+            <text x="50" y="66" textAnchor="middle" fontSize="46" fill="url(#lg1)" fontFamily="'Noto Serif JP',serif" fontWeight="700">将</text>
           </svg>
         </div>
-
-        <div style={{flex:1,maxWidth:480,display:'flex',alignItems:'center',background:C.bg3,border:`1px solid ${C.b1}`,borderRadius:10,padding:'0 14px',gap:8,margin:'0 12px'}}>
-          <span style={{color:C.t3,fontSize:16}}>⌕</span>
+        <div style={{padding:'0 14px',borderRight:`1px solid ${C.b0}`,height:'100%',display:'flex',alignItems:'center',flexShrink:0}}>
+          <span style={{fontFamily:"'Noto Serif JP',serif",fontSize:13,color:C.t1,letterSpacing:'0.04em'}}>ShogunOS</span>
+        </div>
+        {/* Search */}
+        <div style={{flex:1,maxWidth:380,display:'flex',alignItems:'center',background:C.bg2,border:`1px solid ${C.b1}`,borderRadius:5,padding:'0 12px',gap:8,margin:'0 16px'}}>
+          <span style={{color:C.t3,fontSize:14,lineHeight:1}}>⌕</span>
           <input
             value={navGroup==='library'&&libTab==='bible'?bibleQuery:query}
             onChange={e=>navGroup==='library'&&libTab==='bible'?handleBibleSearch(e.target.value):handleSearch(e.target.value)}
-            placeholder={navGroup==='library'&&libTab==='bible'?`Search ${bibleVersion}...`:navGroup==='library'&&libTab==='hymnal'?'Filter hymns by title…':'Search hymns and songs...'}
-            style={{flex:1,background:'none',border:'none',color:C.t1,fontSize:13,outline:'none',padding:'9px 0',fontFamily:'inherit'}}
+            placeholder={navGroup==='library'&&libTab==='bible'?`Search ${bibleVersion}…`:navGroup==='library'&&libTab==='hymnal'?'Filter hymns…':'Search…'}
+            style={{flex:1,background:'none',border:'none',color:C.t1,fontSize:13,outline:'none',padding:'8px 0',fontFamily:'inherit'}}
           />
           {navGroup==='library'&&libTab==='bible'&&(
             <select value={bibleVersion} onChange={async e=>{
@@ -1681,146 +1758,248 @@ export default function App() {
               try{const books=await(window as any).shogunos.getBibleBooks(v);setBibleBooks(books)}catch{}
               if(selectedBook){
                 try{const chs=await(window as any).shogunos.getBibleChapters(selectedBook,v);setBibleChapters(chs)}catch{}
-                if(selectedChapter){
-                  try{const vv=await(window as any).shogunos.getBibleChapterVerses(selectedBook,selectedChapter,v);setChapterVerses(vv)}catch{}
-                }
+                if(selectedChapter){try{const vv=await(window as any).shogunos.getBibleChapterVerses(selectedBook,selectedChapter,v);setChapterVerses(vv)}catch{}}
               }
-            }} style={{background:'none',border:'none',color:C.p2,fontSize:11,fontWeight:700,outline:'none',fontFamily:'inherit',cursor:'pointer'}}>
-              {availableVersions.map(v=><option key={v} value={v} style={{background:C.bg3}}>{v}</option>)}
+            }} style={{background:'none',border:'none',color:C.g2,fontSize:12,fontWeight:600,outline:'none',fontFamily:'inherit',cursor:'pointer'}}>
+              {availableVersions.map(v=><option key={v} value={v} style={{background:C.bg2}}>{v}</option>)}
             </select>
           )}
         </div>
-
         <div style={{flex:1}}/>
-
+        {/* Queue toggle */}
+        <button onClick={()=>setShowQueue(q=>!q)} title="Toggle Queue"
+          style={{background:showQueue?C.bg3:'none',border:`1px solid ${showQueue?C.b2:C.b1}`,color:showQueue?C.g2:C.t3,cursor:'pointer',fontSize:12,padding:'5px 10px',borderRadius:5,display:'flex',alignItems:'center',gap:6,marginRight:8,fontFamily:'inherit',transition:'all 0.15s'}}>
+          <span>☰</span>
+          <span style={{fontSize:11}}>Queue {queue.length>0&&`(${queue.length})`}</span>
+        </button>
+        {/* Verse of day */}
+        <button onClick={()=>setShowDailyPopup(true)} title="Verse of the Day"
+          style={{background:'none',border:`1px solid ${C.b1}`,color:C.g2,cursor:'pointer',fontSize:13,width:32,height:32,borderRadius:5,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,marginRight:10}}
+          onMouseEnter={e=>{(e.currentTarget as HTMLElement).style.borderColor=C.g2}}
+          onMouseLeave={e=>{(e.currentTarget as HTMLElement).style.borderColor=C.b1}}>✦</button>
         {currentUser&&(
-          <div style={{display:'flex',alignItems:'center',gap:6,padding:'5px 10px',background:C.bg3,borderRadius:8,border:`1px solid ${C.b1}`,marginRight:10}}>
-            <div style={{width:6,height:6,borderRadius:'50%',background:C.safe,boxShadow:`0 0 6px ${C.safe}`}}/>
-            <span style={{fontSize:11,color:C.t2,fontWeight:600}}>{currentUser.display_name}</span>
-            <span style={{fontSize:9,color:C.t4,padding:'1px 5px',background:C.bg4,borderRadius:3}}>{currentUser.role}</span>
+          <div style={{display:'flex',alignItems:'center',gap:8,paddingLeft:12,paddingRight:12,borderLeft:`1px solid ${C.b0}`,height:'100%'}}>
+            <div style={{width:5,height:5,borderRadius:'50%',background:C.safe,flexShrink:0}}/>
+            <span style={{fontSize:12,color:C.t2}}>{currentUser.display_name}</span>
+            <span style={{fontSize:10,color:C.t3,padding:'1px 6px',border:`1px solid ${C.b2}`,borderRadius:3}}>{currentUser.role}</span>
           </div>
         )}
-        <div style={{fontSize:13,fontWeight:700,color:C.g2,letterSpacing:'0.08em',minWidth:44,textAlign:'right'}}>{clock}</div>
+        <div style={{fontSize:12,color:C.g2,fontVariantNumeric:'tabular-nums',minWidth:42,textAlign:'right',paddingLeft:12,paddingRight:14,borderLeft:`1px solid ${C.b0}`,height:'100%',display:'flex',alignItems:'center',fontFamily:"'Noto Serif JP',serif"}}>{clock}</div>
       </div>
 
-      {/* BODY */}
+      {/* ── BODY ─────────────────────────────────────────── */}
       <div style={{flex:1,display:'flex',minHeight:0,overflow:'hidden'}}>
 
-        {/* SIDEBAR */}
-        <div style={{width:196,background:C.bg1,borderRight:`1px solid ${C.b0}`,display:'flex',flexDirection:'column',flexShrink:0,overflowY:'auto'}}>
-          {NAV.map(([gid,gLabel,gIcon])=>(
-            <div key={gid}>
-              <button onClick={()=>setNavGroup(gid as NavGroup)}
-                style={{width:'100%',display:'flex',alignItems:'center',gap:10,padding:'11px 16px',background:navGroup===gid?C.bg3:'none',border:'none',borderLeft:`3px solid ${navGroup===gid?C.p1:'transparent'}`,color:navGroup===gid?C.t1:C.t3,cursor:'pointer',fontFamily:'inherit',fontSize:13,fontWeight:navGroup===gid?600:400,transition:'all 0.15s',textAlign:'left',boxShadow:navGroup===gid?`inset 0 0 24px ${C.p1}0f`:'none'}}
-                onMouseEnter={e=>{if(navGroup!==gid)(e.currentTarget as HTMLElement).style.background=C.bg2}}
-                onMouseLeave={e=>{if(navGroup!==gid)(e.currentTarget as HTMLElement).style.background='none'}}>
-                <span style={{fontSize:13,opacity:navGroup===gid?1:0.55,color:navGroup===gid?C.p2:C.t3,width:16,textAlign:'center' as const,flexShrink:0}}>{gIcon}</span>
-                {gLabel}
+        {/* ── ICON RAIL ── */}
+        <div style={{width:56,background:C.bg1,borderRight:`1px solid ${C.b0}`,display:'flex',flexDirection:'column',alignItems:'center',flexShrink:0,paddingTop:10,gap:2}}>
+          {NAV.map(([gid,gLabel])=>{
+            const active=navGroup===gid
+            return (
+              <button key={gid} onClick={()=>setNavGroup(gid as NavGroup)} title={gLabel as string} className="nav-icon"
+                style={{width:40,height:40,display:'flex',alignItems:'center',justifyContent:'center',background:active?C.bg4:'none',border:`1px solid ${active?C.b2:'transparent'}`,borderRadius:6,color:active?C.g2:C.t3,cursor:'pointer',fontSize:15,transition:'all 0.12s',position:'relative'}}>
+                {(NAV_ICONS as any)[gid as string]}
+                {active&&<div style={{position:'absolute',left:0,top:'50%',transform:'translateY(-50%)',width:2,height:18,background:C.g2,borderRadius:'0 1px 1px 0'}}/>}
               </button>
-              {navGroup===gid&&subItems[gid as NavGroup].map(sub=>(
-                <button key={sub.id}
-                  onClick={()=>{
-                    if(gid==='library'){setLibTab(sub.id as LibTab);if(sub.id!=='bible')setSelectedVerse(null)}
-                    if(gid==='present')setPresentTab(sub.id as PresentTab)
-                    if(gid==='settings')setSettingsTab(sub.id as SettingsTab)
-                  }}
-                  style={{width:'100%',display:'flex',alignItems:'center',padding:'8px 16px 8px 28px',background:activeSubId===sub.id?`${C.p1}15`:'none',border:'none',borderLeft:`3px solid ${activeSubId===sub.id?C.p1:'transparent'}`,color:activeSubId===sub.id?C.p2:C.t3,cursor:'pointer',fontFamily:'inherit',fontSize:12,fontWeight:activeSubId===sub.id?600:400,transition:'all 0.1s',textAlign:'left'}}
-                  onMouseEnter={e=>{if(activeSubId!==sub.id)(e.currentTarget as HTMLElement).style.background=C.bg2}}
-                  onMouseLeave={e=>{if(activeSubId!==sub.id)(e.currentTarget as HTMLElement).style.background='none'}}>
-                  {sub.label}
-                </button>
-              ))}
-            </div>
-          ))}
+            )
+          })}
         </div>
 
-        {/* MAIN */}
-        <div style={{flex:1,display:'flex',flexDirection:'column',minWidth:0,overflow:'hidden'}}>
+        {/* ── SUB-NAV ── */}
+        {subItems[navGroup].length>0&&(
+          <div style={{width:140,background:C.bg1,borderRight:`1px solid ${C.b0}`,display:'flex',flexDirection:'column',flexShrink:0}}>
+            <div style={{padding:'10px 12px 8px',fontSize:9,color:C.t4,fontWeight:600,letterSpacing:'0.1em',textTransform:'uppercase' as const,borderBottom:`1px solid ${C.b0}`}}>
+              {NAV.find(n=>n[0]===navGroup)?.[1]}
+            </div>
+            <div style={{flex:1,overflowY:'auto',padding:'4px 0'}}>
+              {subItems[navGroup].map(sub=>{
+                const active=activeSubId===sub.id
+                return (
+                  <button key={sub.id} className="sub-btn"
+                    onClick={()=>{
+                      if(navGroup==='library'){setLibTab(sub.id as LibTab);if(sub.id!=='bible')setSelectedVerse(null)}
+                      if(navGroup==='present')setPresentTab(sub.id as PresentTab)
+                      if(navGroup==='settings')setSettingsTab(sub.id as SettingsTab)
+                    }}
+                    style={{width:'100%',padding:'9px 14px',background:active?C.bg3:'none',border:'none',borderLeft:`2px solid ${active?C.g2:'transparent'}`,color:active?C.t1:C.t3,cursor:'pointer',fontFamily:'inherit',fontSize:12,fontWeight:active?500:400,textAlign:'left' as const,transition:'all 0.1s'}}>
+                    {sub.label}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* ── LEFT CONTENT PANEL ── */}
+        <div style={{width:280,background:C.bg0,borderRight:`1px solid ${C.b0}`,display:'flex',flexDirection:'column',minHeight:0,overflow:'hidden',flexShrink:0}}>
           {toast&&(
-            <div className="toast-anim" style={{padding:'8px 18px',background:C.bg3,borderBottom:`1px solid ${C.b0}`,fontSize:12,color:C.t2,flexShrink:0,display:'flex',alignItems:'center',gap:8}}>
-              <div className="live-dot" style={{width:5,height:5,borderRadius:'50%',background:C.p1,boxShadow:`0 0 6px ${C.p1}`,flexShrink:0}}/>
+            <div className="toast-anim" style={{padding:'6px 14px',background:C.bg3,borderBottom:`1px solid ${C.b0}`,fontSize:11,color:C.t2,flexShrink:0,display:'flex',alignItems:'center',gap:6}}>
+              <div style={{width:4,height:4,borderRadius:'50%',background:C.g2,flexShrink:0}}/>
               {toast}
             </div>
           )}
-          {renderContent()}
+          <div style={{flex:1,display:'flex',flexDirection:'column',minHeight:0,overflow:'hidden'}}>
+            {renderContent()}
+          </div>
         </div>
 
-        {/* RIGHT OUTPUT PANEL */}
-        <div style={{width:236,background:C.bg1,borderLeft:`1px solid ${C.b0}`,display:'flex',flexDirection:'column',flexShrink:0}}>
-          {/* Preview */}
-          <div style={{padding:'10px 12px',background:C.bg0,borderBottom:`1px solid ${C.b0}`}}>
-            <div style={{fontSize:8,fontWeight:700,letterSpacing:'0.2em',color:C.t4,textTransform:'uppercase',marginBottom:8}}>Preview</div>
-            <div style={{aspectRatio:'16/9',background:C.bg0,borderRadius:7,overflow:'hidden',border:`1px solid ${C.b0}`,display:'flex',alignItems:'center',justifyContent:'center'}}>
-              {section
-                ?<div style={{fontSize:9,color:C.t3,lineHeight:1.6,padding:8,textAlign:'center',fontStyle:'italic'}}>{section.content.substring(0,70)}…</div>
-                :dailyVerse&&navGroup==='library'&&libTab==='daily'
-                  ?<div style={{fontSize:9,color:C.t3,lineHeight:1.6,padding:8,textAlign:'center',fontStyle:'italic'}}>{dailyVerse.text.substring(0,70)}…</div>
-                  :<div style={{fontSize:10,color:C.t4}}>Nothing selected</div>
-              }
-            </div>
-          </div>
-
-          {/* Live */}
-          <div style={{padding:'10px 12px',borderBottom:`1px solid ${C.b0}`}}>
-            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:8}}>
-              <div style={{fontSize:8,fontWeight:700,letterSpacing:'0.2em',color:C.t4,textTransform:'uppercase'}}>Live</div>
-              <div style={{display:'flex',alignItems:'center',gap:5}}>
-                <div style={{width:6,height:6,borderRadius:'50%',background:live?C.live:C.t4,boxShadow:live?`0 0 8px ${C.live}`:'none',transition:'all 0.3s'}} className={live?'live-dot':undefined}/>
-                <span style={{fontSize:9,color:live?C.live:C.t4,fontWeight:700}}>{live?'ON AIR':'OFF'}</span>
+        {/* ── CENTRE — MONITORS ── */}
+        <div style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:0,background:C.bg0,padding:'20px 24px',minWidth:0}}>
+          {/* Monitor row */}
+          <div style={{display:'flex',gap:16,width:'100%',maxWidth:800,marginBottom:16}}>
+            {/* Preview */}
+            <div style={{flex:1,display:'flex',flexDirection:'column',gap:6}}>
+              <div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+                <span style={{fontSize:10,color:C.t3,letterSpacing:'0.1em',textTransform:'uppercase' as const}}>Preview</span>
+                <span style={{fontSize:9,color:C.t4}}>drag here</span>
+              </div>
+              <div
+                onDragOver={onPreviewDragOver} onDragLeave={onPreviewDragLeave} onDrop={onPreviewDrop}
+                style={{aspectRatio:'16/9',background:'#0a0606',borderRadius:6,overflow:'hidden',border:`1px solid ${previewDragOver?C.g2:C.b2}`,display:'flex',alignItems:'center',justifyContent:'center',transition:'all 0.15s',boxShadow:previewDragOver?`0 0 16px ${C.g2}33`:'none'}}>
+                {section
+                  ?<div style={{fontSize:11,color:C.t2,lineHeight:1.7,padding:16,textAlign:'center',fontStyle:'italic',fontFamily:"'Noto Serif JP',Georgia,serif"}}>{section.content.substring(0,100)}…</div>
+                  :<div style={{fontSize:11,color:previewDragOver?C.g2:C.t4}}>{previewDragOver?'Drop to preview':'—'}</div>
+                }
               </div>
             </div>
-            <div style={{aspectRatio:'16/9',background:'#000',borderRadius:7,overflow:'hidden',border:`1px solid ${live?C.live+'44':C.b0}`,display:'flex',alignItems:'center',justifyContent:'center',boxShadow:live?`0 0 20px ${C.live}22`:'none',transition:'all 0.3s'}}>
-              {live
-                ?<div style={{fontSize:10,color:'#fff',padding:8,textAlign:'center',lineHeight:1.4}}>{live}</div>
-                :<div style={{fontSize:10,color:C.t4}}>Not presenting</div>
-              }
+
+            {/* Live */}
+            <div style={{flex:1,display:'flex',flexDirection:'column',gap:6}}>
+              <div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+                <span style={{fontSize:10,color:C.t3,letterSpacing:'0.1em',textTransform:'uppercase' as const}}>Output</span>
+                <div style={{display:'flex',alignItems:'center',gap:5}}>
+                  {live&&<div className="live-dot" style={{width:5,height:5,borderRadius:'50%',background:C.live,boxShadow:`0 0 5px ${C.live}`}}/>}
+                  <span style={{fontSize:10,color:live?C.live:C.t4,fontWeight:live?600:400}}>{live?'Live':'Standby'}</span>
+                </div>
+              </div>
+              <div
+                onDragOver={onLiveDragOver} onDragLeave={onLiveDragLeave} onDrop={onLiveDrop}
+                style={{aspectRatio:'16/9',background:'#000',borderRadius:6,overflow:'hidden',border:`2px solid ${liveDragOver?C.live+'cc':live?C.live+'88':C.b1}`,display:'flex',alignItems:'center',justifyContent:'center',boxShadow:live?`0 0 28px ${C.live}33`:'none',transition:'all 0.2s'}}>
+                {liveDragOver
+                  ?<div style={{fontSize:12,color:C.live,fontWeight:600}}>Drop to go live</div>
+                  :live
+                    ?<div style={{fontSize:12,color:'#fff',padding:16,textAlign:'center',lineHeight:1.6,fontFamily:"'Noto Serif JP',Georgia,serif"}}>{live}</div>
+                    :<div style={{fontSize:11,color:C.t4}}>—</div>
+                }
+              </div>
             </div>
           </div>
 
-          {/* Queue */}
-          <div style={{padding:'10px 12px',borderBottom:`1px solid ${C.b0}`,display:'flex',alignItems:'center',justifyContent:'space-between'}}>
-            <div style={{fontSize:8,fontWeight:700,letterSpacing:'0.2em',color:C.t4,textTransform:'uppercase'}}>Queue ({queue.length})</div>
-            {queue.length>0&&<button onClick={clearQueue} style={{background:'none',border:'none',color:C.t4,cursor:'pointer',fontSize:10,fontFamily:'inherit'}}>Clear</button>}
-          </div>
-          <div onDragOver={onQueueZoneDragOver} onDragLeave={onQueueZoneDragLeave} onDrop={onQueueZoneDrop}
-            style={{flex:1,overflowY:'auto',padding:'4px 8px',border:queueDragOver?`1.5px dashed ${C.p1}`:'1.5px dashed transparent',borderRadius:8,background:queueDragOver?`${C.p1}0a`:'transparent',transition:'all 0.15s',margin:queueDragOver?2:0}}>
-            {queue.length===0&&<div style={{padding:'12px 8px',fontSize:11,color:queueDragOver?C.p2:C.t4,textAlign:'center'}}>{queueDragOver?'Drop here':'Queue is empty — drag items here'}</div>}
-            {queue.map((item,i)=>(
-              <div key={item.id}
-                draggable onDragStart={e=>onQueueItemDragStart(e,i)} onDragOver={onQueueItemDragOver} onDrop={e=>onQueueItemDrop(e,i)} onDragEnd={onQueueItemDragEnd}
-                style={{display:'flex',alignItems:'center',gap:8,padding:'7px 8px',marginBottom:2,borderRadius:7,background:i===0?C.bg3:'none',border:`1px solid ${i===0?C.b2:'transparent'}`,cursor:'grab',opacity:draggedQueueIdx===i?0.35:1,transition:'opacity 0.15s'}}>
-                <span style={{fontSize:10,color:i===0?C.p2:C.t4,width:16,textAlign:'center',flexShrink:0,fontWeight:700}}>{i+1}</span>
-                <span style={{fontSize:11,color:C.t2,flex:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{item.title}</span>
-                <button onClick={()=>removeFromQueue(item.id)} style={{background:'none',border:'none',color:C.t4,cursor:'pointer',fontSize:14,padding:0,flexShrink:0}}>×</button>
-              </div>
-            ))}
-          </div>
-
-          {/* Controls */}
-          <div style={{padding:10,borderTop:`1px solid ${C.b0}`,flexShrink:0,display:'flex',flexDirection:'column',gap:6}}>
-            <select value={selectedDisplay} onChange={e=>setSelectedDisplay(Number(e.target.value))} style={{width:'100%',background:C.bg3,border:`1px solid ${C.b1}`,color:C.t1,padding:'7px 10px',fontSize:11,outline:'none',fontFamily:'inherit',borderRadius:7}}>
-              {displays.map(d=><option key={d.id} value={d.id}>{d.label}{d.isPrimary?' (Primary)':''}</option>)}
-            </select>
+          {/* Controls bar — sits under the monitors */}
+          <div style={{width:'100%',maxWidth:800,background:C.bg1,border:`1px solid ${C.b0}`,borderRadius:8,padding:'14px 18px',display:'flex',alignItems:'center',gap:12}}>
+            {/* Go Live */}
             <button onClick={()=>{
               if(navGroup==='library'){
                 if(libTab==='hymnal'&&selected&&section) goLive(selected.title,section.content)
                 else if(libTab==='bible'&&selectedVerse) goLive(`${selectedVerse.book} ${selectedVerse.chapter}:${selectedVerse.verse}`,selectedVerse.text)
-                else if(libTab==='daily'&&dailyVerse) goLive(`${dailyVerse.book} ${dailyVerse.chapter}:${dailyVerse.verse}`,dailyVerse.text)
               }
             }} className="shimmer-btn"
-              onMouseEnter={e=>{(e.currentTarget as HTMLElement).style.boxShadow=`0 4px 18px ${C.live}55`;(e.currentTarget as HTMLElement).style.transform='translateY(-1px)'}}
-              onMouseLeave={e=>{(e.currentTarget as HTMLElement).style.boxShadow='none';(e.currentTarget as HTMLElement).style.transform='translateY(0)'}}
-              style={{padding:'11px 0',background:`linear-gradient(135deg,${C.live},#b91c1c)`,border:'none',color:'#fff',fontSize:12,fontWeight:700,letterSpacing:'0.08em',cursor:'pointer',fontFamily:'inherit',borderRadius:8,transition:'all 0.15s'}}>GO LIVE</button>
-            <div style={{display:'flex',gap:4}}>
-              <button onClick={handleBlank} style={{flex:1,padding:'8px 0',background:blankScreen?C.bg5:'none',border:`1px solid ${blankScreen?C.b2:C.b1}`,color:blankScreen?C.t1:C.t3,fontSize:11,fontWeight:600,cursor:'pointer',fontFamily:'inherit',borderRadius:7,transition:'all 0.15s'}}>
-                {blankScreen?'⊡ Blanked':'⊡ Blank'}
-              </button>
-              <button onClick={sendScreenImage} style={{flex:1,padding:'8px 0',background:'none',border:`1px solid ${C.b1}`,color:C.t3,fontSize:11,fontWeight:600,cursor:'pointer',fontFamily:'inherit',borderRadius:7}}>🖼 Image</button>
-              <button onClick={handleClear} style={{padding:'8px 12px',background:'none',border:`1px solid ${C.b1}`,color:C.t3,fontSize:14,cursor:'pointer',borderRadius:7}}>✕</button>
-            </div>
+              style={{padding:'10px 28px',background:C.p2,border:`1px solid ${C.p1}`,color:'#fff',fontSize:13,fontWeight:700,cursor:'pointer',fontFamily:"'Noto Serif JP','Inter',sans-serif",borderRadius:5,letterSpacing:'0.04em',flexShrink:0,transition:'background 0.15s'}}
+              onMouseEnter={e=>{(e.currentTarget as HTMLElement).style.background=C.p1}}
+              onMouseLeave={e=>{(e.currentTarget as HTMLElement).style.background=C.p2}}>
+              Go Live
+            </button>
+
+            <div style={{width:1,height:28,background:C.b2,flexShrink:0}}/>
+
+            {/* Blank / Image / Clear */}
+            <button onClick={handleBlank}
+              style={{padding:'8px 14px',background:blankScreen?C.bg4:'none',border:`1px solid ${blankScreen?C.b2:C.b1}`,color:blankScreen?C.t1:C.t3,fontSize:12,cursor:'pointer',fontFamily:'inherit',borderRadius:5,transition:'all 0.15s',flexShrink:0}}>
+              {blankScreen?'● Blank':'Blank'}
+            </button>
+            <button onClick={sendScreenImage}
+              style={{padding:'8px 14px',background:'none',border:`1px solid ${C.b1}`,color:C.t3,fontSize:12,cursor:'pointer',fontFamily:'inherit',borderRadius:5,flexShrink:0}}>
+              Image
+            </button>
+            <button onClick={handleClear} title="Clear output"
+              style={{padding:'8px 12px',background:'none',border:`1px solid ${C.b1}`,color:C.t3,fontSize:13,cursor:'pointer',borderRadius:5,flexShrink:0}}>✕</button>
+
+            <div style={{flex:1}}/>
+
+            {/* Display selector */}
+            <select value={selectedDisplay} onChange={e=>setSelectedDisplay(Number(e.target.value))}
+              style={{background:C.bg2,border:`1px solid ${C.b1}`,color:C.t2,padding:'7px 10px',fontSize:11,outline:'none',fontFamily:'inherit',borderRadius:5,flexShrink:0}}>
+              {displays.map(d=><option key={d.id} value={d.id}>{d.label}{d.isPrimary?' (Primary)':''}</option>)}
+            </select>
           </div>
         </div>
+
       </div>
+
+      {/* ── FLOATING QUEUE PANEL ── */}
+      {showQueue&&(
+        <div className="queue-anim" style={{position:'fixed',bottom:20,right:20,width:300,maxHeight:'60vh',background:C.bg2,border:`1px solid ${C.b2}`,borderRadius:8,display:'flex',flexDirection:'column',zIndex:500,boxShadow:`0 20px 60px rgba(0,0,0,0.7), 0 0 0 1px ${C.b1}`}}>
+          {/* Header */}
+          <div style={{padding:'12px 14px',borderBottom:`1px solid ${C.b0}`,display:'flex',alignItems:'center',justifyContent:'space-between',flexShrink:0}}>
+            <div style={{display:'flex',alignItems:'center',gap:8}}>
+              <span style={{fontSize:11,color:C.t2,fontWeight:600}}>Queue</span>
+              {queue.length>0&&<span style={{fontSize:10,color:C.t4,padding:'1px 6px',border:`1px solid ${C.b1}`,borderRadius:3}}>{queue.length}</span>}
+            </div>
+            <div style={{display:'flex',gap:6}}>
+              {queue.length>0&&<button onClick={clearQueue} style={{background:'none',border:'none',color:C.t4,cursor:'pointer',fontSize:11,fontFamily:'inherit',padding:'2px 6px'}}>clear</button>}
+              <button onClick={()=>setShowQueue(false)} style={{background:'none',border:'none',color:C.t3,cursor:'pointer',fontSize:16,lineHeight:1,padding:'2px 4px'}}>×</button>
+            </div>
+          </div>
+          {/* Drop zone + items */}
+          <div onDragOver={onQueueZoneDragOver} onDragLeave={onQueueZoneDragLeave} onDrop={onQueueZoneDrop}
+            style={{flex:1,overflowY:'auto',padding:'6px 8px',minHeight:60,background:queueDragOver?`${C.g2}06`:'transparent',transition:'background 0.15s'}}>
+            {queue.length===0&&(
+              <div style={{padding:'20px 8px',fontSize:11,color:queueDragOver?C.g2:C.t4,textAlign:'center',lineHeight:1.6}}>
+                {queueDragOver?'Drop to add to queue':'Drag hymns, verses or slides here'}
+              </div>
+            )}
+            {queue.map((item,i)=>(
+              <div key={item.id}
+                draggable onDragStart={e=>onQueueItemDragStart(e,i)} onDragOver={onQueueItemDragOver} onDrop={e=>onQueueItemDrop(e,i)} onDragEnd={onQueueItemDragEnd}
+                style={{display:'flex',alignItems:'center',gap:8,padding:'7px 8px',marginBottom:2,borderRadius:5,background:i===0?C.bg3:'none',borderLeft:`2px solid ${i===0?C.g2:'transparent'}`,cursor:'grab',opacity:draggedQueueIdx===i?0.3:1,transition:'opacity 0.12s'}}>
+                <span style={{fontSize:9,color:i===0?C.g2:C.t4,width:14,flexShrink:0,fontVariantNumeric:'tabular-nums'}}>{i+1}</span>
+                <span style={{fontSize:12,color:C.t2,flex:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{item.title}</span>
+                <button onClick={()=>removeFromQueue(item.id)} style={{background:'none',border:'none',color:C.t4,cursor:'pointer',fontSize:14,padding:0,flexShrink:0,lineHeight:1}}>×</button>
+              </div>
+            ))}
+          </div>
+          {/* Gold bottom line */}
+          <div style={{height:1,background:`linear-gradient(to right,transparent,${C.g2}55,transparent)`,flexShrink:0}}/>
+        </div>
+      )}
+
+      {/* ── DAILY VERSE POPUP ── */}
+      {showDailyPopup&&(
+        <div onClick={()=>setShowDailyPopup(false)}
+          style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.8)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:9999,backdropFilter:'blur(8px)'}}>
+          <div onClick={e=>e.stopPropagation()}
+            style={{background:C.bg2,border:`1px solid ${C.b2}`,borderRadius:8,padding:40,maxWidth:540,width:'90%',position:'relative',boxShadow:`0 40px 80px rgba(0,0,0,0.9)`}}>
+            <div style={{position:'absolute',top:0,left:40,right:40,height:1,background:`linear-gradient(to right,transparent,${C.g2},transparent)`}}/>
+            <button onClick={()=>setShowDailyPopup(false)}
+              style={{position:'absolute',top:14,right:16,background:'none',border:'none',color:C.t3,cursor:'pointer',fontSize:18,lineHeight:1,padding:4}}>×</button>
+            <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:24}}>
+              <span style={{fontSize:22,color:C.g2,fontFamily:"'Noto Serif JP',serif"}}>✦</span>
+              <div>
+                <div style={{fontSize:10,color:C.g2,fontWeight:600,letterSpacing:'0.12em',textTransform:'uppercase' as const,marginBottom:2}}>Verse of the Day</div>
+                <div style={{fontSize:11,color:C.t3}}>{new Date().toLocaleDateString('en-ZW',{weekday:'long',year:'numeric',month:'long',day:'numeric'})}</div>
+              </div>
+            </div>
+            {dailyVerse?(
+              <>
+                <div style={{fontSize:11,color:C.g2,marginBottom:12}}>{dailyVerse.book} {dailyVerse.chapter}:{dailyVerse.verse} — {dailyVerse.version}</div>
+                <div style={{fontSize:20,lineHeight:1.9,color:C.t1,fontStyle:'italic',fontWeight:300,fontFamily:"'Noto Serif JP',Georgia,serif",marginBottom:20}}>"{dailyVerse.text}"</div>
+                <div style={{padding:'12px 16px',background:C.bg3,borderRadius:5,border:`1px solid ${C.b1}`,marginBottom:24,fontSize:12,color:C.t3,lineHeight:1.7,fontStyle:'italic'}}>
+                  May this word guide your service today. You are doing good work.
+                </div>
+                <div style={{display:'flex',gap:8}}>
+                  <button onClick={()=>{goLive(`${dailyVerse.book} ${dailyVerse.chapter}:${dailyVerse.verse}`,dailyVerse.text);setShowDailyPopup(false)}}
+                    style={{flex:1,padding:'11px 0',background:C.live,border:'none',color:'#fff',fontSize:12,fontWeight:700,cursor:'pointer',fontFamily:'inherit',borderRadius:5}}>Go Live</button>
+                  <button onClick={()=>{addToQueue(`${dailyVerse.book} ${dailyVerse.chapter}:${dailyVerse.verse}`,'verse');setShowDailyPopup(false)}}
+                    style={{flex:1,padding:'11px 0',background:'none',border:`1px solid ${C.b2}`,color:C.t1,fontSize:12,cursor:'pointer',fontFamily:'inherit',borderRadius:5}}>+ Queue</button>
+                  <button {...dragSource(`${dailyVerse.book} ${dailyVerse.chapter}:${dailyVerse.verse}`,'verse')}
+                    style={{width:44,padding:'11px 0',background:'none',border:`1px solid ${C.b1}`,color:C.t3,fontSize:16,cursor:'grab',borderRadius:5}} title="Drag to live or preview">⠿</button>
+                </div>
+              </>
+            ):(
+              <div style={{textAlign:'center',padding:'40px 0',color:C.t3,fontSize:13}}>Loading…</div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
