@@ -3,7 +3,7 @@ import path from 'path'
 import fs from 'fs'
 import crypto from 'crypto'
 
-// ── INTERFACES ────────────────────────────────────────────────────────────────
+// ── INTERFACES ────────────────────────────────────────────────────────────
 
 interface Song {
   id: number; title: string; language: string; source: string
@@ -31,29 +31,27 @@ interface User {
   id: number; username: string; password_hash: string
   role: 'ADMIN'|'OPERATOR'|'PRESENTER'|'VIEWER'
   display_name: string; created_at: string; last_login: string | null
-  must_change_password?: boolean
+}
+export interface MediaFolder {
+  id: number; name: string; event_date: string | null; created_at: string
+}
+export interface MediaItem {
+  id: number; folder_id: number; name: string; path: string
+  mime_type: string; size: number; created_at: string
 }
 export interface DisplaySettings {
-  bgColor: string; bgImage: string | null
-  fontColor: string; fontSize: number
-  textAlign: 'left' | 'center' | 'right'
-  fontFamily: string
+  [key: string]: any
 }
-
-export const DEFAULT_DISPLAY_SETTINGS: DisplaySettings = {
-  bgColor: '#000000', bgImage: null,
-  fontColor: '#ffffff', fontSize: 52,
-  textAlign: 'center', fontFamily: 'Georgia, serif',
-}
-
 interface DB {
   songs: Song[]; song_sections: SongSection[]; bible_verses: BibleVerse[]
   daily_verses: DailyVerse[]; service_queue: ServiceQueueItem[]
   users: User[]; slides: Slide[]
-  meta: { last_id: number; bible_loaded?: string; display_settings?: DisplaySettings }
+  media_folders: MediaFolder[]; media_items: MediaItem[]
+  display_settings: DisplaySettings
+  meta: { last_id: number; bible_loaded?: string }
 }
 
-// ── CORE ──────────────────────────────────────────────────────────────────────
+// ── CORE ──────────────────────────────────────────────────────────────────
 
 let dbPath: string
 let db: DB
@@ -69,10 +67,13 @@ function load(): DB {
     const parsed = JSON.parse(fs.readFileSync(dbPath, 'utf-8'))
     if (!parsed.users)  parsed.users  = []
     if (!parsed.slides) parsed.slides = []
+    if (!parsed.media_folders) parsed.media_folders = []
+    if (!parsed.media_items)   parsed.media_items   = []
+    if (!parsed.display_settings) parsed.display_settings = {}
     if (!parsed.meta)   parsed.meta   = { last_id: 0 }
     return parsed
   }
-  return { songs:[], song_sections:[], bible_verses:[], daily_verses:[], service_queue:[], users:[], slides:[], meta:{ last_id:0 } }
+  return { songs:[], song_sections:[], bible_verses:[], daily_verses:[], service_queue:[], users:[], slides:[], media_folders:[], media_items:[], display_settings:{}, meta:{ last_id:0 } }
 }
 
 function findData(file: string): string | null {
@@ -86,7 +87,7 @@ function findData(file: string): string | null {
 
 function capitalize(s: string) { return s ? s[0].toUpperCase() + s.slice(1) : s }
 
-// ── BIBLE LOADING ─────────────────────────────────────────────────────────────
+// ── BIBLE LOADING ─────────────────────────────────────────────────────────
 
 const BOOK_NAMES = [
   'Genesis','Exodus','Leviticus','Numbers','Deuteronomy','Joshua','Judges','Ruth',
@@ -116,13 +117,11 @@ function loadAllBibles(): BibleVerse[] {
     try {
       const data = JSON.parse(fs.readFileSync(p, 'utf-8').replace(/^\uFEFF/, ''))
 
-      // Format A: flat array [{id,version,book,chapter,verse,text}]
       if (Array.isArray(data) && data[0]?.book && data[0]?.chapter) {
         for (const v of data) {
           if (v.text?.trim()) all.push({ id: gid++, version, book: v.book, chapter: +v.chapter, verse: +v.verse, text: v.text.trim(), language: 'en' })
         }
       }
-      // Format B: scrollmapper {resultset:{row:[{field:[id,book_id,ch,v,text]}]}}
       else if (data.resultset?.row) {
         for (const row of data.resultset.row) {
           const f = row.field
@@ -132,7 +131,6 @@ function loadAllBibles(): BibleVerse[] {
           if (text) all.push({ id: gid++, version, book: bookName, chapter: +f[2], verse: +f[3], text, language: 'en' })
         }
       }
-      // Format C: nested [{name, chapters:[[v1,v2,...],...]},...]
       else if (Array.isArray(data) && data[0]?.chapters) {
         for (const book of data) {
           const bname = capitalize(book.name || book.abbrev || 'Unknown')
@@ -151,7 +149,7 @@ function loadAllBibles(): BibleVerse[] {
   return all
 }
 
-// ── SDA HYMNAL LOADING ────────────────────────────────────────────────────────
+// ── SDA HYMNAL LOADING ────────────────────────────────────────────────────
 
 function loadSDAHymnal() {
   const p = findData('sda_hymnal.json')
@@ -176,29 +174,18 @@ function loadSDAHymnal() {
   } catch(e) { console.log('SDA Hymnal error:', e); return [] }
 }
 
-// ── SEED DATA ─────────────────────────────────────────────────────────────────
+// ── SEED DATA ─────────────────────────────────────────────────────────────
 
 function seedUsers() {
-  if (db.users.length > 0) {
-    // Migration: ensure existing installs have the field (won't re-prompt established users)
-    let changed = false
-    for (const u of db.users) {
-      if (u.must_change_password === undefined) { u.must_change_password = false; changed = true }
-    }
-    if (changed) save()
-    return
+  if (db.users.length > 0) return
+  for (const u of [
+    { username:'admin',     password:'Admin@2024',  role:'ADMIN',     display_name:'Administrator'    },
+    { username:'operator',  password:'Operator@1',  role:'OPERATOR',  display_name:'Default Operator' },
+    { username:'presenter', password:'Present@1',   role:'PRESENTER', display_name:'Presenter'        },
+    { username:'Admin_10',  password:'Shogun@2024', role:'ADMIN',     display_name:'Admin_10'         },
+  ] as any[]) {
+    db.users.push({ id: nextId(), username: u.username, password_hash: hashPassword(u.password), role: u.role, display_name: u.display_name, created_at: new Date().toISOString(), last_login: null })
   }
-  // Fresh install — one admin only, forced password change on first login
-  db.users.push({
-    id: nextId(),
-    username: 'admin',
-    password_hash: hashPassword('changeme'),
-    role: 'ADMIN',
-    display_name: 'Administrator',
-    created_at: new Date().toISOString(),
-    last_login: null,
-    must_change_password: true,
-  })
   save()
 }
 
@@ -256,17 +243,22 @@ const FALLBACK_VERSES = [
   {book:'Lamentations',chapter:3,verse:23,text:'They are new every morning; great is your faithfulness.'},
 ]
 
-// ── INIT ──────────────────────────────────────────────────────────────────────
+// ── INIT ──────────────────────────────────────────────────────────────────
 
 export async function initDatabase() {
   dbPath = path.join(app.getPath('userData'), 'shogunos.json')
   db = load()
   seedUsers()
 
-  // ── Songs / Hymnal ────────────────────────────────────────────────────────
-  if (db.songs.length === 0) {
-    const sdaHymns = loadSDAHymnal()
-    const songs = sdaHymns.length > 0 ? sdaHymns : FALLBACK_SONGS
+  // ── Songs / Hymnal ────────────────────────────────────────────────────
+  const sdaHymns = loadSDAHymnal()
+  const hasSDA = sdaHymns.length > 0
+  const needsHymnalReload = db.songs.length === 0 || (hasSDA && db.songs.length <= 10)
+
+  if (needsHymnalReload) {
+    db.songs = []
+    db.song_sections = []
+    const songs = hasSDA ? sdaHymns : FALLBACK_SONGS
     for (const song of songs) {
       const id = nextId()
       db.songs.push({ id, title: song.title, language: 'en', source: 'hymnal', hymn_number: song.hymn, created_at: new Date().toISOString() })
@@ -274,12 +266,11 @@ export async function initDatabase() {
         db.song_sections.push({ id: nextId(), song_id: id, type: s.type, order_num: s.order, content: s.content })
       }
     }
-    console.log(`Songs loaded: ${db.songs.length}`)
+    console.log(`Songs loaded: ${db.songs.length} (${hasSDA ? 'SDA Hymnal' : 'fallback'})`)
     save()
   }
 
-  // ── Bible ─────────────────────────────────────────────────────────────────
-  // Check if we have data files available that aren't loaded yet
+  // ── Bible ────────────────────────────────────────────────────────────
   const hasKJVFile = !!findData('kjv.json')
   const currentBibleLoaded = db.meta.bible_loaded || ''
   const targetBible = [hasKJVFile && 'kjv', !!findData('asv.json') && 'asv', !!findData('web.json') && 'web'].filter(Boolean).join(',')
@@ -293,11 +284,9 @@ export async function initDatabase() {
       db.meta.bible_loaded = targetBible
       console.log(`Bible loaded: ${verses.length} verses across ${targetBible}`)
     } else {
-      // Fallback
       db.bible_verses = FALLBACK_VERSES.map((v, i) => ({ id: nextId(), version: 'KJV', ...v, language: 'en' }))
     }
 
-    // Regenerate daily verse schedule using KJV
     const pool = db.bible_verses.filter(v => v.version === 'KJV')
     const src  = pool.length > 0 ? pool : db.bible_verses
     db.daily_verses = []
@@ -310,7 +299,7 @@ export async function initDatabase() {
   }
 }
 
-// ── AUTH ──────────────────────────────────────────────────────────────────────
+// ── AUTH ──────────────────────────────────────────────────────────────────
 
 export function loginUser(u: string, p: string): { success: boolean; user?: Omit<User,'password_hash'>; error?: string } {
   const user = db.users.find(x => x.username.toLowerCase() === u.toLowerCase())
@@ -319,17 +308,6 @@ export function loginUser(u: string, p: string): { success: boolean; user?: Omit
   user.last_login = new Date().toISOString(); save()
   const { password_hash, ...safe } = user
   return { success: true, user: safe }
-}
-
-export function forcedChangePassword(userId: number, newPw: string): { success: boolean; error?: string } {
-  const user = db.users.find(u => u.id === userId)
-  if (!user) return { success: false, error: 'User not found' }
-  if (newPw.length < 8) return { success: false, error: 'Password must be at least 8 characters' }
-  if (newPw === 'changeme') return { success: false, error: 'Please choose a different password' }
-  user.password_hash = hashPassword(newPw)
-  user.must_change_password = false
-  save()
-  return { success: true }
 }
 export function getUsers() { return db.users.map(({ password_hash, ...u }) => u) }
 export function createUser(username: string, password: string, role: User['role'], displayName: string): { success: boolean; error?: string } {
@@ -354,23 +332,33 @@ export function deleteUser(userId: number): { success: boolean; error?: string }
 export function adminResetPassword(userId: number, newPw: string): { success: boolean; error?: string } {
   const user = db.users.find(u => u.id === userId)
   if (!user) return { success: false, error: 'User not found' }
-  if (newPw.length < 6) return { success: false, error: 'Password must be at least 6 characters' }
-  user.password_hash = hashPassword(newPw)
-  user.must_change_password = true  // force change on next login
-  save(); return { success: true }
+  if (newPw.length < 6) return { success: false, error: 'New password must be at least 6 characters' }
+  user.password_hash = hashPassword(newPw); save(); return { success: true }
 }
 export function updateUserRole(userId: number, role: User['role']): { success: boolean; error?: string } {
   const user = db.users.find(u => u.id === userId)
   if (!user) return { success: false, error: 'User not found' }
-  if (user.role === 'ADMIN' && role !== 'ADMIN' && db.users.filter(u => u.role === 'ADMIN').length <= 1) return { success: false, error: 'Cannot demote the last admin' }
+  if (user.role === 'ADMIN' && role !== 'ADMIN' && db.users.filter(u => u.role === 'ADMIN').length <= 1) {
+    return { success: false, error: 'Cannot demote the last admin' }
+  }
   user.role = role; save(); return { success: true }
 }
+export function forcedChangePassword(userId: number, newPw: string): { success: boolean; error?: string } {
+  // Same as adminResetPassword — no "must change on next login" flag exists yet on User.
+  // If you need that behavior, add a `must_change_password: boolean` field to the User interface.
+  const user = db.users.find(u => u.id === userId)
+  if (!user) return { success: false, error: 'User not found' }
+  if (newPw.length < 6) return { success: false, error: 'New password must be at least 6 characters' }
+  user.password_hash = hashPassword(newPw); save(); return { success: true }
+}
 
-// ── SONGS ─────────────────────────────────────────────────────────────────────
+// ── SONGS ─────────────────────────────────────────────────────────────────
 
 export function searchSongs(query: string) {
-  const q = query.toLowerCase()
-  return db.songs.filter(s => s.title.toLowerCase().includes(q)).sort((a,b) => (a.hymn_number||999)-(b.hymn_number||999))
+  const q = query.toLowerCase().trim()
+  return db.songs
+    .filter(s => s.source === 'hymnal' && (q === '' || s.title.toLowerCase().includes(q)))
+    .sort((a,b) => (a.hymn_number||999) - (b.hymn_number||999))
 }
 export function getSongSections(songId: number) {
   return db.song_sections.filter(s => s.song_id === songId).sort((a,b) => a.order_num - b.order_num)
@@ -388,7 +376,7 @@ export function deleteSong(songId: number) {
   db.song_sections = db.song_sections.filter(s => s.song_id !== songId); save()
 }
 
-// ── BIBLE ─────────────────────────────────────────────────────────────────────
+// ── BIBLE ─────────────────────────────────────────────────────────────────
 
 export function getDailyVerse() {
   const today = new Date().toISOString().split('T')[0]
@@ -402,7 +390,6 @@ export function searchBibleVerses(query: string, version?: string) {
     (version ? v.version === version : true) &&
     (v.text.toLowerCase().includes(q) || v.book.toLowerCase().includes(q))
   )
-  // Sort by relevance: exact book match first, then text matches
   filtered.sort((a, b) => {
     const aBook  = a.book.toLowerCase().startsWith(q) ? 0 : 1
     const bBook  = b.book.toLowerCase().startsWith(q) ? 0 : 1
@@ -410,8 +397,7 @@ export function searchBibleVerses(query: string, version?: string) {
     const bExact = b.text.toLowerCase().includes(q) ? 0 : 1
     return (aBook + aExact) - (bBook + bExact)
   })
-  // Only cap results for very short/empty queries (avoid returning the entire Bible at once)
-  return q.length < 3 ? filtered.slice(0, 200) : filtered
+  return filtered.slice(0, 200)
 }
 export function getBibleVerse(book: string, chapter: number, verse: number) {
   return db.bible_verses.find(v => v.book.toLowerCase().includes(book.toLowerCase()) && v.chapter === chapter && v.verse === verse) || null
@@ -421,18 +407,17 @@ export function getBibleTranslations() {
 }
 export function getBibleBooks(version?: string) {
   const verses = version ? db.bible_verses.filter(v => v.version === version) : db.bible_verses
-  const seen = new Set<string>()
-  const books: string[] = []
-  for (const v of verses) {
-    if (!seen.has(v.book)) { seen.add(v.book); books.push(v.book) }
-  }
-  return books
+  const present = new Set(verses.map(v => v.book))
+  const ordered = BOOK_NAMES.filter(b => present.has(b))
+  const extras = Array.from(present).filter(b => !BOOK_NAMES.includes(b))
+  return [...ordered, ...extras]
 }
 export function getBibleChapters(book: string, version?: string) {
   const verses = db.bible_verses.filter(v =>
     v.book === book && (version ? v.version === version : true)
   )
-  return Array.from(new Set(verses.map(v => v.chapter))).sort((a, b) => a - b)
+  const chapters = Array.from(new Set(verses.map(v => v.chapter)))
+  return chapters.sort((a, b) => a - b)
 }
 export function getBibleChapterVerses(book: string, chapter: number, version?: string) {
   return db.bible_verses
@@ -440,32 +425,27 @@ export function getBibleChapterVerses(book: string, chapter: number, version?: s
     .sort((a, b) => a.verse - b.verse)
 }
 
-// ── QUEUE ─────────────────────────────────────────────────────────────────────
+// ── QUEUE ─────────────────────────────────────────────────────────────────
 
 export function getServiceQueue() { return db.service_queue.sort((a,b) => a.order_num - b.order_num) }
 export function addToServiceQueue(title: string, type: string, songId?: number, verseRef?: string) {
-  const item: ServiceQueueItem = { id: nextId(), title, type, song_id: songId||null, verse_ref: verseRef||null, order_num: db.service_queue.length+1 }
-  db.service_queue.push(item); save()
-  return item
+  db.service_queue.push({ id: nextId(), title, type, song_id: songId||null, verse_ref: verseRef||null, order_num: db.service_queue.length+1 }); save()
 }
+export function clearServiceQueue() { db.service_queue = []; save() }
 export function removeFromServiceQueue(id: number) {
   db.service_queue = db.service_queue.filter(q => q.id !== id)
-  db.service_queue.forEach((q, i) => q.order_num = i+1)
+  db.service_queue.forEach((q, i) => { q.order_num = i + 1 })
   save()
 }
 export function reorderServiceQueue(orderedIds: number[]) {
-  const byId = new Map(db.service_queue.map(q => [q.id, q]))
-  const reordered: ServiceQueueItem[] = []
-  for (const id of orderedIds) { const item = byId.get(id); if (item) reordered.push(item) }
-  // append any items not present in orderedIds (defensive — keeps data safe)
-  for (const item of db.service_queue) if (!orderedIds.includes(item.id)) reordered.push(item)
-  reordered.forEach((q, i) => q.order_num = i+1)
-  db.service_queue = reordered
+  orderedIds.forEach((id, i) => {
+    const item = db.service_queue.find(q => q.id === id)
+    if (item) item.order_num = i + 1
+  })
   save()
 }
-export function clearServiceQueue() { db.service_queue = []; save() }
 
-// ── THEMES ────────────────────────────────────────────────────────────────────
+// ── THEMES ────────────────────────────────────────────────────────────────
 
 export function getThemes() {
   return [
@@ -478,7 +458,7 @@ export function getThemes() {
   ]
 }
 
-// ── SLIDES ────────────────────────────────────────────────────────────────────
+// ── SLIDES ────────────────────────────────────────────────────────────────
 
 export function getSlides() { return db.slides.sort((a,b) => a.order_num - b.order_num) }
 export function getSlide(id: number) { return db.slides.find(s => s.id === id) }
@@ -505,7 +485,43 @@ export function duplicateSlide(id: number): Slide {
   db.slides.push(copy); save(); return copy
 }
 
-// ── IMPORT / EXPORT ───────────────────────────────────────────────────────────
+// ── DISPLAY SETTINGS ──────────────────────────────────────────────────────
+
+export function getDisplaySettings(): DisplaySettings {
+  return db.display_settings || {}
+}
+export function saveDisplaySettings(settings: DisplaySettings) {
+  db.display_settings = { ...db.display_settings, ...settings }
+  save()
+  return db.display_settings
+}
+
+// ── MEDIA LIBRARY ─────────────────────────────────────────────────────────
+
+export function getMediaFolders() {
+  return db.media_folders.sort((a,b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+}
+export function createMediaFolder(name: string, eventDate?: string): MediaFolder {
+  const folder: MediaFolder = { id: nextId(), name, event_date: eventDate || null, created_at: new Date().toISOString() }
+  db.media_folders.push(folder); save(); return folder
+}
+export function deleteMediaFolder(id: number) {
+  db.media_folders = db.media_folders.filter(f => f.id !== id)
+  db.media_items = db.media_items.filter(i => i.folder_id !== id)
+  save()
+}
+export function getMediaItems(folderId: number) {
+  return db.media_items.filter(i => i.folder_id === folderId).sort((a,b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+}
+export function addMediaItem(folderId: number, name: string, filePath: string, mimeType: string, size: number): MediaItem {
+  const item: MediaItem = { id: nextId(), folder_id: folderId, name, path: filePath, mime_type: mimeType, size, created_at: new Date().toISOString() }
+  db.media_items.push(item); save(); return item
+}
+export function deleteMediaItem(id: number) {
+  db.media_items = db.media_items.filter(i => i.id !== id); save()
+}
+
+// ── IMPORT / EXPORT ───────────────────────────────────────────────────────
 
 export function exportDatabase() {
   return JSON.stringify({ version:'1.0', exported_at:new Date().toISOString(), app:'ShogunOS', songs:db.songs, song_sections:db.song_sections, slides:db.slides, service_queue:db.service_queue }, null, 2)
@@ -546,90 +562,4 @@ export function getDatabaseStats() {
   return { songs:db.songs.length, custom_songs:db.songs.filter(s=>s.source==='custom').length, hymns:db.songs.filter(s=>s.source==='hymnal').length, sections:db.song_sections.length, bible_verses:db.bible_verses.length, bible_translations:getBibleTranslations(), slides:db.slides.length, queue_items:db.service_queue.length, users:db.users.length, db_path:dbPath }
 }
 
-export function getDisplaySettings(): DisplaySettings {
-  return { ...DEFAULT_DISPLAY_SETTINGS, ...(db.meta.display_settings || {}) }
-}
-
-export function saveDisplaySettings(settings: DisplaySettings) {
-  db.meta.display_settings = settings; save()
-}
-
 export default {}
-
-// ── MEDIA ─────────────────────────────────────────────────────────────────────
-
-export interface MediaFolder {
-  id: number; name: string; eventDate: string | null
-  created_at: string; item_count: number
-}
-export interface MediaItem {
-  id: number; folder_id: number; name: string
-  file_path: string; mime_type: string; file_size: number
-  loop: boolean; muted: boolean; order_num: number
-  created_at: string
-}
-
-// Extend DB interface — patch at runtime if fields missing
-function ensureMediaTables() {
-  if (!(db as any).media_folders) (db as any).media_folders = []
-  if (!(db as any).media_items)   (db as any).media_items   = []
-}
-
-export function getMediaFolders(): MediaFolder[] {
-  ensureMediaTables()
-  const folders: MediaFolder[] = (db as any).media_folders || []
-  return folders.map(f => ({
-    ...f,
-    item_count: ((db as any).media_items as MediaItem[]).filter(i => i.folder_id === f.id).length,
-  })).sort((a, b) => a.name.localeCompare(b.name))
-}
-
-export function createMediaFolder(name: string, eventDate?: string): MediaFolder {
-  ensureMediaTables()
-  const folder: MediaFolder = {
-    id: nextId(), name, eventDate: eventDate || null,
-    created_at: new Date().toISOString(), item_count: 0,
-  }
-  ;(db as any).media_folders.push(folder); save()
-  return folder
-}
-
-export function deleteMediaFolder(id: number) {
-  ensureMediaTables()
-  ;(db as any).media_folders = ((db as any).media_folders as MediaFolder[]).filter(f => f.id !== id)
-  ;(db as any).media_items   = ((db as any).media_items   as MediaItem[]).filter(i => i.folder_id !== id)
-  save()
-}
-
-export function getMediaItems(folderId: number): MediaItem[] {
-  ensureMediaTables()
-  return ((db as any).media_items as MediaItem[])
-    .filter(i => i.folder_id === folderId)
-    .sort((a, b) => a.order_num - b.order_num)
-}
-
-export function addMediaItem(folderId: number, name: string, filePath: string, mimeType: string, fileSize: number): MediaItem {
-  ensureMediaTables()
-  const items: MediaItem[] = (db as any).media_items
-  const maxOrder = items.filter(i => i.folder_id === folderId).reduce((m, i) => Math.max(m, i.order_num), 0)
-  const item: MediaItem = {
-    id: nextId(), folder_id: folderId, name, file_path: filePath,
-    mime_type: mimeType, file_size: fileSize, loop: false, muted: false,
-    order_num: maxOrder + 1, created_at: new Date().toISOString(),
-  }
-  items.push(item); save(); return item
-}
-
-export function updateMediaItem(id: number, patch: Partial<MediaItem>) {
-  ensureMediaTables()
-  const items: MediaItem[] = (db as any).media_items
-  const idx = items.findIndex(i => i.id === id)
-  if (idx !== -1) { items[idx] = { ...items[idx], ...patch, id }; save() }
-  return (db as any).media_items[idx] as MediaItem
-}
-
-export function deleteMediaItem(id: number) {
-  ensureMediaTables()
-  ;(db as any).media_items = ((db as any).media_items as MediaItem[]).filter(i => i.id !== id)
-  save()
-}

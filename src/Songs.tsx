@@ -18,20 +18,20 @@ interface Song { id: number; title: string; hymn_number: number | null; source: 
 interface Section { id: number; song_id: number; type: string; order_num: number; content: string }
 
 const LANG_LABELS: Record<string, string> = { en: 'English', sn: 'Shona', nd: 'Ndebele', fr: 'French' }
-const LANG_ORDER = ['en', 'sn', 'nd', 'fr'] // Display order
+const LANG_ORDER = ['en', 'sn', 'nd', 'fr']
 
 export default function Songs({ goLive, addToQueue, notify }: Props) {
-  const [songs, setSongs]           = useState<Song[]>([])
-  const [selected, setSelected]     = useState<Song | null>(null)
-  const [sections, setSections]     = useState<Section[]>([])
+  const [songs, setSongs] = useState<Song[]>([])
+  const [selected, setSelected] = useState<Song | null>(null)
+  const [sections, setSections] = useState<Section[]>([])
   const [currentSec, setCurrentSec] = useState(0)
-  const [search, setSearch]         = useState('')
-  const [filter, setFilter]         = useState<'all' | 'hymnal' | 'custom'>('all')
+  const [search, setSearch] = useState('')
+  const [filter, setFilter] = useState<'all' | 'hymnal' | 'custom'>('all')
   const [langFilter, setLangFilter] = useState('all')
-  const [loading, setLoading]       = useState(true)
-  const [editing, setEditing]       = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [editing, setEditing] = useState(false)
   const [editSections, setEditSections] = useState<Section[]>([])
-  const [editTitle, setEditTitle]   = useState('')
+  const [editTitle, setEditTitle] = useState('')
   const [expandedLangs, setExpandedLangs] = useState<Record<string, boolean>>({})
   const api = (window as any).shogunos
 
@@ -40,11 +40,8 @@ export default function Songs({ goLive, addToQueue, notify }: Props) {
     try {
       const all: Song[] = await api.searchSongs('')
       setSongs(all.sort((a, b) => (a.hymn_number || 999) - (b.hymn_number || 999)))
-      // Auto-expand first language on load
       const langs = Array.from(new Set(all.map(s => s.language)))
-      if (langs.length > 0) {
-        setExpandedLangs({ [langs[0]]: true })
-      }
+      if (langs.length > 0) setExpandedLangs({ [langs[0]]: true })
     } catch { notify('Failed to load songs') }
     setLoading(false)
   }, [])
@@ -52,7 +49,9 @@ export default function Songs({ goLive, addToQueue, notify }: Props) {
   useEffect(() => { load() }, [load])
 
   async function selectSong(song: Song) {
-    setSelected(song); setCurrentSec(0); setEditing(false)
+    setSelected(song)
+    setCurrentSec(0)
+    setEditing(false)
     const secs: Section[] = await api.getSongSections(song.id)
     setSections(secs)
   }
@@ -62,7 +61,8 @@ export default function Songs({ goLive, addToQueue, notify }: Props) {
     if (!confirm(`Delete "${selected.title}"? This cannot be undone.`)) return
     await api.deleteSong(selected.id)
     setSongs(s => s.filter(x => x.id !== selected.id))
-    setSelected(null); setSections([])
+    setSelected(null)
+    setSections([])
     notify(`"${selected.title}" deleted`)
   }
 
@@ -80,7 +80,9 @@ export default function Songs({ goLive, addToQueue, notify }: Props) {
     }
     const updated = { ...selected, title: editTitle }
     setSongs(s => s.map(x => x.id === selected.id ? updated : x))
-    setSelected(updated); setSections(editSections); setEditing(false)
+    setSelected(updated)
+    setSections(editSections)
+    setEditing(false)
     notify('Song saved')
   }
 
@@ -91,10 +93,9 @@ export default function Songs({ goLive, addToQueue, notify }: Props) {
     return true
   })
 
-  // Group songs by language
   const languages = Array.from(new Set(songs.map(s => s.language)))
     .sort((a, b) => LANG_ORDER.indexOf(a) - LANG_ORDER.indexOf(b))
-  
+
   const songsByLang = languages.reduce((acc, lang) => {
     acc[lang] = visible.filter(s => s.language === lang)
     return acc
@@ -102,43 +103,21 @@ export default function Songs({ goLive, addToQueue, notify }: Props) {
 
   const section = editing ? editSections[currentSec] : sections[currentSec]
 
-  const inputStyle: React.CSSProperties = {
-    width: '100%',
-    background: C.coal,
-    border: `1px solid ${C.divider}`,
-    color: C.ivory,
-    padding: '10px 12px',
-    fontSize: 13,
-    outline: 'none',
-    fontFamily: 'inherit',
-    borderRadius: 4,
-    transition: 'border-color 0.2s, background-color 0.2s'
-  }
-
-  const buttonBase: React.CSSProperties = {
-    fontFamily: 'inherit',
-    cursor: 'pointer',
-    transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-    border: 'none',
-    outline: 'none'
-  }
-
   return (
-    <div style={{ flex: 1, display: 'flex', overflow: 'hidden', minHeight: 0, background: C.void }}>
-
-      {/* ── LEFT: LIST ── */}
-      <div style={{ width: 320, background: C.ash, borderRight: `1px solid ${C.border}`, display: 'flex', flexDirection: 'column', flexShrink: 0 }}>
+    <div style={{ flex: 1, display: 'flex', overflow: 'hidden', background: C.void }}>
+      {/* SIDEBAR - 360px WIDE */}
+      <div style={{ width: 360, background: C.ash, borderRight: `1px solid ${C.divider}`, display: 'flex', flexDirection: 'column', flexShrink: 0 }}>
         
-        {/* Header */}
-        <div style={{ padding: '16px 18px', background: C.void, borderBottom: `1px solid ${C.border}`, flexShrink: 0 }}>
-          <div style={{ marginBottom: 14 }}>
-            <div style={{ fontSize: 11, color: C.ghost, fontWeight: 600, letterSpacing: '0.15em', marginBottom: 8 }}>LIBRARY</div>
-            <div style={{ fontSize: 20, color: C.ivory, fontWeight: 500, letterSpacing: '-0.02em' }}>Songs & Hymns</div>
+        {/* TOP SECTION */}
+        <div style={{ background: C.void, borderBottom: `1px solid ${C.divider}`, flexShrink: 0, padding: '28px 28px' }}>
+          <div style={{ marginBottom: 24 }}>
+            <div style={{ fontSize: 10, color: C.ghost, fontWeight: 700, letterSpacing: '0.25em', marginBottom: 12 }}>LIBRARY</div>
+            <div style={{ fontSize: 32, color: C.ivory, fontWeight: 700, letterSpacing: '-0.02em' }}>Songs</div>
           </div>
 
-          {/* Search */}
-          <div style={{ display: 'flex', alignItems: 'center', background: C.coal, border: `1px solid ${C.divider}`, padding: '0 12px', gap: 8, marginBottom: 12, borderRadius: 4 }}>
-            <i className="ti ti-search" style={{ color: C.mist, fontSize: 14 }} />
+          {/* SEARCH */}
+          <div style={{ display: 'flex', alignItems: 'center', background: C.coal, border: `1px solid ${C.divider}`, padding: '0 18px', gap: 12, marginBottom: 24, borderRadius: 8, height: 50 }}>
+            <i className="ti ti-search" style={{ color: C.mist, fontSize: 18 }} />
             <input
               value={search}
               onChange={e => setSearch(e.target.value)}
@@ -148,65 +127,58 @@ export default function Songs({ goLive, addToQueue, notify }: Props) {
                 background: 'none',
                 border: 'none',
                 color: C.ivory,
-                fontSize: 13,
+                fontSize: 15,
                 outline: 'none',
-                padding: '10px 0',
+                padding: '12px 0',
                 fontFamily: 'inherit'
               }}
             />
             {search && (
-              <span
-                onClick={() => setSearch('')}
-                style={{
-                  color: C.mist,
-                  cursor: 'pointer',
-                  fontSize: 16,
-                  lineHeight: 1,
-                  userSelect: 'none'
-                }}
-              >
-                ✕
-              </span>
+              <span onClick={() => setSearch('')} style={{ color: C.mist, cursor: 'pointer', fontSize: 20, userSelect: 'none' }}>✕</span>
             )}
           </div>
 
-          {/* Filter tabs */}
-          <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
+          {/* SOURCE FILTERS */}
+          <div style={{ display: 'flex', gap: 10, marginBottom: 20 }}>
             {(['all', 'hymnal', 'custom'] as const).map(val => (
               <button
                 key={val}
                 onClick={() => setFilter(val)}
                 style={{
-                  ...buttonBase,
                   flex: 1,
-                  padding: '8px 10px',
-                  fontSize: 11,
-                  fontWeight: 600,
-                  letterSpacing: '0.05em',
-                  border: `1px solid ${filter === val ? C.gold : C.divider}`,
+                  padding: '12px 16px',
+                  fontSize: 13,
+                  fontWeight: 700,
+                  letterSpacing: '0.06em',
+                  border: `2px solid ${filter === val ? C.gold : C.divider}`,
                   color: filter === val ? C.gold : C.mist,
-                  background: filter === val ? 'rgba(255, 213, 79, 0.08)' : 'transparent',
-                  borderRadius: 3
+                  background: filter === val ? 'rgba(255, 213, 79, 0.12)' : 'transparent',
+                  borderRadius: 6,
+                  cursor: 'pointer',
+                  fontFamily: 'inherit',
+                  transition: 'all 0.2s'
                 }}
               >
-                {val.charAt(0).toUpperCase() + val.slice(1)}
+                {val === 'all' ? 'All' : val === 'hymnal' ? 'Hymnal' : 'Custom'}
               </button>
             ))}
           </div>
 
-          {/* Language filter pills */}
-          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+          {/* LANGUAGE FILTERS */}
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
             <button
               onClick={() => setLangFilter('all')}
               style={{
-                ...buttonBase,
-                padding: '6px 12px',
-                fontSize: 10,
-                fontWeight: 600,
-                border: `1px solid ${langFilter === 'all' ? C.amber : C.divider}`,
+                padding: '10px 16px',
+                fontSize: 12,
+                fontWeight: 700,
+                border: `1.5px solid ${langFilter === 'all' ? C.amber : C.divider}`,
                 color: langFilter === 'all' ? C.amber : C.mist,
-                background: langFilter === 'all' ? 'rgba(251, 192, 45, 0.1)' : 'transparent',
-                borderRadius: 12
+                background: langFilter === 'all' ? 'rgba(251, 192, 45, 0.15)' : 'transparent',
+                borderRadius: 16,
+                cursor: 'pointer',
+                fontFamily: 'inherit',
+                transition: 'all 0.2s'
               }}
             >
               All
@@ -216,14 +188,16 @@ export default function Songs({ goLive, addToQueue, notify }: Props) {
                 key={lang}
                 onClick={() => setLangFilter(lang)}
                 style={{
-                  ...buttonBase,
-                  padding: '6px 12px',
-                  fontSize: 10,
-                  fontWeight: 600,
-                  border: `1px solid ${langFilter === lang ? C.amber : C.divider}`,
+                  padding: '10px 16px',
+                  fontSize: 12,
+                  fontWeight: 700,
+                  border: `1.5px solid ${langFilter === lang ? C.amber : C.divider}`,
                   color: langFilter === lang ? C.amber : C.mist,
-                  background: langFilter === lang ? 'rgba(251, 192, 45, 0.1)' : 'transparent',
-                  borderRadius: 12
+                  background: langFilter === lang ? 'rgba(251, 192, 45, 0.15)' : 'transparent',
+                  borderRadius: 16,
+                  cursor: 'pointer',
+                  fontFamily: 'inherit',
+                  transition: 'all 0.2s'
                 }}
               >
                 {LANG_LABELS[lang] || lang}
@@ -232,204 +206,165 @@ export default function Songs({ goLive, addToQueue, notify }: Props) {
           </div>
         </div>
 
-        {/* Song list */}
-        <div style={{ flex: 1, overflowY: 'auto', padding: '10px 0' }}>
-          {loading ? (
-            <div style={{ padding: 32, textAlign: 'center', color: C.mist, fontSize: 12 }}>Loading...</div>
-          ) : visible.length === 0 ? (
-            <div style={{ padding: 32, textAlign: 'center', color: C.mist }}>
-              <div style={{ fontSize: 36, opacity: 0.2, marginBottom: 10 }}>⚔</div>
-              <div style={{ fontSize: 11 }}>{search ? 'No songs match' : 'No songs'}</div>
-            </div>
-          ) : (
-            languages.map(lang => {
-              const langSongs = songsByLang[lang]
-              if (langSongs.length === 0) return null
-              const isExpanded = expandedLangs[lang] !== false // Default to expanded
-              
-              return (
-                <div key={lang} style={{ marginBottom: 2 }}>
-                  {/* Language group header */}
-                  <button
-                    onClick={() => setExpandedLangs(e => ({ ...e, [lang]: !e[lang] }))}
-                    style={{
-                      ...buttonBase,
-                      width: '100%',
-                      padding: '10px 18px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      background: C.coal,
-                      color: C.gold,
-                      fontSize: 11,
-                      fontWeight: 700,
-                      letterSpacing: '0.1em',
-                      borderLeft: `3px solid ${C.amber}`,
-                      textAlign: 'left'
-                    }}
-                  >
-                    <span>{(LANG_LABELS[lang] || lang).toUpperCase()}</span>
-                    <span style={{ fontSize: 10, color: C.mist }}>
-                      {langSongs.length} • {isExpanded ? '▼' : '▶'}
-                    </span>
-                  </button>
-
-                  {/* Language group items */}
-                  {isExpanded && langSongs.map(song => {
-                    const isActive = selected?.id === song.id
-                    const srcColor = song.source === 'hymnal' ? C.amber : C.fire
-                    
-                    return (
-                      <div
-                        key={song.id}
-                        onClick={() => selectSong(song)}
-                        style={{
-                          borderLeft: `3px solid ${isActive ? C.gold : srcColor}`,
-                          background: isActive ? 'rgba(255, 213, 79, 0.08)' : 'transparent',
-                          borderBottom: `1px solid ${C.border}`,
-                          cursor: 'pointer',
-                          padding: '10px 18px',
-                          transition: 'all 0.15s'
-                        }}
-                      >
-                        <div style={{ display: 'flex', gap: 6, marginBottom: 4, alignItems: 'center' }}>
-                          {song.hymn_number && (
-                            <span
-                              style={{
-                                fontSize: 8,
-                                color: C.fire,
-                                fontWeight: 700,
-                                padding: '2px 7px',
-                                background: 'rgba(255, 111, 0, 0.12)',
-                                border: `1px solid rgba(255, 111, 0, 0.3)`,
-                                borderRadius: 2,
-                                letterSpacing: '0.05em'
-                              }}
-                            >
-                              HYM {String(song.hymn_number).padStart(3, '0')}
-                            </span>
-                          )}
-                          <span
-                            style={{
-                              fontSize: 8,
-                              color: srcColor,
-                              fontWeight: 700,
-                              padding: '2px 7px',
-                              background: `rgba(${srcColor === C.amber ? '251,192,45' : '255,111,0'}, 0.12)`,
-                              border: `1px solid ${srcColor}44`,
-                              borderRadius: 2,
-                              letterSpacing: '0.05em',
-                              textTransform: 'uppercase'
-                            }}
-                          >
-                            {song.source}
-                          </span>
-                        </div>
-                        <div
-                          style={{
-                            fontSize: 13,
-                            color: isActive ? C.ivory : C.bone,
-                            fontWeight: 500,
-                            marginBottom: 2,
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap'
-                          }}
-                        >
-                          {song.title}
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
-              )
-            })
+        {/* SONG LIST */}
+        <div style={{ flex: 1, overflowY: 'auto', padding: '12px 0' }}>
+          {loading && (
+            <div style={{ padding: 60, textAlign: 'center', color: C.mist, fontSize: 14 }}>Loading...</div>
           )}
+          {!loading && visible.length === 0 && (
+            <div style={{ padding: 60, textAlign: 'center', color: C.mist }}>
+              <div style={{ fontSize: 48, opacity: 0.15, marginBottom: 16 }}>⚔</div>
+              <div style={{ fontSize: 13 }}>{search ? 'No matches' : 'No songs'}</div>
+            </div>
+          )}
+          {languages.map(lang => {
+            const langSongs = songsByLang[lang]
+            if (langSongs.length === 0) return null
+            const isExpanded = expandedLangs[lang] !== false
+
+            return (
+              <div key={lang}>
+                <button
+                  onClick={() => setExpandedLangs(e => ({ ...e, [lang]: !e[lang] }))}
+                  style={{
+                    width: '100%',
+                    padding: '14px 24px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    background: C.coal,
+                    color: C.gold,
+                    fontSize: 13,
+                    fontWeight: 800,
+                    letterSpacing: '0.15em',
+                    borderLeft: `5px solid ${C.amber}`,
+                    cursor: 'pointer',
+                    border: 'none',
+                    fontFamily: 'inherit',
+                    transition: 'all 0.2s'
+                  }}
+                >
+                  <span>{(LANG_LABELS[lang] || lang).toUpperCase()}</span>
+                  <span style={{ fontSize: 12, color: C.mist }}>{langSongs.length} {isExpanded ? '▼' : '▶'}</span>
+                </button>
+
+                {isExpanded && langSongs.map(song => {
+                  const isActive = selected?.id === song.id
+                  const srcColor = song.source === 'hymnal' ? C.amber : C.fire
+
+                  return (
+                    <div
+                      key={song.id}
+                      onClick={() => selectSong(song)}
+                      style={{
+                        borderLeft: `5px solid ${isActive ? C.gold : srcColor}`,
+                        background: isActive ? 'rgba(255, 213, 79, 0.1)' : 'transparent',
+                        cursor: 'pointer',
+                        padding: '16px 24px',
+                        transition: 'all 0.15s',
+                        borderBottom: `1px solid ${C.divider}`
+                      }}
+                    >
+                      <div style={{ display: 'flex', gap: 10, marginBottom: 8, flexWrap: 'wrap' }}>
+                        {song.hymn_number && (
+                          <span style={{
+                            fontSize: 10,
+                            color: C.fire,
+                            fontWeight: 800,
+                            padding: '4px 10px',
+                            background: 'rgba(255, 111, 0, 0.15)',
+                            border: `1px solid rgba(255, 111, 0, 0.5)`,
+                            borderRadius: 4,
+                            letterSpacing: '0.05em'
+                          }}>
+                            #{String(song.hymn_number).padStart(3, '0')}
+                          </span>
+                        )}
+                        <span style={{
+                          fontSize: 10,
+                          color: srcColor,
+                          fontWeight: 800,
+                          padding: '4px 10px',
+                          background: `rgba(${srcColor === C.amber ? '251,192,45' : '255,111,0'}, 0.15)`,
+                          border: `1px solid ${srcColor}88`,
+                          borderRadius: 4,
+                          letterSpacing: '0.05em',
+                          textTransform: 'uppercase'
+                        }}>
+                          {song.source}
+                        </span>
+                      </div>
+                      <div style={{
+                        fontSize: 15,
+                        color: isActive ? C.ivory : C.bone,
+                        fontWeight: 600,
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap'
+                      }}>
+                        {song.title}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )
+          })}
         </div>
 
-        {/* Footer stats */}
-        <div
-          style={{
-            padding: '14px 18px',
-            borderTop: `1px solid ${C.border}`,
-            background: C.void,
-            display: 'grid',
-            gridTemplateColumns: 'repeat(3, 1fr)',
-            gap: 16,
-            flexShrink: 0
-          }}
-        >
+        {/* STATS */}
+        <div style={{ padding: '18px 24px', borderTop: `1px solid ${C.divider}`, background: C.void, display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, flexShrink: 0 }}>
           {[
             ['Hymns', songs.filter(s => s.source === 'hymnal').length, C.amber],
             ['Custom', songs.filter(s => s.source === 'custom').length, C.fire],
             ['Total', songs.length, C.gold]
           ].map(([label, val, color]) => (
             <div key={label as string} style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: 16, fontWeight: 600, color: color as string }}>{val as number}</div>
-              <div style={{ fontSize: 9, color: C.mist, letterSpacing: '0.05em', marginTop: 4 }}>{label as string}</div>
+              <div style={{ fontSize: 20, fontWeight: 700, color: color as string }}>{val as number}</div>
+              <div style={{ fontSize: 11, color: C.mist, letterSpacing: '0.08em', marginTop: 8 }}>{label as string}</div>
             </div>
           ))}
         </div>
       </div>
 
-      {/* ── RIGHT: DETAIL ── */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, background: C.coal }}>
+      {/* MAIN CONTENT */}
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: C.void }}>
         {!selected ? (
-          <div
-            style={{
-              flex: 1,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              flexDirection: 'column',
-              gap: 12,
-              background: 'linear-gradient(135deg, rgba(23,32,44,0.5) 0%, rgba(20,25,35,0.8) 100%)'
-            }}
-          >
-            <div style={{ fontSize: 56, opacity: 0.1 }}>⚔</div>
-            <div style={{ fontSize: 12, color: C.mist, letterSpacing: '0.1em', fontWeight: 500 }}>SELECT A SONG TO BEGIN</div>
+          <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 20 }}>
+            <div style={{ fontSize: 80, opacity: 0.08 }}>⚔</div>
+            <div style={{ fontSize: 16, color: C.mist, letterSpacing: '0.2em', fontWeight: 600 }}>SELECT A SONG</div>
           </div>
         ) : (
           <>
-            {/* Header with title and actions */}
-            <div
-              style={{
-                padding: '18px 24px',
-                background: C.ash,
-                borderBottom: `1px solid ${C.border}`,
-                flexShrink: 0
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16, marginBottom: 12 }}>
-                <div style={{ flex: 1, minWidth: 0 }}>
+            {/* HEADER */}
+            <div style={{ padding: '32px 40px', background: C.ash, borderBottom: `1px solid ${C.divider}`, flexShrink: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 32, marginBottom: 20 }}>
+                <div style={{ flex: 1 }}>
                   {editing ? (
                     <input
                       style={{
-                        ...inputStyle,
-                        fontSize: 18,
-                        fontWeight: 600
+                        width: '100%',
+                        background: C.coal,
+                        border: `1px solid ${C.divider}`,
+                        color: C.ivory,
+                        padding: '14px 16px',
+                        fontSize: 24,
+                        fontWeight: 700,
+                        outline: 'none',
+                        fontFamily: 'inherit',
+                        borderRadius: 6,
+                        marginBottom: 12
                       }}
                       value={editTitle}
                       onChange={e => setEditTitle(e.target.value)}
                     />
                   ) : (
-                    <h1
-                      style={{
-                        fontSize: 22,
-                        fontWeight: 600,
-                        color: C.ivory,
-                        margin: 0,
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap',
-                        letterSpacing: '-0.01em'
-                      }}
-                    >
+                    <h1 style={{ fontSize: 36, fontWeight: 700, color: C.ivory, margin: 0, marginBottom: 12, letterSpacing: '-0.01em' }}>
                       {selected.title}
                     </h1>
                   )}
-                  <div style={{ fontSize: 11, color: C.mist, marginTop: 6, display: 'flex', gap: 8 }}>
-                    <span>{LANG_LABELS[selected.language] || selected.language}</span>
+                  <div style={{ fontSize: 13, color: C.mist, display: 'flex', gap: 16 }}>
+                    <span style={{ fontWeight: 600 }}>{LANG_LABELS[selected.language] || selected.language}</span>
                     <span>•</span>
                     <span>{selected.source === 'hymnal' ? 'Hymnal' : 'Custom'}</span>
                     <span>•</span>
@@ -437,45 +372,48 @@ export default function Songs({ goLive, addToQueue, notify }: Props) {
                   </div>
                 </div>
 
-                <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+                <div style={{ display: 'flex', gap: 12, flexShrink: 0, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
                   <button
                     onClick={() => addToQueue(selected.title, 'song')}
                     style={{
-                      ...buttonBase,
                       display: 'flex',
                       alignItems: 'center',
-                      gap: 6,
-                      padding: '8px 14px',
-                      fontSize: 11,
-                      fontWeight: 600,
-                      border: `1px solid ${C.amber}`,
+                      gap: 10,
+                      padding: '12px 22px',
+                      fontSize: 13,
+                      fontWeight: 700,
+                      border: `2px solid ${C.amber}`,
                       color: C.amber,
-                      background: 'rgba(251, 192, 45, 0.08)',
-                      borderRadius: 3,
-                      letterSpacing: '0.05em'
+                      background: 'rgba(251, 192, 45, 0.12)',
+                      borderRadius: 6,
+                      cursor: 'pointer',
+                      fontFamily: 'inherit',
+                      transition: 'all 0.2s'
                     }}
                   >
-                    <i className="ti ti-list-check" /> QUEUE
+                    <i className="ti ti-list-check" style={{ fontSize: 16 }} /> QUEUE
                   </button>
 
                   {selected.source === 'custom' && !editing && (
                     <button
                       onClick={startEdit}
                       style={{
-                        ...buttonBase,
                         display: 'flex',
                         alignItems: 'center',
-                        gap: 6,
-                        padding: '8px 14px',
-                        fontSize: 11,
-                        fontWeight: 600,
-                        border: `1px solid ${C.divider}`,
-                        color: C.mist,
+                        gap: 10,
+                        padding: '12px 22px',
+                        fontSize: 13,
+                        fontWeight: 700,
+                        border: `2px solid ${C.divider}`,
+                        color: C.ghost,
                         background: 'transparent',
-                        borderRadius: 3
+                        borderRadius: 6,
+                        cursor: 'pointer',
+                        fontFamily: 'inherit',
+                        transition: 'all 0.2s'
                       }}
                     >
-                      <i className="ti ti-edit" /> EDIT
+                      <i className="ti ti-edit" style={{ fontSize: 16 }} /> EDIT
                     </button>
                   )}
 
@@ -484,15 +422,16 @@ export default function Songs({ goLive, addToQueue, notify }: Props) {
                       <button
                         onClick={saveEdit}
                         style={{
-                          ...buttonBase,
-                          padding: '8px 16px',
-                          fontSize: 11,
+                          padding: '12px 28px',
+                          fontSize: 13,
                           fontWeight: 700,
                           border: 'none',
                           background: C.gold,
                           color: C.void,
-                          borderRadius: 3,
-                          letterSpacing: '0.05em'
+                          borderRadius: 6,
+                          cursor: 'pointer',
+                          fontFamily: 'inherit',
+                          transition: 'all 0.2s'
                         }}
                       >
                         SAVE
@@ -500,14 +439,16 @@ export default function Songs({ goLive, addToQueue, notify }: Props) {
                       <button
                         onClick={() => setEditing(false)}
                         style={{
-                          ...buttonBase,
-                          padding: '8px 14px',
-                          fontSize: 11,
-                          fontWeight: 600,
-                          border: `1px solid ${C.divider}`,
-                          color: C.mist,
+                          padding: '12px 22px',
+                          fontSize: 13,
+                          fontWeight: 700,
+                          border: `2px solid ${C.divider}`,
+                          color: C.ghost,
                           background: 'transparent',
-                          borderRadius: 3
+                          borderRadius: 6,
+                          cursor: 'pointer',
+                          fontFamily: 'inherit',
+                          transition: 'all 0.2s'
                         }}
                       >
                         CANCEL
@@ -519,55 +460,48 @@ export default function Songs({ goLive, addToQueue, notify }: Props) {
                     <button
                       onClick={handleDelete}
                       style={{
-                        ...buttonBase,
                         display: 'flex',
                         alignItems: 'center',
-                        gap: 6,
-                        padding: '8px 14px',
-                        fontSize: 11,
-                        fontWeight: 600,
-                        border: `1px solid ${C.crimson}88`,
+                        gap: 10,
+                        padding: '12px 22px',
+                        fontSize: 13,
+                        fontWeight: 700,
+                        border: `2px solid ${C.crimson}88`,
                         color: C.blood,
                         background: 'transparent',
-                        borderRadius: 3
+                        borderRadius: 6,
+                        cursor: 'pointer',
+                        fontFamily: 'inherit',
+                        transition: 'all 0.2s'
                       }}
                     >
-                      <i className="ti ti-trash" /> DELETE
+                      <i className="ti ti-trash" style={{ fontSize: 16 }} /> DELETE
                     </button>
                   )}
                 </div>
               </div>
             </div>
 
-            {/* Section tabs */}
-            <div
-              style={{
-                display: 'flex',
-                gap: 6,
-                padding: '12px 18px',
-                background: C.coal,
-                borderBottom: `1px solid ${C.border}`,
-                flexShrink: 0,
-                overflowX: 'auto',
-                overflowY: 'hidden'
-              }}
-            >
+            {/* TABS */}
+            <div style={{ display: 'flex', gap: 12, padding: '20px 40px', background: C.void, borderBottom: `1px solid ${C.divider}`, flexShrink: 0, overflowX: 'auto' }}>
               {sections.map((s, i) => (
                 <button
                   key={s.id}
                   onClick={() => setCurrentSec(i)}
                   style={{
-                    ...buttonBase,
-                    padding: '6px 12px',
-                    fontSize: 10,
-                    fontWeight: 600,
-                    letterSpacing: '0.05em',
-                    border: `1px solid ${i === currentSec ? C.gold : C.divider}`,
+                    padding: '10px 20px',
+                    fontSize: 12,
+                    fontWeight: 700,
+                    letterSpacing: '0.08em',
+                    border: `2px solid ${i === currentSec ? C.gold : C.divider}`,
                     color: i === currentSec ? C.gold : C.mist,
-                    background: i === currentSec ? 'rgba(255, 213, 79, 0.1)' : 'transparent',
-                    borderRadius: 3,
+                    background: i === currentSec ? 'rgba(255, 213, 79, 0.12)' : 'transparent',
+                    borderRadius: 6,
+                    cursor: 'pointer',
+                    fontFamily: 'inherit',
                     flexShrink: 0,
-                    whiteSpace: 'nowrap'
+                    whiteSpace: 'nowrap',
+                    transition: 'all 0.2s'
                   }}
                 >
                   {s.type === 'verse' ? `Verse ${i + 1}` : s.type.charAt(0).toUpperCase() + s.type.slice(1)}
@@ -575,27 +509,8 @@ export default function Songs({ goLive, addToQueue, notify }: Props) {
               ))}
             </div>
 
-            {/* Content area */}
-            <div
-              style={{
-                flex: 1,
-                padding: '32px 40px',
-                overflowY: 'auto',
-                background: C.coal,
-                position: 'relative'
-              }}
-            >
-              <div
-                style={{
-                  position: 'absolute',
-                  top: 0,
-                  left: 0,
-                  right: 0,
-                  height: 1,
-                  background: `linear-gradient(to right, ${C.blood}, ${C.gold}, transparent)`
-                }}
-              />
-
+            {/* CONTENT */}
+            <div style={{ flex: 1, padding: '40px 50px', overflowY: 'auto', background: C.coal }}>
               {section && (editing ? (
                 <textarea
                   value={editSections[currentSec]?.content || ''}
@@ -604,73 +519,71 @@ export default function Songs({ goLive, addToQueue, notify }: Props) {
                       secs.map((s, i) => (i === currentSec ? { ...s, content: e.target.value } : s))
                     )
                   }
-                  rows={12}
+                  rows={16}
                   style={{
-                    ...inputStyle,
+                    width: '100%',
+                    background: C.ember,
+                    border: `1px solid ${C.divider}`,
+                    color: C.ivory,
+                    padding: '20px 24px',
+                    fontSize: 16,
+                    outline: 'none',
+                    fontFamily: 'inherit',
+                    borderRadius: 6,
                     resize: 'vertical',
-                    lineHeight: 1.8,
-                    fontSize: 15,
-                    fontFamily: 'inherit'
+                    lineHeight: 2.2
                   }}
                 />
               ) : (
-                <div
-                  style={{
-                    fontSize: 16,
-                    lineHeight: 1.9,
-                    color: C.ivory,
-                    fontWeight: 300,
-                    whiteSpace: 'pre-line',
-                    letterSpacing: '0.01em'
-                  }}
-                >
+                <div style={{
+                  fontSize: 18,
+                  lineHeight: 2.4,
+                  color: C.ivory,
+                  fontWeight: 400,
+                  whiteSpace: 'pre-line',
+                  letterSpacing: '0.01em'
+                }}>
                   {section.content}
                 </div>
               ))}
             </div>
 
-            {/* Action bar */}
-            <div
-              style={{
-                padding: '12px 18px',
-                background: C.void,
-                borderTop: `1px solid ${C.border}`,
-                display: 'flex',
-                gap: 8,
-                flexShrink: 0
-              }}
-            >
+            {/* ACTION BAR */}
+            <div style={{ padding: '20px 40px', background: C.void, borderTop: `1px solid ${C.divider}`, display: 'flex', gap: 16, flexShrink: 0 }}>
               <button
                 onClick={() => section && goLive(selected.title, section.content)}
                 style={{
-                  ...buttonBase,
                   flex: 1,
-                  padding: '12px 16px',
-                  background: `linear-gradient(to right, ${C.crimson}, #991f1f)`,
-                  border: `1px solid ${C.blood}`,
+                  padding: '16px 24px',
+                  background: `linear-gradient(to right, ${C.crimson}, #cc0000)`,
+                  border: `2px solid ${C.blood}`,
                   color: C.ivory,
-                  fontSize: 10,
-                  fontWeight: 700,
-                  letterSpacing: '0.1em',
-                  borderRadius: 3
+                  fontSize: 13,
+                  fontWeight: 800,
+                  letterSpacing: '0.15em',
+                  borderRadius: 6,
+                  cursor: 'pointer',
+                  fontFamily: 'inherit',
+                  transition: 'all 0.2s'
                 }}
               >
-                GO LIVE
+                LIVE
               </button>
 
               <button
                 onClick={() => currentSec > 0 && setCurrentSec(i => i - 1)}
                 disabled={currentSec === 0}
                 style={{
-                  ...buttonBase,
-                  padding: '12px 14px',
+                  padding: '16px 24px',
                   background: 'transparent',
-                  border: `1px solid ${C.border}`,
+                  border: `2px solid ${C.divider}`,
                   color: currentSec === 0 ? C.mist : C.ghost,
-                  fontSize: 16,
+                  fontSize: 20,
                   cursor: currentSec === 0 ? 'not-allowed' : 'pointer',
-                  opacity: currentSec === 0 ? 0.3 : 1,
-                  borderRadius: 3
+                  opacity: currentSec === 0 ? 0.4 : 1,
+                  borderRadius: 6,
+                  fontFamily: 'inherit',
+                  transition: 'all 0.2s'
                 }}
               >
                 <i className="ti ti-chevron-left" />
@@ -680,15 +593,16 @@ export default function Songs({ goLive, addToQueue, notify }: Props) {
                 onClick={() => currentSec < sections.length - 1 && setCurrentSec(i => i + 1)}
                 disabled={currentSec === sections.length - 1}
                 style={{
-                  ...buttonBase,
-                  padding: '12px 14px',
+                  padding: '16px 24px',
                   background: 'transparent',
-                  border: `1px solid ${C.border}`,
+                  border: `2px solid ${C.divider}`,
                   color: currentSec === sections.length - 1 ? C.mist : C.ghost,
-                  fontSize: 16,
+                  fontSize: 20,
                   cursor: currentSec === sections.length - 1 ? 'not-allowed' : 'pointer',
-                  opacity: currentSec === sections.length - 1 ? 0.3 : 1,
-                  borderRadius: 3
+                  opacity: currentSec === sections.length - 1 ? 0.4 : 1,
+                  borderRadius: 6,
+                  fontFamily: 'inherit',
+                  transition: 'all 0.2s'
                 }}
               >
                 <i className="ti ti-chevron-right" />
