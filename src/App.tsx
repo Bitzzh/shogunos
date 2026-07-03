@@ -1148,6 +1148,7 @@ export default function App() {
   const [showSplash,setShowSplash]       = useState(true)
   const [currentUser,setCurrentUser]     = useState<{username:string;role:string;display_name:string}|null>(null)
   const [navGroup,setNavGroup]           = useState<NavGroup>('library')
+  const [queueCollapsed,setQueueCollapsed] = useState(false)
   const [libTab,setLibTab]               = useState<LibTab>('hymnal')
   const [presentTab,setPresentTab]       = useState<PresentTab>('slides')
   const [settingsTab,setSettingsTab]     = useState<SettingsTab>('display')
@@ -1780,174 +1781,163 @@ export default function App() {
         <div style={{fontSize:12,color:C.g2,fontVariantNumeric:'tabular-nums',minWidth:46,textAlign:'right',paddingLeft:18,paddingRight:20,borderLeft:`1px solid ${C.b0}`,height:'100%',display:'flex',alignItems:'center',fontFamily:"'Noto Serif JP',serif"}}>{clock}</div>
       </div>
 
-      {/* ── BODY ─────────────────────────────────────────── */}
+      {/* ── SECTION NAV (horizontal — echoes Quelea's flat top menu, keeps our icon+label identity) ── */}
+      <div style={{height:42,background:C.bg1,borderBottom:`1px solid ${C.b0}`,display:'flex',alignItems:'center',flexShrink:0,padding:'0 14px',gap:2,overflowX:'auto'}}>
+        {NAV.filter(([gid])=>gid!=='service').map(([gid,gLabel])=>{
+          const active=navGroup===gid
+          return (
+            <button key={gid} onClick={()=>setNavGroup(gid as NavGroup)} className="nav-icon"
+              style={{display:'flex',alignItems:'center',gap:8,padding:'8px 14px',background:'none',border:'none',borderBottom:`2px solid ${active?C.g2:'transparent'}`,color:active?C.t1:C.t3,cursor:'pointer',fontSize:12.5,fontWeight:active?600:500,letterSpacing:'0.02em',whiteSpace:'nowrap' as const,transition:'all 0.12s',flexShrink:0}}>
+              <span style={{fontSize:13,color:active?C.g2:C.t3}}>{(NAV_ICONS as any)[gid as string]}</span>
+              {gLabel}
+            </button>
+          )
+        })}
+        {subItems[navGroup].length>0&&(
+          <>
+            <div style={{width:1,height:18,background:C.b1,margin:'0 8px',flexShrink:0}}/>
+            {subItems[navGroup].map(sub=>{
+              const active=activeSubId===sub.id
+              return (
+                <button key={sub.id} className="sub-btn"
+                  onClick={()=>{
+                    if(navGroup==='library'){setLibTab(sub.id as LibTab);if(sub.id!=='bible')setSelectedVerse(null)}
+                    if(navGroup==='present')setPresentTab(sub.id as PresentTab)
+                    if(navGroup==='settings')setSettingsTab(sub.id as SettingsTab)
+                  }}
+                  style={{padding:'6px 13px',background:active?C.bg4:'none',border:`1px solid ${active?C.b2:'transparent'}`,borderRadius:5,color:active?C.g2:C.t4,cursor:'pointer',fontFamily:'inherit',fontSize:11.5,fontWeight:active?600:400,whiteSpace:'nowrap' as const,flexShrink:0,transition:'all 0.1s'}}>
+                  {sub.label}
+                </button>
+              )
+            })}
+          </>
+        )}
+      </div>
+
+      {/* ── BODY — three open panels, Quelea-style: Order of Service+Library / Preview / Live ── */}
       <div style={{flex:1,display:'flex',minHeight:0,overflow:'hidden'}}>
 
-        {/* ── ICON RAIL ── */}
-        <div style={{width:66,background:C.bg1,borderRight:`1px solid ${C.b0}`,display:'flex',flexDirection:'column',alignItems:'center',flexShrink:0,paddingTop:18,gap:10}}>
-          {NAV.map(([gid,gLabel])=>{
-            const active=navGroup===gid
-            return (
-              <button key={gid} onClick={()=>setNavGroup(gid as NavGroup)} title={gLabel as string} className="nav-icon"
-                style={{width:44,height:44,display:'flex',alignItems:'center',justifyContent:'center',background:active?C.bg4:'none',border:`1px solid ${active?C.b2:'transparent'}`,borderRadius:6,color:active?C.g2:C.t3,cursor:'pointer',fontSize:16,transition:'all 0.12s',position:'relative'}}>
-                {(NAV_ICONS as any)[gid as string]}
-                {active&&<div style={{position:'absolute',left:-1,top:'50%',transform:'translateY(-50%)',width:3,height:22,background:`linear-gradient(${C.p2},${C.g2})`,borderRadius:'0 2px 2px 0'}}/>}
-              </button>
-            )
-          })}
-        </div>
+        {/* ── LEFT COLUMN ── */}
+        <div style={{width:340,background:C.bg0,borderRight:`1px solid ${C.b0}`,display:'flex',flexDirection:'column',minHeight:0,flexShrink:0}}>
 
-        {/* ── SUB-NAV ── */}
-        {subItems[navGroup].length>0&&(
-          <div style={{width:168,background:C.bg1,borderRight:`1px solid ${C.b0}`,display:'flex',flexDirection:'column',flexShrink:0}}>
-            <div style={{padding:'16px 18px 12px',fontSize:9,color:C.t4,fontWeight:600,letterSpacing:'0.12em',textTransform:'uppercase' as const,borderBottom:`1px solid ${C.b0}`}}>
-              {NAV.find(n=>n[0]===navGroup)?.[1]}
+          {/* Order of Service — pinned, collapsible */}
+          <div style={{flexShrink:0,display:'flex',flexDirection:'column',maxHeight:queueCollapsed?40:340,overflow:'hidden',borderBottom:`1px solid ${C.b0}`,transition:'max-height 0.15s ease'}}>
+            <div style={{padding:queueCollapsed?'10px 16px':'12px 16px',display:'flex',alignItems:'center',justifyContent:'space-between',flexShrink:0}}>
+              <div style={{display:'flex',alignItems:'center',gap:9}}>
+                <span style={{fontSize:9,color:C.t4,fontWeight:700,letterSpacing:'0.14em',textTransform:'uppercase' as const}}>Order of Service</span>
+                {queue.length>0&&<span style={{fontSize:10,color:C.g2,padding:'2px 7px',border:`1px solid ${C.b2}`,borderRadius:3}}>{queue.length}</span>}
+              </div>
+              <div style={{display:'flex',alignItems:'center',gap:8}}>
+                {!queueCollapsed&&queue.length>0&&<button onClick={clearQueue} style={{background:'none',border:'none',color:C.t4,cursor:'pointer',fontSize:11,fontFamily:'inherit',padding:'2px 6px'}}>clear</button>}
+                <button onClick={()=>setQueueCollapsed(v=>!v)} title={queueCollapsed?'Expand':'Collapse'}
+                  style={{background:'none',border:`1px solid ${C.b1}`,color:C.t3,cursor:'pointer',fontSize:11,width:20,height:20,borderRadius:4,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+                  {queueCollapsed?'▾':'▴'}
+                </button>
+              </div>
             </div>
-            <div style={{flex:1,overflowY:'auto',padding:'8px 0'}}>
-              {subItems[navGroup].map(sub=>{
-                const active=activeSubId===sub.id
-                return (
-                  <button key={sub.id} className="sub-btn"
-                    onClick={()=>{
-                      if(navGroup==='library'){setLibTab(sub.id as LibTab);if(sub.id!=='bible')setSelectedVerse(null)}
-                      if(navGroup==='present')setPresentTab(sub.id as PresentTab)
-                      if(navGroup==='settings')setSettingsTab(sub.id as SettingsTab)
-                    }}
-                    style={{width:'100%',padding:'12px 18px',marginBottom:2,background:active?C.bg3:'none',border:'none',borderLeft:`2px solid ${active?C.g2:'transparent'}`,color:active?C.t1:C.t3,cursor:'pointer',fontFamily:'inherit',fontSize:12,fontWeight:active?500:400,textAlign:'left' as const,transition:'all 0.1s'}}>
-                    {sub.label}
-                  </button>
-                )
-              })}
-            </div>
+            {!queueCollapsed&&(
+              <div onDragOver={onQueueZoneDragOver} onDragLeave={onQueueZoneDragLeave} onDrop={onQueueZoneDrop}
+                style={{overflowY:'auto',padding:'0 14px 12px',minHeight:60,background:queueDragOver?`${C.g2}08`:'transparent',transition:'background 0.15s'}}>
+                {queue.length===0&&(
+                  <div style={{padding:'22px 14px',fontSize:12,color:queueDragOver?C.g2:C.t4,textAlign:'center',lineHeight:1.7,border:`1.5px dashed ${queueDragOver?C.g2:C.b1}`,borderRadius:8}}>
+                    {queueDragOver?'Drop to add to queue':'Drag hymns, verses or slides here to build the order of service'}
+                  </div>
+                )}
+                {queue.map((item,i)=>(
+                  <div key={item.id}
+                    draggable onDragStart={e=>onQueueItemDragStart(e,i)} onDragOver={onQueueItemDragOver} onDrop={e=>onQueueItemDrop(e,i)} onDragEnd={onQueueItemDragEnd}
+                    style={{display:'flex',alignItems:'center',gap:12,padding:'10px 12px',marginBottom:6,borderRadius:6,background:i===0?C.bg3:C.bg2,border:`1px solid ${i===0?C.b2:C.b0}`,cursor:'grab',opacity:draggedQueueIdx===i?0.3:1,transition:'opacity 0.12s'}}>
+                    <span style={{fontSize:10,color:i===0?C.g2:C.t4,width:16,flexShrink:0,fontVariantNumeric:'tabular-nums',fontWeight:600}}>{i+1}</span>
+                    <span style={{fontSize:12,color:C.t1,flex:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{item.title}</span>
+                    <button onClick={()=>removeFromQueue(item.id)} style={{background:'none',border:'none',color:C.t4,cursor:'pointer',fontSize:15,padding:0,flexShrink:0,lineHeight:1}}>×</button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
-        )}
 
-        {/* ── LEFT CONTENT PANEL ── */}
-        <div style={{width:380,background:C.bg0,borderRight:`1px solid ${C.b0}`,display:'flex',flexDirection:'column',minHeight:0,overflow:'hidden',flexShrink:0}}>
-          {toast&&(
-            <div className="toast-anim" style={{padding:'6px 14px',background:C.bg3,borderBottom:`1px solid ${C.b0}`,fontSize:11,color:C.t2,flexShrink:0,display:'flex',alignItems:'center',gap:6}}>
-              <div style={{width:4,height:4,borderRadius:'50%',background:C.g2,flexShrink:0}}/>
-              {toast}
-            </div>
-          )}
+          {/* Library / group content — always-visible bottom pane, like Quelea's Songs/Bibles/Images */}
           <div style={{flex:1,display:'flex',flexDirection:'column',minHeight:0,overflow:'hidden'}}>
-            {renderContent()}
+            {toast&&(
+              <div className="toast-anim" style={{padding:'6px 14px',background:C.bg3,borderBottom:`1px solid ${C.b0}`,fontSize:11,color:C.t2,flexShrink:0,display:'flex',alignItems:'center',gap:6}}>
+                <div style={{width:4,height:4,borderRadius:'50%',background:C.g2,flexShrink:0}}/>
+                {toast}
+              </div>
+            )}
+            <div style={{flex:1,display:'flex',flexDirection:'column',minHeight:0,overflow:'hidden'}}>
+              {renderContent()}
+            </div>
           </div>
         </div>
 
-        {/* ── CENTRE — MONITORS ── */}
-        <div style={{flex:1,display:'flex',flexDirection:'column',alignItems:'stretch',justifyContent:'center',gap:0,background:C.bg0,padding:'40px 48px',minWidth:0}}>
-          {/* Monitor row */}
-          <div style={{display:'flex',gap:28,width:'100%',marginBottom:26}}>
-            {/* Preview */}
-            <div style={{flex:1,display:'flex',flexDirection:'column',gap:9}}>
-              <div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
-                <span style={{fontSize:10,color:C.t3,letterSpacing:'0.1em',textTransform:'uppercase' as const}}>Preview</span>
-                <span style={{fontSize:9,color:C.t4}}>drag here</span>
-              </div>
-              <div
-                onDragOver={onPreviewDragOver} onDragLeave={onPreviewDragLeave} onDrop={onPreviewDrop}
-                style={{aspectRatio:'16/9',background:'#0a0606',borderRadius:6,overflow:'hidden',border:`1px solid ${previewDragOver?C.g2:C.b2}`,display:'flex',alignItems:'center',justifyContent:'center',transition:'all 0.15s',boxShadow:previewDragOver?`0 0 16px ${C.g2}33`:'none'}}>
-                {section
-                  ?<div style={{fontSize:11,color:C.t2,lineHeight:1.7,padding:16,textAlign:'center',fontStyle:'italic',fontFamily:"'Noto Serif JP',Georgia,serif"}}>{section.content.substring(0,100)}…</div>
-                  :<div style={{fontSize:11,color:previewDragOver?C.g2:C.t4}}>{previewDragOver?'Drop to preview':'—'}</div>
-                }
-              </div>
-            </div>
-
-            {/* Live */}
-            <div style={{flex:1,display:'flex',flexDirection:'column',gap:9}}>
-              <div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
-                <span style={{fontSize:10,color:C.t3,letterSpacing:'0.1em',textTransform:'uppercase' as const}}>Output</span>
-                <div style={{display:'flex',alignItems:'center',gap:5}}>
-                  {live&&<div className="live-dot" style={{width:5,height:5,borderRadius:'50%',background:C.live,boxShadow:`0 0 5px ${C.live}`}}/>}
-                  <span style={{fontSize:10,color:live?C.live:C.t4,fontWeight:live?600:400}}>{live?'Live':'Standby'}</span>
-                </div>
-              </div>
-              <div
-                onDragOver={onLiveDragOver} onDragLeave={onLiveDragLeave} onDrop={onLiveDrop}
-                style={{aspectRatio:'16/9',background:'#000',borderRadius:6,overflow:'hidden',border:`2px solid ${liveDragOver?C.live+'cc':live?C.live+'88':C.b1}`,display:'flex',alignItems:'center',justifyContent:'center',boxShadow:live?`0 0 28px ${C.live}33`:'none',transition:'all 0.2s'}}>
-                {liveDragOver
-                  ?<div style={{fontSize:12,color:C.live,fontWeight:600}}>Drop to go live</div>
-                  :live
-                    ?<div style={{fontSize:12,color:'#fff',padding:16,textAlign:'center',lineHeight:1.6,fontFamily:"'Noto Serif JP',Georgia,serif"}}>{live}</div>
-                    :<div style={{fontSize:11,color:C.t4}}>—</div>
-                }
-              </div>
-            </div>
-          </div>
-
-          {/* Controls bar — sits under the monitors */}
-          <div style={{width:'100%',background:C.bg1,border:`1px solid ${C.b0}`,borderRadius:8,padding:'18px 24px',display:'flex',alignItems:'center',gap:16}}>
-            {/* Go Live */}
+        {/* ── CENTRE — PREVIEW (full-height open panel) ── */}
+        <div style={{flex:1,display:'flex',flexDirection:'column',borderRight:`1px solid ${C.b0}`,minWidth:0,background:C.bg0}}>
+          <div style={{padding:'12px 20px',borderBottom:`1px solid ${C.b0}`,display:'flex',alignItems:'center',justifyContent:'space-between',flexShrink:0}}>
+            <span style={{fontSize:11,color:C.t2,letterSpacing:'0.08em',fontWeight:600,textTransform:'uppercase' as const}}>Preview</span>
             <button onClick={()=>{
               if(navGroup==='library'){
                 if(libTab==='hymnal'&&selected&&section) goLive(selected.title,section.content)
                 else if(libTab==='bible'&&selectedVerse) goLive(`${selectedVerse.book} ${selectedVerse.chapter}:${selectedVerse.verse}`,selectedVerse.text)
               }
             }} className="shimmer-btn"
-              style={{padding:'12px 30px',background:C.p2,border:`1px solid ${C.p1}`,color:'#fff',fontSize:13,fontWeight:700,cursor:'pointer',fontFamily:"'Noto Serif JP','Inter',sans-serif",borderRadius:5,letterSpacing:'0.04em',flexShrink:0,transition:'background 0.15s'}}
+              style={{padding:'7px 20px',background:C.p2,border:`1px solid ${C.p1}`,color:'#fff',fontSize:11.5,fontWeight:700,cursor:'pointer',fontFamily:"'Noto Serif JP','Inter',sans-serif",borderRadius:5,letterSpacing:'0.04em',flexShrink:0,transition:'background 0.15s'}}
               onMouseEnter={e=>{(e.currentTarget as HTMLElement).style.background=C.p1}}
               onMouseLeave={e=>{(e.currentTarget as HTMLElement).style.background=C.p2}}>
               Go Live
             </button>
-
-            <div style={{width:1,height:28,background:C.b2,flexShrink:0}}/>
-
-            {/* Blank / Image / Clear */}
-            <button onClick={handleBlank}
-              style={{padding:'10px 16px',background:blankScreen?C.bg4:'none',border:`1px solid ${blankScreen?C.b2:C.b1}`,color:blankScreen?C.t1:C.t3,fontSize:12,cursor:'pointer',fontFamily:'inherit',borderRadius:5,transition:'all 0.15s',flexShrink:0}}>
-              {blankScreen?'● Blank':'Blank'}
-            </button>
-            <button onClick={sendScreenImage}
-              style={{padding:'10px 16px',background:'none',border:`1px solid ${C.b1}`,color:C.t3,fontSize:12,cursor:'pointer',fontFamily:'inherit',borderRadius:5,flexShrink:0}}>
-              Image
-            </button>
-            <button onClick={handleClear} title="Clear output"
-              style={{padding:'10px 14px',background:'none',border:`1px solid ${C.b1}`,color:C.t3,fontSize:13,cursor:'pointer',borderRadius:5,flexShrink:0}}>✕</button>
-
-            <div style={{flex:1}}/>
-
-            {/* Display selector */}
-            <select value={selectedDisplay} onChange={e=>setSelectedDisplay(Number(e.target.value))}
-              style={{background:C.bg2,border:`1px solid ${C.b1}`,color:C.t2,padding:'9px 12px',fontSize:11,outline:'none',fontFamily:'inherit',borderRadius:5,flexShrink:0}}>
-              {displays.map(d=><option key={d.id} value={d.id}>{d.label}{d.isPrimary?' (Primary)':''}</option>)}
-            </select>
+          </div>
+          <div
+            onDragOver={onPreviewDragOver} onDragLeave={onPreviewDragLeave} onDrop={onPreviewDrop}
+            style={{flex:1,background:'#0a0606',overflow:'hidden',border:`1px solid ${previewDragOver?C.g2:'transparent'}`,display:'flex',alignItems:'center',justifyContent:'center',transition:'all 0.15s',boxShadow:previewDragOver?`inset 0 0 24px ${C.g2}22`:'none',margin:10,borderRadius:6}}>
+            {section
+              ?<div style={{fontSize:15,color:C.t2,lineHeight:1.8,padding:32,textAlign:'center',fontStyle:'italic',fontFamily:"'Noto Serif JP',Georgia,serif"}}>{section.content.substring(0,200)}…</div>
+              :<div style={{fontSize:12,color:previewDragOver?C.g2:C.t4}}>{previewDragOver?'Drop to preview':'Nothing selected'}</div>
+            }
           </div>
         </div>
 
-        {/* ── DOCKED SERVICE QUEUE ── */}
-        <div style={{width:320,background:C.bg1,borderLeft:`1px solid ${C.b0}`,display:'flex',flexDirection:'column',minHeight:0,flexShrink:0}}>
-          {/* Header */}
-          <div style={{padding:'16px 20px',borderBottom:`1px solid ${C.b0}`,display:'flex',alignItems:'center',justifyContent:'space-between',flexShrink:0}}>
-            <div style={{display:'flex',alignItems:'center',gap:10}}>
-              <span style={{fontSize:9,color:C.t4,fontWeight:700,letterSpacing:'0.14em',textTransform:'uppercase' as const}}>Service Queue</span>
-              {queue.length>0&&<span style={{fontSize:10,color:C.g2,padding:'2px 8px',border:`1px solid ${C.b2}`,borderRadius:3}}>{queue.length}</span>}
+        {/* ── RIGHT — LIVE (full-height open panel) ── */}
+        <div style={{flex:1,display:'flex',flexDirection:'column',minWidth:0,background:C.bg0}}>
+          <div style={{padding:'12px 20px',borderBottom:`1px solid ${C.b0}`,display:'flex',alignItems:'center',justifyContent:'space-between',flexShrink:0}}>
+            <span style={{fontSize:11,color:C.t2,letterSpacing:'0.08em',fontWeight:600,textTransform:'uppercase' as const}}>Live</span>
+            <div style={{display:'flex',alignItems:'center',gap:6}}>
+              {live&&<div className="live-dot" style={{width:6,height:6,borderRadius:'50%',background:C.live,boxShadow:`0 0 6px ${C.live}`}}/>}
+              <span style={{fontSize:10,color:live?C.live:C.t4,fontWeight:live?600:400}}>{live?'On air':'Standby'}</span>
             </div>
-            {queue.length>0&&<button onClick={clearQueue} style={{background:'none',border:'none',color:C.t4,cursor:'pointer',fontSize:11,fontFamily:'inherit',padding:'2px 6px'}}>clear</button>}
           </div>
-          {/* Drop zone + items */}
-          <div onDragOver={onQueueZoneDragOver} onDragLeave={onQueueZoneDragLeave} onDrop={onQueueZoneDrop}
-            style={{flex:1,overflowY:'auto',padding:'12px 14px',minHeight:60,background:queueDragOver?`${C.g2}08`:'transparent',transition:'background 0.15s'}}>
-            {queue.length===0&&(
-              <div style={{padding:'32px 14px',fontSize:12,color:queueDragOver?C.g2:C.t4,textAlign:'center',lineHeight:1.8,border:`1.5px dashed ${queueDragOver?C.g2:C.b1}`,borderRadius:8}}>
-                {queueDragOver?'Drop to add to queue':'Drag hymns, verses or slides here to build the order of service'}
-              </div>
-            )}
-            {queue.map((item,i)=>(
-              <div key={item.id}
-                draggable onDragStart={e=>onQueueItemDragStart(e,i)} onDragOver={onQueueItemDragOver} onDrop={e=>onQueueItemDrop(e,i)} onDragEnd={onQueueItemDragEnd}
-                style={{display:'flex',alignItems:'center',gap:12,padding:'12px 14px',marginBottom:6,borderRadius:6,background:i===0?C.bg3:C.bg2,border:`1px solid ${i===0?C.b2:C.b0}`,cursor:'grab',opacity:draggedQueueIdx===i?0.3:1,transition:'opacity 0.12s'}}>
-                <span style={{fontSize:10,color:i===0?C.g2:C.t4,width:16,flexShrink:0,fontVariantNumeric:'tabular-nums',fontWeight:600}}>{i+1}</span>
-                <span style={{fontSize:12,color:C.t1,flex:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{item.title}</span>
-                <button onClick={()=>removeFromQueue(item.id)} style={{background:'none',border:'none',color:C.t4,cursor:'pointer',fontSize:15,padding:0,flexShrink:0,lineHeight:1}}>×</button>
-              </div>
-            ))}
+          <div
+            onDragOver={onLiveDragOver} onDragLeave={onLiveDragLeave} onDrop={onLiveDrop}
+            style={{flex:1,background:'#000',overflow:'hidden',border:`1px solid ${liveDragOver?C.live+'cc':live?C.live+'55':'transparent'}`,display:'flex',alignItems:'center',justifyContent:'center',boxShadow:live?`inset 0 0 40px ${C.live}22`:'none',transition:'all 0.2s',margin:10,borderRadius:6}}>
+            {liveDragOver
+              ?<div style={{fontSize:13,color:C.live,fontWeight:600}}>Drop to go live</div>
+              :live
+                ?<div style={{fontSize:15,color:'#fff',padding:32,textAlign:'center',lineHeight:1.7,fontFamily:"'Noto Serif JP',Georgia,serif"}}>{live}</div>
+                :<div style={{fontSize:12,color:C.t4}}>Not presenting</div>
+            }
           </div>
-          {/* Gold top line */}
-          <div style={{height:1,background:`linear-gradient(to right,transparent,${C.g2}55,transparent)`,flexShrink:0}}/>
         </div>
 
+      </div>
+
+      {/* ── FOOTER CONTROL BAR ── */}
+      <div style={{height:56,background:C.bg1,borderTop:`1px solid ${C.b0}`,display:'flex',alignItems:'center',gap:14,padding:'0 20px',flexShrink:0}}>
+        <button onClick={handleBlank}
+          style={{padding:'8px 16px',background:blankScreen?C.bg4:'none',border:`1px solid ${blankScreen?C.b2:C.b1}`,color:blankScreen?C.t1:C.t3,fontSize:12,cursor:'pointer',fontFamily:'inherit',borderRadius:5,transition:'all 0.15s',flexShrink:0}}>
+          {blankScreen?'● Blank':'Blank'}
+        </button>
+        <button onClick={sendScreenImage}
+          style={{padding:'8px 16px',background:'none',border:`1px solid ${C.b1}`,color:C.t3,fontSize:12,cursor:'pointer',fontFamily:'inherit',borderRadius:5,flexShrink:0}}>
+          Image
+        </button>
+        <button onClick={handleClear} title="Clear output"
+          style={{padding:'8px 14px',background:'none',border:`1px solid ${C.b1}`,color:C.t3,fontSize:13,cursor:'pointer',borderRadius:5,flexShrink:0}}>✕</button>
+
+        <div style={{flex:1}}/>
+
+        <select value={selectedDisplay} onChange={e=>setSelectedDisplay(Number(e.target.value))}
+          style={{background:C.bg2,border:`1px solid ${C.b1}`,color:C.t2,padding:'8px 12px',fontSize:11,outline:'none',fontFamily:'inherit',borderRadius:5,flexShrink:0}}>
+          {displays.map(d=><option key={d.id} value={d.id}>{d.label}{d.isPrimary?' (Primary)':''}</option>)}
+        </select>
       </div>
 
       {/* ── DAILY VERSE POPUP ── */}
