@@ -106,9 +106,14 @@ function loadAllBibles(): BibleVerse[] {
   let gid = 1
 
   const configs = [
-    { file: 'kjv.json', version: 'KJV' },
-    { file: 'asv.json', version: 'ASV' },
-    { file: 'web.json', version: 'WEB' },
+    { file: 'kjv.json',     version: 'KJV' },
+    { file: 'asv.json',     version: 'ASV' },
+    { file: 'web.json',     version: 'WEB' },
+    { file: 'ylt.json',     version: 'YLT' },
+    { file: 'darby.json',   version: 'DARBY' },
+    { file: 'bbe.json',     version: 'BBE' },
+    { file: 'webster.json', version: 'WBS' },
+    { file: 'drc.json',     version: 'DRC' },
   ]
 
   for (const { file, version } of configs) {
@@ -273,7 +278,16 @@ export async function initDatabase() {
   // ── Bible ────────────────────────────────────────────────────────────
   const hasKJVFile = !!findData('kjv.json')
   const currentBibleLoaded = db.meta.bible_loaded || ''
-  const targetBible = [hasKJVFile && 'kjv', !!findData('asv.json') && 'asv', !!findData('web.json') && 'web'].filter(Boolean).join(',')
+  const targetBible = [
+    hasKJVFile && 'kjv',
+    !!findData('asv.json') && 'asv',
+    !!findData('web.json') && 'web',
+    !!findData('ylt.json') && 'ylt',
+    !!findData('darby.json') && 'darby',
+    !!findData('bbe.json') && 'bbe',
+    !!findData('webster.json') && 'webster',
+    !!findData('drc.json') && 'drc',
+  ].filter(Boolean).join(',')
   const needsBibleReload = db.bible_verses.length === 0 || (targetBible !== currentBibleLoaded && targetBible !== '')
 
   if (needsBibleReload) {
@@ -399,8 +413,16 @@ export function searchBibleVerses(query: string, version?: string) {
   })
   return filtered.slice(0, 200)
 }
-export function getBibleVerse(book: string, chapter: number, verse: number) {
-  return db.bible_verses.find(v => v.book.toLowerCase().includes(book.toLowerCase()) && v.chapter === chapter && v.verse === verse) || null
+export function getBibleVerse(book: string, chapter: number, verse: number, version?: string) {
+  const pool = version ? db.bible_verses.filter(v => v.version === version) : db.bible_verses
+  const exact = pool.find(v => v.book.toLowerCase() === book.toLowerCase() && v.chapter === chapter && v.verse === verse)
+  if (exact) return exact
+  // Fall back to a partial book-name match (e.g. "Psalm" vs "Psalms"), still within the requested version
+  const loose = pool.find(v => v.book.toLowerCase().includes(book.toLowerCase()) && v.chapter === chapter && v.verse === verse)
+  if (loose) return loose
+  // Last resort: the verse may not exist in the requested translation — look across all of them
+  if (version) return db.bible_verses.find(v => v.book.toLowerCase().includes(book.toLowerCase()) && v.chapter === chapter && v.verse === verse) || null
+  return null
 }
 export function getBibleTranslations() {
   return Array.from(new Set(db.bible_verses.map(v => v.version)))

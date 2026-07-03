@@ -5,7 +5,7 @@ import started from 'electron-squirrel-startup'
 import {
   initDatabase,
   searchSongs, addSong, addSongSection, getSongSections, deleteSong,
-  getDailyVerse, searchBibleVerses, getBibleVerse, getBibleBooks, getBibleChapters, getBibleChapterVerses,
+  getDailyVerse, searchBibleVerses, getBibleVerse, getBibleTranslations, getBibleBooks, getBibleChapters, getBibleChapterVerses,
   getServiceQueue, addToServiceQueue, clearServiceQueue, removeFromServiceQueue, reorderServiceQueue,
   getThemes,
   getSlides, getSlide, createSlide, updateSlide, deleteSlide, reorderSlides, duplicateSlide,
@@ -111,8 +111,9 @@ app.on('ready', async () => {
 
   // ── BIBLE ────────────────────────────────────────────────────────────────
   ipcMain.handle('get-daily-verse',             () => getDailyVerse())
+  ipcMain.handle('get-bible-translations',      () => getBibleTranslations())
   ipcMain.handle('search-bible',                (_e, query: string, version?: string) => searchBibleVerses(query, version))
-  ipcMain.handle('get-bible-verse',             (_e, book: string, ch: number, v: number) => getBibleVerse(book, ch, v))
+  ipcMain.handle('get-bible-verse',             (_e, book: string, ch: number, v: number, version?: string) => getBibleVerse(book, ch, v, version))
   ipcMain.handle('get-bible-books',             (_e, version?: string) => getBibleBooks(version))
   ipcMain.handle('get-bible-chapters',          (_e, book: string, version?: string) => getBibleChapters(book, version))
   ipcMain.handle('get-bible-chapter-verses',    (_e, book: string, ch: number, version?: string) => getBibleChapterVerses(book, ch, version))

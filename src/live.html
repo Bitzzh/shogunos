@@ -42,6 +42,15 @@
       white-space: pre-line; word-break: break-word;
     }
 
+    #text-box {
+      max-width: 100%;
+      border: 0px solid transparent;
+      border-radius: 0px;
+      padding: 0;
+      box-sizing: border-box;
+      transition: border-color 0.3s ease, border-width 0.3s ease, border-radius 0.3s ease;
+    }
+
     #video-layer {
       position: fixed; inset: 0;
       display: flex; align-items: center; justify-content: center;
@@ -85,8 +94,10 @@
   </div>
 
   <div id="text-layer">
-    <div id="title-el"></div>
-    <div id="lyrics-el"></div>
+    <div id="text-box">
+      <div id="title-el"></div>
+      <div id="lyrics-el"></div>
+    </div>
   </div>
 
   <div id="blank-layer"></div>
@@ -94,6 +105,7 @@
   <script>
     const bgLayer    = document.getElementById('bg-layer')
     const textLayer  = document.getElementById('text-layer')
+    const textBox    = document.getElementById('text-box')
     const titleEl    = document.getElementById('title-el')
     const lyricsEl   = document.getElementById('lyrics-el')
     const videoLayer = document.getElementById('video-layer')
@@ -168,6 +180,17 @@
       if (data.textAlign === 'left')  textLayer.style.alignItems = 'flex-start'
       else if (data.textAlign === 'right') textLayer.style.alignItems = 'flex-end'
       else textLayer.style.alignItems = 'center'
+
+      const borderWidth = data.borderWidth || 0
+      if (borderWidth > 0) {
+        textBox.style.border = borderWidth + 'px ' + (data.borderStyle || 'solid') + ' ' + (data.borderColor || '#ffffff')
+        textBox.style.borderRadius = (data.borderRadius || 0) + 'px'
+        textBox.style.padding = '28px 44px'
+      } else {
+        textBox.style.border = '0px solid transparent'
+        textBox.style.borderRadius = '0px'
+        textBox.style.padding = '0'
+      }
 
       setTimeout(() => {
         titleEl.textContent  = data.title  || ''

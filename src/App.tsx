@@ -19,6 +19,11 @@ interface DisplaySettings {
   fontColor: string; fontSize: number
   textAlign: 'left' | 'center' | 'right'
   fontFamily: string
+  // Panel border — the box drawn around the live text, adjustable like Quelea's theme border
+  borderWidth: number
+  borderColor: string
+  borderStyle: 'solid' | 'dashed' | 'dotted' | 'double'
+  borderRadius: number
 }
 
 // Shogun palette — ink, lacquer, aged gold
@@ -43,6 +48,13 @@ type SlideAlign = 'left' | 'center' | 'right'
 // ── DRAG & DROP ──────────────────────────────────────────────────────────────
 // Shared MIME type used when dragging a song or verse out of the library onto the queue.
 const DRAG_MIME = 'application/x-shogun-item'
+// Parses a reference string like "John 3:16" or "1 Corinthians 13:4" into its parts.
+// Book names can contain spaces/numbers, so we split off the trailing "chapter:verse" instead of the leading word.
+function parseVerseRef(ref:string):{book:string;chapter:number;verse:number}|null{
+  const m = ref.trim().match(/^(.+?)\s+(\d+):(\d+)$/)
+  if(!m) return null
+  return { book: m[1], chapter: parseInt(m[2],10), verse: parseInt(m[3],10) }
+}
 function dragSource(title: string, type: string) {
   return {
     draggable: true,
@@ -1130,11 +1142,30 @@ function DisplaySettingsTab({ settings, onChange, notify }: { settings:DisplaySe
         </div>
       </div>
       <div>
+        <label style={lbl}>Panel Border — {settings.borderWidth}px</label>
+        <input type="range" min={0} max={20} value={settings.borderWidth} onChange={e=>set('borderWidth',parseInt(e.target.value))} style={{width:'100%',accentColor:C.p1,marginBottom:8}}/>
+        <div style={{display:'flex',gap:8,alignItems:'center',marginBottom:8}}>
+          <input type="color" value={settings.borderColor} onChange={e=>set('borderColor',e.target.value)} style={{width:40,height:36,border:`1px solid ${C.b2}`,borderRadius:8,background:'none',cursor:'pointer'}}/>
+          <input style={{...inp,width:110}} value={settings.borderColor} onChange={e=>set('borderColor',e.target.value)}/>
+          <select value={settings.borderStyle} onChange={e=>set('borderStyle',e.target.value)} style={{...inp,flex:1}}>
+            <option value="solid">Solid</option>
+            <option value="dashed">Dashed</option>
+            <option value="dotted">Dotted</option>
+            <option value="double">Double</option>
+          </select>
+        </div>
+        <label style={lbl}>Corner Radius — {settings.borderRadius}px</label>
+        <input type="range" min={0} max={60} value={settings.borderRadius} onChange={e=>set('borderRadius',parseInt(e.target.value))} style={{width:'100%',accentColor:C.p1}}/>
+      </div>
+      <div>
         <label style={lbl}>Preview</label>
         <div style={{aspectRatio:'16/9',borderRadius:10,overflow:'hidden',border:`1px solid ${C.b1}`,background:settings.bgColor,display:'flex',alignItems:'center',justifyContent:'center',padding:16,position:'relative',
           backgroundImage:settings.bgImage?`url(${settings.bgImage})`:undefined,backgroundSize:'cover',backgroundPosition:'center'}}>
           {settings.bgImage&&<div style={{position:'absolute',inset:0,background:'rgba(0,0,0,0.3)'}}/>}
-          <div style={{position:'relative',zIndex:1,fontSize:settings.fontSize*0.22,color:settings.fontColor,textAlign:settings.textAlign,fontFamily:settings.fontFamily,fontWeight:300,lineHeight:1.6}}>
+          <div style={{position:'relative',zIndex:1,fontSize:settings.fontSize*0.22,color:settings.fontColor,textAlign:settings.textAlign,fontFamily:settings.fontFamily,fontWeight:300,lineHeight:1.6,
+            padding:settings.borderWidth?14:0,
+            border:settings.borderWidth?`${settings.borderWidth}px ${settings.borderStyle} ${settings.borderColor}`:'none',
+            borderRadius:settings.borderRadius}}>
             "Amazing grace! How sweet the sound<br/>That saved a wretch like me!"
           </div>
         </div>
@@ -1171,7 +1202,7 @@ export default function App() {
   const [blankScreen,setBlankScreen]     = useState(false)
   const [clock,setClock]                 = useState('')
   const [toast,setToast]                 = useState('')
-  const [displaySettings,setDisplaySettings] = useState<DisplaySettings>({bgColor:'#000000',bgImage:null,fontColor:'#ffffff',fontSize:52,textAlign:'center',fontFamily:'Georgia, serif'})
+  const [displaySettings,setDisplaySettings] = useState<DisplaySettings>({bgColor:'#000000',bgImage:null,fontColor:'#ffffff',fontSize:52,textAlign:'center',fontFamily:'Georgia, serif',borderWidth:0,borderColor:'#ffffff',borderStyle:'solid',borderRadius:0})
   const toastTimer = useRef<any>(null)
   // Bible chapter browser state
   const [hymnLangFilter,setHymnLangFilter] = useState<string>('all')
@@ -1190,6 +1221,62 @@ export default function App() {
   const [previewDragOver,setPreviewDragOver] = useState(false)
   const [liveDragOver,setLiveDragOver]       = useState(false)
 
+  // ── Resizable panels (Library / Preview / Live) — Quelea-style draggable dividers ──
+  const bodyRef       = useRef<HTMLDivElement>(null)
+  const leftColRef     = useRef<HTMLDivElement>(null)
+  const previewColRef  = useRef<HTMLDivElement>(null)
+  const [leftWidth,setLeftWidth]       = useState<number>(()=>{
+    try{ const v=localStorage.getItem('shogun_left_width'); return v?parseInt(v):340 }catch{return 340}
+  })
+  const [previewWidth,setPreviewWidth] = useState<number|null>(()=>{
+    try{ const v=localStorage.getItem('shogun_preview_width'); return v?parseInt(v):null }catch{return null}
+  })
+
+  function beginResize(kind:'left'|'preview',e:React.MouseEvent){
+    e.preventDefault()
+    const leftEl=leftColRef.current, previewEl=previewColRef.current
+    if(!leftEl||!previewEl)return
+    const startX=e.clientX
+    const startLeftW=leftEl.getBoundingClientRect().width
+    const startPreviewW=previewEl.getBoundingClientRect().width
+    document.body.style.cursor='col-resize'
+    document.body.style.userSelect='none'
+
+    function onMove(ev:MouseEvent){
+      const dx=ev.clientX-startX
+      if(kind==='left'){
+        const next=Math.min(560,Math.max(240,startLeftW+dx))
+        leftEl!.style.width=next+'px'
+      }else{
+        const next=Math.max(240,startPreviewW+dx)
+        previewEl!.style.width=next+'px'
+        previewEl!.style.flex='0 0 auto'
+      }
+    }
+    function onUp(){
+      window.removeEventListener('mousemove',onMove)
+      window.removeEventListener('mouseup',onUp)
+      document.body.style.cursor=''
+      document.body.style.userSelect=''
+      if(kind==='left'){
+        const w=leftEl!.getBoundingClientRect().width
+        setLeftWidth(w)
+        try{localStorage.setItem('shogun_left_width',String(Math.round(w)))}catch{}
+      }else{
+        const w=previewEl!.getBoundingClientRect().width
+        setPreviewWidth(w)
+        try{localStorage.setItem('shogun_preview_width',String(Math.round(w)))}catch{}
+      }
+    }
+    window.addEventListener('mousemove',onMove)
+    window.addEventListener('mouseup',onUp)
+  }
+  function resetResize(kind:'left'|'preview'){
+    if(kind==='left'){ setLeftWidth(340); try{localStorage.removeItem('shogun_left_width')}catch{} }
+    else{ setPreviewWidth(null); try{localStorage.removeItem('shogun_preview_width')}catch{} }
+  }
+  const dividerStyle=(): React.CSSProperties=>({width:6,flexShrink:0,cursor:'col-resize',background:'transparent',position:'relative',zIndex:2})
+
   useEffect(()=>{
     const tick=()=>setClock(new Date().toLocaleTimeString('en-ZW',{hour:'2-digit',minute:'2-digit'}))
     tick();const t=setInterval(tick,1000);return()=>clearInterval(t)
@@ -1205,7 +1292,7 @@ export default function App() {
       setQueue(q.map((x:any)=>({id:String(x.id),title:x.title,type:x.type})))
       try{const v=await(window as any).shogunos.getBibleTranslations();if(v?.length)setAvailableVersions(v)}catch{}
       // Load saved display settings
-      try{const ds=await(window as any).shogunos.getDisplaySettings();if(ds)setDisplaySettings(ds)}catch{}
+      try{const ds=await(window as any).shogunos.getDisplaySettings();if(ds)setDisplaySettings(s=>({...s,...ds}))}catch{}
       // Load all hymns for default browse view
       try{const all=await(window as any).shogunos.searchSongs('');setAllSongs(all.sort((a:Song,b:Song)=>(a.hymn_number||9999)-(b.hymn_number||9999)))}catch{}
       // Load bible books for chapter browser
@@ -1241,19 +1328,19 @@ export default function App() {
   }
 
   async function handleSelectSong(song:Song){
-    setSelected(song);setCurrentSection(0)
+    setSelected(song);setCurrentSection(0);setSelectedVerse(null)
     setSections(await(window as any).shogunos.getSongSections(song.id))
   }
 
   async function goLive(title:string,lyrics:string,ds?:Partial<DisplaySettings>){
     const s={...displaySettings,...ds}
     setLive(title);setBlankScreen(false)
-    await(window as any).shogunos.goLive({title,lyrics,displayId:selectedDisplay,fontSize:s.fontSize,textAlign:s.textAlign,bgColor:s.bgColor,fontColor:s.fontColor,bgImage:s.bgImage,fontFamily:s.fontFamily})
+    await(window as any).shogunos.goLive({title,lyrics,displayId:selectedDisplay,fontSize:s.fontSize,textAlign:s.textAlign,bgColor:s.bgColor,fontColor:s.fontColor,bgImage:s.bgImage,fontFamily:s.fontFamily,borderWidth:s.borderWidth,borderColor:s.borderColor,borderStyle:s.borderStyle,borderRadius:s.borderRadius})
   }
 
   async function handleSectionClick(i:number){
     setCurrentSection(i)
-    if(live&&selected) await(window as any).shogunos.goLive({title:selected.title,lyrics:sections[i].content,displayId:selectedDisplay,fontSize:displaySettings.fontSize,textAlign:displaySettings.textAlign,bgColor:displaySettings.bgColor})
+    if(live&&selected) await(window as any).shogunos.goLive({title:selected.title,lyrics:sections[i].content,displayId:selectedDisplay,fontSize:displaySettings.fontSize,textAlign:displaySettings.textAlign,bgColor:displaySettings.bgColor,fontColor:displaySettings.fontColor,fontFamily:displaySettings.fontFamily,borderWidth:displaySettings.borderWidth,borderColor:displaySettings.borderColor,borderStyle:displaySettings.borderStyle,borderRadius:displaySettings.borderRadius})
   }
 
   async function handleClear(){setLive(null);setBlankScreen(false);await(window as any).shogunos.closeLive()}
@@ -1261,7 +1348,7 @@ export default function App() {
   async function handleBlank(){
     const next=!blankScreen;setBlankScreen(next)
     if(next) await(window as any).shogunos.goLive({title:'',lyrics:'',displayId:selectedDisplay,bgColor:'#000000'})
-    else if(live) await(window as any).shogunos.goLive({title:live,lyrics:sections[currentSection]?.content||'',displayId:selectedDisplay,bgColor:displaySettings.bgColor})
+    else if(live) await(window as any).shogunos.goLive({title:live,lyrics:sections[currentSection]?.content||'',displayId:selectedDisplay,bgColor:displaySettings.bgColor,fontColor:displaySettings.fontColor,fontFamily:displaySettings.fontFamily,fontSize:displaySettings.fontSize,textAlign:displaySettings.textAlign,borderWidth:displaySettings.borderWidth,borderColor:displaySettings.borderColor,borderStyle:displaySettings.borderStyle,borderRadius:displaySettings.borderRadius})
     notify(next?'Screen blanked':'Screen restored')
   }
 
@@ -1346,16 +1433,29 @@ export default function App() {
     e.preventDefault();setPreviewDragOver(false)
     const raw=e.dataTransfer.getData(DRAG_MIME); if(!raw)return
     try{
-      const {title}=JSON.parse(raw)
-      // Show in preview — find the song or verse and set section
-      const songs=await(window as any).shogunos.searchSongs(title)
-      if(songs&&songs.length>0){
-        const song=songs[0]
-        setSelected(song)
-        const secs=await(window as any).shogunos.getSongSections(song.id)
-        setSections(secs); if(secs.length>0)setSection(secs[0]); setCurrentSection(0)
+      const {title,type}=JSON.parse(raw)
+      if(type==='verse'){
+        // Bible verses carry their reference in the title, e.g. "John 3:16" — look it up
+        // exactly rather than full-text searching (the reference string won't match any verse body).
+        const ref=parseVerseRef(title)
+        const v=ref?await(window as any).shogunos.getBibleVerse(ref.book,ref.chapter,ref.verse,bibleVersion):null
+        if(v){
+          setSelectedVerse(v)
+          setSelected(null); setSections([]); setCurrentSection(0)
+          notify(`Preview: ${v.book} ${v.chapter}:${v.verse}`)
+        }
+      } else {
+        // Show in preview — find the song and set section
+        const songs=await(window as any).shogunos.searchSongs(title)
+        if(songs&&songs.length>0){
+          const song=songs[0]
+          setSelected(song)
+          setSelectedVerse(null)
+          const secs=await(window as any).shogunos.getSongSections(song.id)
+          setSections(secs); if(secs.length>0)setSection(secs[0]); setCurrentSection(0)
+        }
+        notify(`Preview: ${title}`)
       }
-      notify(`Preview: ${title}`)
     }catch{}
   }
 
@@ -1370,10 +1470,11 @@ export default function App() {
     try{
       const {title,type}=JSON.parse(raw)
       if(type==='verse'){
-        // For bible verses the content is in the title string like "John 3:16"
-        // Find it and go live
-        const results=await(window as any).shogunos.searchBible(title,bibleVersion)
-        if(results&&results.length>0){const v=results[0];goLive(`${v.book} ${v.chapter}:${v.verse}`,v.text)}
+        // For bible verses the content is in the title string like "John 3:16" —
+        // look it up exactly rather than full-text searching.
+        const ref=parseVerseRef(title)
+        const v=ref?await(window as any).shogunos.getBibleVerse(ref.book,ref.chapter,ref.verse,bibleVersion):null
+        if(v)goLive(`${v.book} ${v.chapter}:${v.verse}`,v.text)
       } else {
         const songs=await(window as any).shogunos.searchSongs(title)
         if(songs&&songs.length>0){
@@ -1477,7 +1578,7 @@ export default function App() {
             {bibleMode==='search'&&(
               <div style={{flex:1,overflowY:'auto',padding:'6px 8px'}}>
                 {bibleResults.map(v=>(
-                  <div key={v.id} onClick={()=>setSelectedVerse(v)}
+                  <div key={v.id} onClick={()=>{setSelectedVerse(v);setSelected(null);setSections([])}}
                     {...dragSource(`${v.book} ${v.chapter}:${v.verse}`,'verse')}
                     style={{padding:'9px 10px',marginBottom:3,cursor:'grab',borderRadius:7,border:`1px solid ${selectedVerse?.id===v.id?C.b2:'transparent'}`,background:selectedVerse?.id===v.id?C.bg4:'none',transition:'all 0.1s'}}
                     onMouseEnter={e=>(e.currentTarget as HTMLElement).style.background=C.bg3}
@@ -1524,7 +1625,7 @@ export default function App() {
               <div style={{flex:1,overflowY:'auto',padding:'4px 6px'}}>
                 {loadingChapter&&<div style={{padding:20,textAlign:'center',color:C.t4,fontSize:11}}>Loading…</div>}
                 {!loadingChapter&&chapterVerses.map(v=>(
-                  <div key={v.id} onClick={()=>setSelectedVerse(v)}
+                  <div key={v.id} onClick={()=>{setSelectedVerse(v);setSelected(null);setSections([])}}
                     {...dragSource(`${v.book} ${v.chapter}:${v.verse}`,'verse')}
                     style={{padding:'8px 10px',marginBottom:2,cursor:'grab',borderRadius:7,border:`1px solid ${selectedVerse?.id===v.id?C.b2:'transparent'}`,background:selectedVerse?.id===v.id?C.bg4:'none',transition:'all 0.1s'}}
                     onMouseEnter={e=>(e.currentTarget as HTMLElement).style.background=C.bg3}
@@ -1815,10 +1916,10 @@ export default function App() {
       </div>
 
       {/* ── BODY — three open panels, Quelea-style: Order of Service+Library / Preview / Live ── */}
-      <div style={{flex:1,display:'flex',minHeight:0,overflow:'hidden'}}>
+      <div ref={bodyRef} style={{flex:1,display:'flex',minHeight:0,overflow:'hidden'}}>
 
         {/* ── LEFT COLUMN ── */}
-        <div style={{width:340,background:C.bg0,borderRight:`1px solid ${C.b0}`,display:'flex',flexDirection:'column',minHeight:0,flexShrink:0}}>
+        <div ref={leftColRef} style={{width:leftWidth,flexShrink:0,background:C.bg0,display:'flex',flexDirection:'column',minHeight:0}}>
 
           {/* Order of Service — pinned, collapsible */}
           <div style={{flexShrink:0,display:'flex',flexDirection:'column',maxHeight:queueCollapsed?40:340,overflow:'hidden',borderBottom:`1px solid ${C.b0}`,transition:'max-height 0.15s ease'}}>
@@ -1870,15 +1971,21 @@ export default function App() {
           </div>
         </div>
 
+        {/* ── DIVIDER: Library ↔ Preview ── */}
+        <div onMouseDown={e=>beginResize('left',e)} onDoubleClick={()=>resetResize('left')} title="Drag to resize · double-click to reset"
+          style={dividerStyle()}
+          onMouseEnter={e=>{(e.currentTarget as HTMLElement).style.background=`${C.g2}55`}}
+          onMouseLeave={e=>{(e.currentTarget as HTMLElement).style.background='transparent'}}>
+          <div style={{position:'absolute',top:0,bottom:0,left:2,width:1,background:C.b0}}/>
+        </div>
+
         {/* ── CENTRE — PREVIEW (full-height open panel) ── */}
-        <div style={{flex:1,display:'flex',flexDirection:'column',borderRight:`1px solid ${C.b0}`,minWidth:0,background:C.bg0}}>
+        <div ref={previewColRef} style={{...(previewWidth!=null?{width:previewWidth,flex:'0 0 auto'}:{flex:1}),display:'flex',flexDirection:'column',minWidth:0,background:C.bg0}}>
           <div style={{padding:'12px 20px',borderBottom:`1px solid ${C.b0}`,display:'flex',alignItems:'center',justifyContent:'space-between',flexShrink:0}}>
             <span style={{fontSize:11,color:C.t2,letterSpacing:'0.08em',fontWeight:600,textTransform:'uppercase' as const}}>Preview</span>
             <button onClick={()=>{
-              if(navGroup==='library'){
-                if(libTab==='hymnal'&&selected&&section) goLive(selected.title,section.content)
-                else if(libTab==='bible'&&selectedVerse) goLive(`${selectedVerse.book} ${selectedVerse.chapter}:${selectedVerse.verse}`,selectedVerse.text)
-              }
+              if(section) goLive(selected?.title||'',section.content)
+              else if(selectedVerse) goLive(`${selectedVerse.book} ${selectedVerse.chapter}:${selectedVerse.verse}`,selectedVerse.text)
             }} className="shimmer-btn"
               style={{padding:'7px 20px',background:C.p2,border:`1px solid ${C.p1}`,color:'#fff',fontSize:11.5,fontWeight:700,cursor:'pointer',fontFamily:"'Noto Serif JP','Inter',sans-serif",borderRadius:5,letterSpacing:'0.04em',flexShrink:0,transition:'background 0.15s'}}
               onMouseEnter={e=>{(e.currentTarget as HTMLElement).style.background=C.p1}}
@@ -1891,9 +1998,22 @@ export default function App() {
             style={{flex:1,background:'#0a0606',overflow:'hidden',border:`1px solid ${previewDragOver?C.g2:'transparent'}`,display:'flex',alignItems:'center',justifyContent:'center',transition:'all 0.15s',boxShadow:previewDragOver?`inset 0 0 24px ${C.g2}22`:'none',margin:10,borderRadius:6}}>
             {section
               ?<div style={{fontSize:15,color:C.t2,lineHeight:1.8,padding:32,textAlign:'center',fontStyle:'italic',fontFamily:"'Noto Serif JP',Georgia,serif"}}>{section.content.substring(0,200)}…</div>
+              :selectedVerse
+              ?<div style={{padding:32,textAlign:'center'}}>
+                <div style={{fontSize:11,color:C.p2,fontWeight:700,letterSpacing:'0.08em',marginBottom:10}}>{selectedVerse.book} {selectedVerse.chapter}:{selectedVerse.verse} · {selectedVerse.version}</div>
+                <div style={{fontSize:15,color:C.t2,lineHeight:1.8,fontStyle:'italic',fontFamily:"'Noto Serif JP',Georgia,serif"}}>{selectedVerse.text.substring(0,200)}…</div>
+              </div>
               :<div style={{fontSize:12,color:previewDragOver?C.g2:C.t4}}>{previewDragOver?'Drop to preview':'Nothing selected'}</div>
             }
           </div>
+        </div>
+
+        {/* ── DIVIDER: Preview ↔ Live ── */}
+        <div onMouseDown={e=>beginResize('preview',e)} onDoubleClick={()=>resetResize('preview')} title="Drag to resize · double-click to reset"
+          style={dividerStyle()}
+          onMouseEnter={e=>{(e.currentTarget as HTMLElement).style.background=`${C.g2}55`}}
+          onMouseLeave={e=>{(e.currentTarget as HTMLElement).style.background='transparent'}}>
+          <div style={{position:'absolute',top:0,bottom:0,left:2,width:1,background:C.b0}}/>
         </div>
 
         {/* ── RIGHT — LIVE (full-height open panel) ── */}

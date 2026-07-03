@@ -1,7 +1,14 @@
 /**
  * ShogunOS Data Setup
  * Run once from your project root: node setup-data.js
- * Downloads KJV, ASV, WEB Bibles + SDA Hymnal into data/
+ * Downloads public-domain Bible translations (KJV, ASV, WEB, YLT, Darby,
+ * BBE, Webster, Douay-Rheims) + SDA Hymnal into data/
+ *
+ * Only public-domain / freely-redistributable translations are included —
+ * copyrighted versions (NIV, ESV, NKJV, etc.) require a license and are not
+ * downloaded here. If a translation code below is unavailable from the
+ * source API, that download is skipped automatically and everything else
+ * still runs.
  */
 
 const https = require('https')
@@ -30,10 +37,21 @@ function get(url) {
 
 function log(msg) { console.log(msg) }
 
+// A file only counts as "already downloaded" if it actually has verses in it —
+// a previous failed/offline run can leave behind an empty `[]` file, which
+// would otherwise block all future retries forever.
+function isPopulated(filePath) {
+  try {
+    if (!fs.existsSync(filePath)) return false
+    const data = JSON.parse(fs.readFileSync(filePath, 'utf-8'))
+    return Array.isArray(data) && data.length > 0
+  } catch { return false }
+}
+
 // ── KJV ──────────────────────────────────────────────────────────────────────
 async function downloadKJV() {
   const out = path.join(DATA, 'kjv.json')
-  if (fs.existsSync(out)) { log('✓ KJV already exists'); return }
+  if (isPopulated(out)) { log('✓ KJV already exists'); return }
   log('⬇ Downloading KJV...')
   const buf  = await get('https://raw.githubusercontent.com/aruljohn/Bible-kjv/master/Bible.json')
   const data = JSON.parse(buf.toString('utf-8'))
@@ -50,6 +68,7 @@ async function downloadKJV() {
       }
     }
   }
+  if (verses.length === 0) { log('✗ KJV: no verses downloaded, leaving unwritten so it retries next run'); return }
   fs.writeFileSync(out, JSON.stringify(verses))
   log(`✓ KJV: ${verses.length} verses`)
 }
@@ -84,74 +103,52 @@ function parseScrollmapper(raw, version) {
 }
 
 async function downloadASV() {
-  const out = path.join(DATA, 'asv.json')
-  if (fs.existsSync(out)) { log('✓ ASV already exists'); return }
-  log('⬇ Downloading ASV...')
-  // Use Bolls Life API - free Bible API, no key required
-  const books = [
-    'Genesis','Exodus','Leviticus','Numbers','Deuteronomy','Joshua','Judges','Ruth',
-    '1 Samuel','2 Samuel','1 Kings','2 Kings','1 Chronicles','2 Chronicles','Ezra',
-    'Nehemiah','Esther','Job','Psalms','Proverbs','Ecclesiastes','Song of Solomon',
-    'Isaiah','Jeremiah','Lamentations','Ezekiel','Daniel','Hosea','Joel','Amos',
-    'Obadiah','Jonah','Micah','Nahum','Habakkuk','Zephaniah','Haggai','Zechariah',
-    'Malachi','Matthew','Mark','Luke','John','Acts','Romans','1 Corinthians',
-    '2 Corinthians','Galatians','Ephesians','Philippians','Colossians',
-    '1 Thessalonians','2 Thessalonians','1 Timothy','2 Timothy','Titus','Philemon',
-    'Hebrews','James','1 Peter','2 Peter','1 John','2 John','3 John','Jude','Revelation'
-  ]
-  const verses = []
-  let id = 1
-  for (let b = 1; b <= 66; b++) {
-    process.stdout.write(`\r  ASV: book ${b}/66...`)
-    try {
-      const buf  = await get(`https://bolls.life/get-text/ASV/${b}/`)
-      const data = JSON.parse(buf.toString('utf-8'))
-      for (const v of data) {
-        if (v.text) verses.push({ id: id++, version: 'ASV', book: books[b-1], chapter: v.chapter, verse: v.verse, text: v.text.trim() })
-      }
-    } catch {}
-    await new Promise(r => setTimeout(r, 100))
-  }
-  fs.writeFileSync(out, JSON.stringify(verses))
-  log(`\n✓ ASV: ${verses.length} verses`)
+  await downloadBollsTranslation('ASV', 'asv.json')
 }
 
 async function downloadWEB() {
-  const out = path.join(DATA, 'web.json')
-  if (fs.existsSync(out)) { log('✓ WEB already exists'); return }
-  log('⬇ Downloading WEB...')
-  const books = [
-    'Genesis','Exodus','Leviticus','Numbers','Deuteronomy','Joshua','Judges','Ruth',
-    '1 Samuel','2 Samuel','1 Kings','2 Kings','1 Chronicles','2 Chronicles','Ezra',
-    'Nehemiah','Esther','Job','Psalms','Proverbs','Ecclesiastes','Song of Solomon',
-    'Isaiah','Jeremiah','Lamentations','Ezekiel','Daniel','Hosea','Joel','Amos',
-    'Obadiah','Jonah','Micah','Nahum','Habakkuk','Zephaniah','Haggai','Zechariah',
-    'Malachi','Matthew','Mark','Luke','John','Acts','Romans','1 Corinthians',
-    '2 Corinthians','Galatians','Ephesians','Philippians','Colossians',
-    '1 Thessalonians','2 Thessalonians','1 Timothy','2 Timothy','Titus','Philemon',
-    'Hebrews','James','1 Peter','2 Peter','1 John','2 John','3 John','Jude','Revelation'
-  ]
+  await downloadBollsTranslation('WEB', 'web.json')
+}
+
+// ── GENERIC BOLLS.LIFE LOADER (for any additional public-domain translation) ──
+const BOOKS_EN = [
+  'Genesis','Exodus','Leviticus','Numbers','Deuteronomy','Joshua','Judges','Ruth',
+  '1 Samuel','2 Samuel','1 Kings','2 Kings','1 Chronicles','2 Chronicles','Ezra',
+  'Nehemiah','Esther','Job','Psalms','Proverbs','Ecclesiastes','Song of Solomon',
+  'Isaiah','Jeremiah','Lamentations','Ezekiel','Daniel','Hosea','Joel','Amos',
+  'Obadiah','Jonah','Micah','Nahum','Habakkuk','Zephaniah','Haggai','Zechariah',
+  'Malachi','Matthew','Mark','Luke','John','Acts','Romans','1 Corinthians',
+  '2 Corinthians','Galatians','Ephesians','Philippians','Colossians',
+  '1 Thessalonians','2 Thessalonians','1 Timothy','2 Timothy','Titus','Philemon',
+  'Hebrews','James','1 Peter','2 Peter','1 John','2 John','3 John','Jude','Revelation'
+]
+
+async function downloadBollsTranslation(code, filename) {
+  const out = path.join(DATA, filename)
+  if (isPopulated(out)) { log(`✓ ${code} already exists`); return }
+  log(`⬇ Downloading ${code}...`)
   const verses = []
   let id = 1
   for (let b = 1; b <= 66; b++) {
-    process.stdout.write(`\r  WEB: book ${b}/66...`)
+    process.stdout.write(`\r  ${code}: book ${b}/66...`)
     try {
-      const buf  = await get(`https://bolls.life/get-text/WEB/${b}/`)
+      const buf  = await get(`https://bolls.life/get-text/${code}/${b}/`)
       const data = JSON.parse(buf.toString('utf-8'))
       for (const v of data) {
-        if (v.text) verses.push({ id: id++, version: 'WEB', book: books[b-1], chapter: v.chapter, verse: v.verse, text: v.text.trim() })
+        if (v.text) verses.push({ id: id++, version: code, book: BOOKS_EN[b-1], chapter: v.chapter, verse: v.verse, text: v.text.trim() })
       }
     } catch {}
     await new Promise(r => setTimeout(r, 100))
   }
+  if (verses.length === 0) { log(`\n✗ ${code}: no verses downloaded — translation code may be unavailable or offline, will retry next run`); return }
   fs.writeFileSync(out, JSON.stringify(verses))
-  log(`\n✓ WEB: ${verses.length} verses`)
+  log(`\n✓ ${code}: ${verses.length} verses`)
 }
 
 // ── SDA HYMNAL ───────────────────────────────────────────────────────────────
 async function downloadSDAHymnal() {
   const out = path.join(DATA, 'sda_hymnal.json')
-  if (fs.existsSync(out)) { log('✓ SDA Hymnal already exists'); return }
+  if (isPopulated(out)) { log('✓ SDA Hymnal already exists'); return }
   log('⬇ Downloading SDA Hymnal (695 hymns)...')
   const hymns = []
   let ok = 0, fail = 0
@@ -176,6 +173,11 @@ async function main() {
     ['KJV Bible',    downloadKJV],
     ['ASV Bible',    downloadASV],
     ['WEB Bible',    downloadWEB],
+    ['YLT Bible',    () => downloadBollsTranslation('YLT', 'ylt.json')],
+    ['Darby Bible',  () => downloadBollsTranslation('DARBY', 'darby.json')],
+    ['BBE Bible',    () => downloadBollsTranslation('BBE', 'bbe.json')],
+    ['Webster Bible',() => downloadBollsTranslation('WBS', 'webster.json')],
+    ['Douay-Rheims', () => downloadBollsTranslation('DRC', 'drc.json')],
     ['SDA Hymnal',   downloadSDAHymnal],
   ]
   for (const [name, fn] of tasks) {

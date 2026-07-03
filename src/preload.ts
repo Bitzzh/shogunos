@@ -10,8 +10,9 @@ contextBridge.exposeInMainWorld('shogunos', {
 
   // ── BIBLE ──────────────────────────────────────────────────────────────────
   getDailyVerse:         () => ipcRenderer.invoke('get-daily-verse'),
+  getBibleTranslations:  () => ipcRenderer.invoke('get-bible-translations'),
   searchBible:           (query: string, version?: string) => ipcRenderer.invoke('search-bible', query, version),
-  getBibleVerse:         (book: string, ch: number, v: number) => ipcRenderer.invoke('get-bible-verse', book, ch, v),
+  getBibleVerse:         (book: string, ch: number, v: number, version?: string) => ipcRenderer.invoke('get-bible-verse', book, ch, v, version),
   getBibleBooks:         (version?: string) => ipcRenderer.invoke('get-bible-books', version),
   getBibleChapters:      (book: string, version?: string) => ipcRenderer.invoke('get-bible-chapters', book, version),
   getBibleChapterVerses: (book: string, ch: number, version?: string) => ipcRenderer.invoke('get-bible-chapter-verses', book, ch, version),
