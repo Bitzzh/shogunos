@@ -54,7 +54,19 @@ function getLiveHtmlPath(): string {
   return candidates[1] // dev default
 }
 
-const createLiveWindow = (displayId?: number) => {
+function mapDisplays() {
+  const displays = screen.getAllDisplays()
+  const primaryId = screen.getPrimaryDisplay().id
+  return displays.map((d, i) => ({
+    id: d.id,
+    label: `${d.id === primaryId ? 'Primary' : 'Display ' + (i + 1)} — ${d.bounds.width}×${d.bounds.height}`,
+    isPrimary: d.id === primaryId,
+    bounds: d.bounds,
+    scaleFactor: d.scaleFactor,
+  }))
+}
+
+const createLiveWindow = (displayId?: number, initialData?: any) => {
   const displays = screen.getAllDisplays()
 
   // Pick the non-primary display if available, else fallback to primary
@@ -70,7 +82,18 @@ const createLiveWindow = (displayId?: number) => {
 
   liveWindow = new BrowserWindow({
     x, y, width, height,
-    fullscreen: true,
+    // Deliberately NOT using fullscreen:true. On Windows, putting a window
+    // into real OS "exclusive fullscreen" on a non-primary display/projector
+    // requires negotiating a display-mode switch, and that negotiation can
+    // silently fail or hang on older projectors, mismatched refresh rates,
+    // or VGA/HDMI adapters — the window never actually paints, which looks
+    // exactly like "blank screen." A borderless window sized to match the
+    // display's bounds looks identical to fullscreen but skips that
+    // negotiation entirely, which is what other stage-display apps do too.
+    frame: false,
+    resizable: false,
+    movable: false,
+    skipTaskbar: true,
     alwaysOnTop: true,
     backgroundColor: '#000',
     show: false,
@@ -84,14 +107,23 @@ const createLiveWindow = (displayId?: number) => {
   const liveHtml = getLiveHtmlPath()
   liveWindow.loadFile(liveHtml)
 
+  const sendInitial = () => { if (initialData) liveWindow?.webContents.send('update-live', initialData) }
+
   liveWindow.once('ready-to-show', () => {
     liveWindow?.show()
+    sendInitial()
     // Notify renderer about the display being used
     mainWindow?.webContents.send('live-display-changed', {
       displayId: targetDisplay.id,
       bounds: targetDisplay.bounds,
     })
   })
+
+  // Safety net: if 'ready-to-show' is ever delayed or skipped by a GPU/driver
+  // quirk on a particular display, these two extra hooks make sure the first
+  // frame of content still gets delivered once the page can actually receive it.
+  liveWindow.webContents.once('did-finish-load', sendInitial)
+  liveWindow.once('show', sendInitial)
 
   liveWindow.on('closed', () => {
     liveWindow = null
@@ -129,19 +161,10 @@ app.on('ready', async () => {
   ipcMain.handle('get-themes',        () => getThemes())
 
   // ── DISPLAY ──────────────────────────────────────────────────────────────
-  ipcMain.handle('get-displays', () =>
-    screen.getAllDisplays().map((d, i) => ({
-      id: d.id,
-      label: `${i === 0 ? 'Primary' : 'Display ' + (i + 1)} — ${d.bounds.width}×${d.bounds.height}`,
-      isPrimary: d.id === screen.getPrimaryDisplay().id,
-      bounds: d.bounds,
-      scaleFactor: d.scaleFactor,
-    }))
-  )
+  ipcMain.handle('get-displays', () => mapDisplays())
   ipcMain.handle('go-live', (_e, data: any) => {
     if (!liveWindow) {
-      createLiveWindow(data.displayId)
-      setTimeout(() => liveWindow?.webContents.send('update-live', data), 800)
+      createLiveWindow(data.displayId, data)
     } else {
       liveWindow.webContents.send('update-live', data)
     }
@@ -152,7 +175,6 @@ app.on('ready', async () => {
     const d = screen.getAllDisplays().find(x => x.id === displayId)
     if (!d) return
     liveWindow.setBounds(d.bounds)
-    liveWindow.setFullScreen(true)
   })
 
   // ── SLIDES ───────────────────────────────────────────────────────────────
@@ -208,8 +230,7 @@ app.on('ready', async () => {
   // Media: go live with video/image
   ipcMain.handle('go-live-media', (_e, data: any) => {
     if (!liveWindow) {
-      createLiveWindow(data.displayId)
-      setTimeout(() => liveWindow?.webContents.send('update-live', data), 800)
+      createLiveWindow(data.displayId, data)
     } else {
       liveWindow.webContents.send('update-live', data)
     }
@@ -247,9 +268,15 @@ app.on('ready', async () => {
 
   createWindow()
 
-  // Watch for display changes and notify renderer
-  screen.on('display-added',   () => mainWindow?.webContents.send('displays-changed', screen.getAllDisplays()))
-  screen.on('display-removed', () => mainWindow?.webContents.send('displays-changed', screen.getAllDisplays()))
+  // Watch for display changes and notify renderer with the SAME shape
+  // get-displays returns (label/isPrimary included), not the raw Electron
+  // Display[] — otherwise the renderer's dropdown silently breaks.
+  screen.on('display-added',   () => mainWindow?.webContents.send('displays-changed', mapDisplays()))
+  screen.on('display-removed', () => mainWindow?.webContents.send('displays-changed', mapDisplays()))
+  // 'metrics-changed' fires when an existing display's resolution/position
+  // changes, and on some Windows setups also fires more reliably than
+  // 'display-added' the moment a monitor is plugged in — cover both.
+  screen.on('display-metrics-changed', () => mainWindow?.webContents.send('displays-changed', mapDisplays()))
 })
 
 function getMimeType(ext: string): string {

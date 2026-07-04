@@ -493,7 +493,7 @@ function SongsTab({ goLive, addToQueue, notify }: { goLive:(t:string,l:string)=>
   const [sections,setSections]       = useState<Section[]>([])
   const [cur,setCur]                 = useState(0)
   const [search,setSearch]           = useState('')
-  const [filter,setFilter]           = useState<'all'|'hymnal'|'custom'>('all')
+  const [filter,setFilter]           = useState<'all'|'hymnal'|'hymnal-cis'|'custom'>('all')
   const [loading,setLoading]         = useState(true)
   const [expandedLangs,setExpandedLangs] = useState<Record<string,boolean>>({})
   const [showAddForm,setShowAddForm]     = useState(false)
@@ -505,20 +505,29 @@ function SongsTab({ goLive, addToQueue, notify }: { goLive:(t:string,l:string)=>
   const api = (window as any).shogunos
 
   const LANG_LABELS: Record<string,string> = {
-    en:'English', sn:'Shona', nd:'Ndebele', fr:'French',
-    pt:'Portuguese', sw:'Swahili', zu:'Zulu', xh:'Xhosa', st:'Sotho',
+    en:'English', sn:'Shona', nd:'Ndebele/IsiZulu', xh:'IsiXhosa', tn:'Tswana', st:'Sotho',
+    ny:'Chichewa', toi:'Tonga', ve:'Venda', sw:'Swahili', ts:'Xitsonga', ki:'Kikuyu',
+    guz:'Abagusii', luo:'Dholuo', rw:'Kinyarwanda', pt:'Português', es:'Español',
+    fr:'Français', ru:'Русский', tum:'Tumbuka', nso:'Sepedi', bem:'Icibemba', tw:'Twi',
   }
-  const LANG_ORDER = ['en','sn','nd','fr','pt','sw','zu','xh','st']
   const langLabel = (l:string) => LANG_LABELS[l] || (l.charAt(0).toUpperCase()+l.slice(1))
+  // Group key: SDA hymns form one group, CIS hymns split by language, custom songs by language
+  const groupKey = (s:Song) => s.source==='hymnal-cis' ? `cis-${s.language}` : s.source==='hymnal' ? 'sda' : `custom-${s.language||'en'}`
+  const groupLabel = (key:string) => key==='sda' ? 'SDA Hymnal' : key.startsWith('cis-') ? `CIS · ${langLabel(key.slice(4))}` : `Custom · ${langLabel(key.slice(7))}`
+  const GROUP_ORDER = ['sda','cis-en','cis-sn','cis-nd','cis-xh','cis-tn','cis-st','cis-ny','cis-toi',
+    'cis-ve','cis-sw','cis-ts','cis-ki','cis-guz','cis-luo','cis-rw','cis-pt','cis-es','cis-fr',
+    'cis-ru','cis-tum','cis-nso','cis-bem','cis-tw']
+  // Raw language codes (for the "add custom song" language picker — unrelated to hymnal grouping)
+  const LANG_ORDER = ['en','sn','nd','xh','tn','st','ny','toi','ve','sw','ts','ki','guz','luo','rw','pt','es','fr','ru','tum','nso','bem','tw']
 
   async function loadSongs(){
     try{
       const all:Song[] = await api.searchSongs('')
       const sorted = all.sort((a,b)=>(a.hymn_number||9999)-(b.hymn_number||9999))
       setSongs(sorted)
-      const songLangs = Array.from(new Set(sorted.map((s:Song)=>s.language).filter(Boolean)))
-        .sort((a:any,b:any)=>LANG_ORDER.indexOf(a)-LANG_ORDER.indexOf(b))
-      setExpandedLangs(e=>Object.keys(e).length>0?e:(songLangs.length>0?{[songLangs[0] as string]:true}:e))
+      const songGroups = Array.from(new Set(sorted.map(groupKey)))
+        .sort((a,b)=>GROUP_ORDER.indexOf(a)-GROUP_ORDER.indexOf(b) || a.localeCompare(b))
+      setExpandedLangs(e=>Object.keys(e).length>0?e:(songGroups.length>0?{[songGroups[0]]:true}:e))
       setLoading(false)
       return sorted
     }catch{ setLoading(false); return [] }
@@ -553,7 +562,7 @@ function SongsTab({ goLive, addToQueue, notify }: { goLive:(t:string,l:string)=>
         await api.addSongSection(songId, sec.type, order++, sec.content.trim())
       }
       const reloaded = await loadSongs()
-      setExpandedLangs(e=>({...e,[newLang]:true}))
+      setExpandedLangs(e=>({...e,[`custom-${newLang}`]:true}))
       const created = reloaded.find((s:Song)=>s.id===songId)
       if(created) await selectSong(created)
       notify(`"${newTitle.trim()}" added to ${langLabel(newLang)}`)
@@ -578,11 +587,11 @@ function SongsTab({ goLive, addToQueue, notify }: { goLive:(t:string,l:string)=>
     return true
   })
 
-  const langs = Array.from(new Set(songs.map(s=>s.language).filter(Boolean)))
-    .sort((a,b)=>LANG_ORDER.indexOf(a)-LANG_ORDER.indexOf(b))
+  const langs = Array.from(new Set(songs.map(groupKey)))
+    .sort((a,b)=>GROUP_ORDER.indexOf(a)-GROUP_ORDER.indexOf(b) || a.localeCompare(b))
 
-  const byLang = langs.reduce((acc,lang)=>{
-    acc[lang]=visible.filter(s=>s.language===lang)
+  const byLang = langs.reduce((acc,key)=>{
+    acc[key]=visible.filter(s=>groupKey(s)===key)
     return acc
   },{} as Record<string,Song[]>)
 
@@ -604,13 +613,13 @@ function SongsTab({ goLive, addToQueue, notify }: { goLive:(t:string,l:string)=>
             {search&&<span onClick={()=>setSearch('')} style={{color:C.t3,cursor:'pointer',fontSize:12,lineHeight:1}}>✕</span>}
           </div>
           <div style={{display:'flex',gap:4,marginBottom:10}}>
-            {(['all','hymnal','custom'] as const).map(f=>(
+            {([['all','ALL'],['hymnal','SDA'],['hymnal-cis','CIS'],['custom','CUSTOM']] as const).map(([f,label])=>(
               <button key={f} onClick={()=>setFilter(f)}
                 style={{...btn,flex:1,padding:'5px 0',fontSize:9,fontWeight:700,letterSpacing:'0.06em',
                   border:`1px solid ${filter===f?C.g2:C.b1}`,
                   color:filter===f?C.g2:C.t4,
                   background:filter===f?`${C.g2}15`:'transparent',borderRadius:4}}>
-                {f.toUpperCase()}
+                {label}
               </button>
             ))}
           </div>
@@ -642,7 +651,7 @@ function SongsTab({ goLive, addToQueue, notify }: { goLive:(t:string,l:string)=>
                     background:C.bg1,borderLeft:`3px solid ${accent}`,
                     borderBottom:`1px solid ${C.b0}`,color:C.t2,textAlign:'left' as const}}>
                   <div style={{display:'flex',alignItems:'center',gap:8}}>
-                    <span style={{fontSize:10,fontWeight:700,letterSpacing:'0.12em',color:accent}}>{langLabel(lang).toUpperCase()}</span>
+                    <span style={{fontSize:10,fontWeight:700,letterSpacing:'0.12em',color:accent}}>{groupLabel(lang).toUpperCase()}</span>
                     <span style={{fontSize:9,color:C.t4,background:C.bg3,padding:'1px 6px',borderRadius:10,border:`1px solid ${C.b1}`}}>{group.length}</span>
                   </div>
                   <span style={{fontSize:9,color:C.t4}}>{isOpen?'▾':'▸'}</span>
@@ -664,12 +673,18 @@ function SongsTab({ goLive, addToQueue, notify }: { goLive:(t:string,l:string)=>
                             #{String(song.hymn_number).padStart(3,'0')}
                           </span>
                         )}
-                        <span style={{fontSize:8,color:song.source==='hymnal'?C.g2:C.p2,fontWeight:600,
-                          padding:'1px 5px',background:song.source==='hymnal'?`${C.g2}12`:`${C.p2}12`,
-                          border:`1px solid ${song.source==='hymnal'?C.g2:C.p2}33`,borderRadius:3,
-                          textTransform:'uppercase' as const,letterSpacing:'0.04em'}}>
-                          {song.source}
-                        </span>
+                        {(()=>{
+                          const badgeCol = song.source==='hymnal'?C.g2:song.source==='hymnal-cis'?C.p1:C.p2
+                          const badgeText = song.source==='hymnal'?'SDA':song.source==='hymnal-cis'?'CIS':'CUSTOM'
+                          return (
+                            <span style={{fontSize:8,color:badgeCol,fontWeight:600,
+                              padding:'1px 5px',background:`${badgeCol}12`,
+                              border:`1px solid ${badgeCol}33`,borderRadius:3,
+                              textTransform:'uppercase' as const,letterSpacing:'0.04em'}}>
+                              {badgeText}
+                            </span>
+                          )
+                        })()}
                       </div>
                       <div style={{fontSize:12,color:active?C.t1:C.t2,fontWeight:active?600:400,
                         overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' as const}}>
@@ -684,10 +699,11 @@ function SongsTab({ goLive, addToQueue, notify }: { goLive:(t:string,l:string)=>
         </div>
 
         <div style={{padding:'10px 16px',borderTop:`1px solid ${C.b0}`,background:C.bg0,display:'flex',flexShrink:0}}>
-          {[['Hymns',songs.filter(s=>s.source==='hymnal').length,C.g2],
+          {[['SDA',songs.filter(s=>s.source==='hymnal').length,C.g2],
+            ['CIS',songs.filter(s=>s.source==='hymnal-cis').length,C.p1],
             ['Custom',songs.filter(s=>s.source==='custom').length,C.p2],
             ['Total',songs.length,C.t2]].map(([l,v,col],i)=>(
-            <div key={l as string} style={{flex:1,textAlign:'center' as const,borderRight:i<2?`1px solid ${C.b0}`:'none'}}>
+            <div key={l as string} style={{flex:1,textAlign:'center' as const,borderRight:i<3?`1px solid ${C.b0}`:'none'}}>
               <div style={{fontSize:17,fontWeight:300,color:col as string}}>{v as number}</div>
               <div style={{fontSize:8,color:C.t4,letterSpacing:'0.1em',marginTop:2}}>{l as string}</div>
             </div>
@@ -780,11 +796,11 @@ function SongsTab({ goLive, addToQueue, notify }: { goLive:(t:string,l:string)=>
                 {selected.title}
               </div>
               <div style={{fontSize:11,color:C.t4,marginTop:5,display:'flex',gap:8,alignItems:'center'}}>
-                <span style={{color:LANG_COLORS[langs.indexOf(selected.language)%LANG_COLORS.length]}}>
-                  {langLabel(selected.language)}
+                <span style={{color:LANG_COLORS[langs.indexOf(groupKey(selected))%LANG_COLORS.length]}}>
+                  {groupLabel(groupKey(selected))}
                 </span>
                 <span style={{color:C.b2}}>•</span>
-                <span>{selected.source==='hymnal'?`Hymn #${selected.hymn_number}`:'Custom'}</span>
+                <span>{selected.source==='hymnal'||selected.source==='hymnal-cis'?`Hymn #${selected.hymn_number}`:'Custom'}</span>
                 <span style={{color:C.b2}}>•</span>
                 <span>{sections.length} sections</span>
               </div>
@@ -1694,23 +1710,30 @@ export default function App() {
         </div>
       </div>
     )
-    // Default: show hymnal grouped by language
+    // Default: show hymnal grouped by collection (SDA vs CIS), then by language within CIS
     const LANG_LABELS: Record<string,string> = {
-      en:'English', sn:'Shona', nd:'Ndebele', fr:'French',
-      pt:'Portuguese', sw:'Swahili', zu:'Zulu', xh:'Xhosa', st:'Sotho',
+      en:'English', sn:'Shona', nd:'Ndebele/IsiZulu', xh:'IsiXhosa', tn:'Tswana', st:'Sotho',
+      ny:'Chichewa', toi:'Tonga', ve:'Venda', sw:'Swahili', ts:'Xitsonga', ki:'Kikuyu',
+      guz:'Abagusii', luo:'Dholuo', rw:'Kinyarwanda', pt:'Português', es:'Español',
+      fr:'Français', ru:'Русский', tum:'Tumbuka', nso:'Sepedi', bem:'Icibemba', tw:'Twi',
     }
-    const LANG_ORDER = ['en','sn','nd','fr','pt','sw','zu','xh','st']
-    const LANG_COLORS = [C.p1, C.g1, C.live+'cc', C.safe+'cc', C.p2]
     const langLabel = (l:string) => LANG_LABELS[l] || (l.charAt(0).toUpperCase()+l.slice(1))
+    // Group key: 'sda' is one group; each CIS language is its own group ('cis-en','cis-sn',…)
+    const groupKey = (s:Song) => s.source==='hymnal-cis' ? `cis-${s.language}` : 'sda'
+    const groupLabel = (key:string) => key==='sda' ? 'SDA Hymnal' : `CIS · ${langLabel(key.slice(4))}`
+    const GROUP_ORDER = ['sda','cis-en','cis-sn','cis-nd','cis-xh','cis-tn','cis-st','cis-ny','cis-toi',
+      'cis-ve','cis-sw','cis-ts','cis-ki','cis-guz','cis-luo','cis-rw','cis-pt','cis-es','cis-fr',
+      'cis-ru','cis-tum','cis-nso','cis-bem','cis-tw']
+    const LANG_COLORS = [C.g2, C.p1, C.g1, C.live+'cc', C.safe+'cc', C.p2]
     const searchFiltered = query.trim().length>0 ? results : allSongs
-    const hymnLangs = Array.from(new Set(allSongs.map(s=>s.language).filter(Boolean)))
-      .sort((a,b)=>LANG_ORDER.indexOf(a)-LANG_ORDER.indexOf(b))
-    // Auto-expand first lang on first load
+    const hymnLangs = Array.from(new Set(allSongs.map(groupKey)))
+      .sort((a,b)=>GROUP_ORDER.indexOf(a)-GROUP_ORDER.indexOf(b))
+    // Auto-expand first group on first load
     if(Object.keys(expandedHymnLangs).length===0 && hymnLangs.length>0) {
       setTimeout(()=>setExpandedHymnLangs({[hymnLangs[0]]:true}),0)
     }
-    const byLang = hymnLangs.reduce((acc,lang)=>{
-      acc[lang]=searchFiltered.filter(s=>s.language===lang)
+    const byLang = hymnLangs.reduce((acc,key)=>{
+      acc[key]=searchFiltered.filter(s=>groupKey(s)===key)
       return acc
     },{} as Record<string,Song[]>)
     const btn2: React.CSSProperties = {cursor:'pointer',fontFamily:'inherit',border:'none',outline:'none',transition:'all 0.15s'}
@@ -1741,7 +1764,7 @@ export default function App() {
                       background:C.bg1,borderLeft:`3px solid ${accent}`,
                       borderBottom:`1px solid ${C.b0}`,color:C.t2,textAlign:'left' as const}}>
                     <div style={{display:'flex',alignItems:'center',gap:8}}>
-                      <span style={{fontSize:11,fontWeight:700,letterSpacing:'0.1em',color:accent}}>{langLabel(lang).toUpperCase()}</span>
+                      <span style={{fontSize:11,fontWeight:700,letterSpacing:'0.1em',color:accent}}>{groupLabel(lang).toUpperCase()}</span>
                       <span style={{fontSize:9,color:C.t4,background:C.bg3,padding:'1px 7px',borderRadius:10,border:`1px solid ${C.b1}`}}>{group.length}</span>
                     </div>
                     <span style={{fontSize:9,color:C.t4}}>{isOpen?'▾':'▸'}</span>

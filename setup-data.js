@@ -1,8 +1,10 @@
 /**
  * ShogunOS Data Setup
  * Run once from your project root: node setup-data.js
- * Downloads public-domain Bible translations (KJV, ASV, WEB, YLT, Darby,
- * BBE, Webster, Douay-Rheims) + SDA Hymnal into data/
+ * Downloads public-domain Bible translations (KJV, ASV, WEB, YLT, BBE,
+ * Webster, Douay-Rheims) + SDA Hymnal into data/
+ * (English Darby isn't available from any free public-domain source we
+ * could find, so it's not included — see note near the task list below.)
  *
  * Only public-domain / freely-redistributable translations are included —
  * copyrighted versions (NIV, ESV, NKJV, etc.) require a license and are not
@@ -102,47 +104,37 @@ function parseScrollmapper(raw, version) {
   return verses
 }
 
-async function downloadASV() {
-  await downloadBollsTranslation('ASV', 'asv.json')
-}
-
-async function downloadWEB() {
-  await downloadBollsTranslation('WEB', 'web.json')
-}
-
-// ── GENERIC BOLLS.LIFE LOADER (for any additional public-domain translation) ──
-const BOOKS_EN = [
-  'Genesis','Exodus','Leviticus','Numbers','Deuteronomy','Joshua','Judges','Ruth',
-  '1 Samuel','2 Samuel','1 Kings','2 Kings','1 Chronicles','2 Chronicles','Ezra',
-  'Nehemiah','Esther','Job','Psalms','Proverbs','Ecclesiastes','Song of Solomon',
-  'Isaiah','Jeremiah','Lamentations','Ezekiel','Daniel','Hosea','Joel','Amos',
-  'Obadiah','Jonah','Micah','Nahum','Habakkuk','Zephaniah','Haggai','Zechariah',
-  'Malachi','Matthew','Mark','Luke','John','Acts','Romans','1 Corinthians',
-  '2 Corinthians','Galatians','Ephesians','Philippians','Colossians',
-  '1 Thessalonians','2 Thessalonians','1 Timothy','2 Timothy','Titus','Philemon',
-  'Hebrews','James','1 Peter','2 Peter','1 John','2 John','3 John','Jude','Revelation'
-]
-
-async function downloadBollsTranslation(code, filename) {
+// ── GETBIBLE.NET LOADER ─────────────────────────────────────────────────────
+// api.getbible.net/v2/<code>.json returns an ENTIRE translation in one request
+// (books -> chapters -> verses), so there's no per-book/chapter looping and
+// no risk of a missing-parameter bug like the old bolls.life endpoint had.
+// `code` is getbible's own translation id; `versionTag` is what we tag our
+// stored verse rows with (kept the same as before for compatibility with the
+// rest of the app).
+async function downloadGetBible(code, filename, versionTag, displayName) {
   const out = path.join(DATA, filename)
-  if (isPopulated(out)) { log(`✓ ${code} already exists`); return }
-  log(`⬇ Downloading ${code}...`)
-  const verses = []
-  let id = 1
-  for (let b = 1; b <= 66; b++) {
-    process.stdout.write(`\r  ${code}: book ${b}/66...`)
-    try {
-      const buf  = await get(`https://bolls.life/get-text/${code}/${b}/`)
-      const data = JSON.parse(buf.toString('utf-8'))
-      for (const v of data) {
-        if (v.text) verses.push({ id: id++, version: code, book: BOOKS_EN[b-1], chapter: v.chapter, verse: v.verse, text: v.text.trim() })
+  if (isPopulated(out)) { log(`✓ ${displayName} already exists`); return }
+  log(`⬇ Downloading ${displayName}...`)
+  try {
+    const buf  = await get(`https://api.getbible.net/v2/${code}.json`)
+    const data = JSON.parse(buf.toString('utf-8'))
+    const verses = []
+    let id = 1
+    for (const book of data.books || []) {
+      for (const chapter of book.chapters || []) {
+        for (const v of chapter.verses || []) {
+          // getbible wraps italics/inserted-word markup in tags like <FI>...<Fi>; strip all tags.
+          const text = String(v.text || '').replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim()
+          if (text) verses.push({ id: id++, version: versionTag, book: book.name, chapter: v.chapter, verse: v.verse, text })
+        }
       }
-    } catch {}
-    await new Promise(r => setTimeout(r, 100))
+    }
+    if (verses.length === 0) { log(`✗ ${displayName}: no verses downloaded, will retry next run`); return }
+    fs.writeFileSync(out, JSON.stringify(verses))
+    log(`✓ ${displayName}: ${verses.length} verses`)
+  } catch (e) {
+    log(`✗ ${displayName}: ${e.message}, will retry next run`)
   }
-  if (verses.length === 0) { log(`\n✗ ${code}: no verses downloaded — translation code may be unavailable or offline, will retry next run`); return }
-  fs.writeFileSync(out, JSON.stringify(verses))
-  log(`\n✓ ${code}: ${verses.length} verses`)
 }
 
 // ── SDA HYMNAL ───────────────────────────────────────────────────────────────
@@ -171,13 +163,16 @@ async function main() {
   log('\n⚔  ShogunOS Data Setup\n')
   const tasks = [
     ['KJV Bible',    downloadKJV],
-    ['ASV Bible',    downloadASV],
-    ['WEB Bible',    downloadWEB],
-    ['YLT Bible',    () => downloadBollsTranslation('YLT', 'ylt.json')],
-    ['Darby Bible',  () => downloadBollsTranslation('DARBY', 'darby.json')],
-    ['BBE Bible',    () => downloadBollsTranslation('BBE', 'bbe.json')],
-    ['Webster Bible',() => downloadBollsTranslation('WBS', 'webster.json')],
-    ['Douay-Rheims', () => downloadBollsTranslation('DRC', 'drc.json')],
+    ['ASV Bible',    () => downloadGetBible('asv', 'asv.json', 'ASV', 'ASV Bible')],
+    ['WEB Bible',    () => downloadGetBible('web', 'web.json', 'WEB', 'WEB Bible')],
+    ['YLT Bible',    () => downloadGetBible('ylt', 'ylt.json', 'YLT', 'YLT Bible')],
+    ['BBE Bible',    () => downloadGetBible('basicenglish', 'bbe.json', 'BBE', 'BBE Bible')],
+    ['Webster Bible',() => downloadGetBible('wb', 'webster.json', 'WBS', 'Webster Bible')],
+    ['Douay-Rheims', () => downloadGetBible('douayrheims', 'drc.json', 'DRC', 'Douay-Rheims')],
+    // NOTE: An English Darby (1890) translation isn't available from any free
+    // public-domain JSON/API source we could find (bolls.life's "DARBY" code
+    // is the *French* Darby; getbible.net's is French too). Skipped for now —
+    // if you find a source, add it back the same way as the entries above.
     ['SDA Hymnal',   downloadSDAHymnal],
   ]
   for (const [name, fn] of tasks) {

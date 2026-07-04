@@ -179,6 +179,49 @@ function loadSDAHymnal() {
   } catch(e) { console.log('SDA Hymnal error:', e); return [] }
 }
 
+// ── CIS (CHRIST IN SONG) HYMNAL LOADING — MULTI-LANGUAGE ────────────────────
+
+interface CISManifestEntry { code: string; language: string; hymnalTitle: string; file: string; count: number }
+
+function loadCISHymnalFile(filename: string, langCode: string) {
+  const p = findData(filename)
+  if (!p) return []
+  try {
+    const data = JSON.parse(fs.readFileSync(p, 'utf-8').replace(/^\uFEFF/, ''))
+    const hymns: { title: string; hymn: number; language: string; sections: { type: string; order: number; content: string }[] }[] = []
+    for (const item of data) {
+      if (!item.hymnTitle || !item.hymnNumber) continue
+      const sections: { type: string; order: number; content: string }[] = []
+      let order = 1
+      for (const v of item.verses || []) {
+        if (!v.text) continue
+        const vn = (v.verseName || '').toLowerCase()
+        const type = vn.includes('refrain') || vn.includes('chorus') ? 'chorus' : 'verse'
+        sections.push({ type, order: order++, content: v.text.trim() })
+      }
+      if (sections.length > 0) hymns.push({ title: item.hymnTitle, hymn: item.hymnNumber, language: langCode, sections })
+    }
+    return hymns
+  } catch(e) { console.log(`CIS Hymnal (${filename}) error:`, e); return [] }
+}
+
+function loadCISHymnals() {
+  const manifestPath = findData('cis_hymnal_manifest.json')
+  if (!manifestPath) { console.log('CIS Hymnal manifest not found — expected data/cis_hymnal_manifest.json'); return [] }
+  let manifest: CISManifestEntry[] = []
+  try {
+    manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf-8').replace(/^\uFEFF/, ''))
+  } catch(e) { console.log('CIS Hymnal manifest error:', e); return [] }
+
+  const all: { title: string; hymn: number; language: string; sections: { type: string; order: number; content: string }[] }[] = []
+  for (const entry of manifest) {
+    const hymns = loadCISHymnalFile(entry.file, entry.code)
+    console.log(`Loaded CIS Hymnal [${entry.language}]: ${hymns.length} hymns`)
+    all.push(...hymns)
+  }
+  return all
+}
+
 // ── SEED DATA ─────────────────────────────────────────────────────────────
 
 function seedUsers() {
@@ -256,22 +299,24 @@ export async function initDatabase() {
   seedUsers()
 
   // ── Songs / Hymnal ────────────────────────────────────────────────────
-  const sdaHymns = loadSDAHymnal()
+  const sdaHymns = loadSDAHymnal().map(s => ({ ...s, title: `[SDA] ${s.title}`, language: 'en', source: 'hymnal' }))
+  const cisHymns = loadCISHymnals().map(s => ({ ...s, title: `[CIS-${s.language.toUpperCase()}] ${s.title}`, source: 'hymnal-cis' }))
   const hasSDA = sdaHymns.length > 0
-  const needsHymnalReload = db.songs.length === 0 || (hasSDA && db.songs.length <= 10)
+  const hasCIS = cisHymns.length > 0
+  const needsHymnalReload = db.songs.length === 0 || ((hasSDA || hasCIS) && db.songs.length <= 10)
 
   if (needsHymnalReload) {
     db.songs = []
     db.song_sections = []
-    const songs = hasSDA ? sdaHymns : FALLBACK_SONGS
+    const songs = (hasSDA || hasCIS) ? [...sdaHymns, ...cisHymns] : FALLBACK_SONGS.map(s => ({ ...s, language: 'en', source: 'hymnal' }))
     for (const song of songs) {
       const id = nextId()
-      db.songs.push({ id, title: song.title, language: 'en', source: 'hymnal', hymn_number: song.hymn, created_at: new Date().toISOString() })
+      db.songs.push({ id, title: song.title, language: song.language || 'en', source: song.source || 'hymnal', hymn_number: song.hymn, created_at: new Date().toISOString() })
       for (const s of song.sections) {
         db.song_sections.push({ id: nextId(), song_id: id, type: s.type, order_num: s.order, content: s.content })
       }
     }
-    console.log(`Songs loaded: ${db.songs.length} (${hasSDA ? 'SDA Hymnal' : 'fallback'})`)
+    console.log(`Songs loaded: ${db.songs.length} (SDA: ${sdaHymns.length}, CIS: ${cisHymns.length}${!hasSDA && !hasCIS ? ', fallback' : ''})`)
     save()
   }
 
@@ -371,7 +416,7 @@ export function forcedChangePassword(userId: number, newPw: string): { success: 
 export function searchSongs(query: string) {
   const q = query.toLowerCase().trim()
   return db.songs
-    .filter(s => s.source === 'hymnal' && (q === '' || s.title.toLowerCase().includes(q)))
+    .filter(s => (s.source === 'hymnal' || s.source === 'hymnal-cis') && (q === '' || s.title.toLowerCase().includes(q)))
     .sort((a,b) => (a.hymn_number||999) - (b.hymn_number||999))
 }
 export function getSongSections(songId: number) {
@@ -581,7 +626,7 @@ export function importQSPSongs(songs: { title:string; author:string; language:st
   save(); return { success:true, counts:{ songs:songsAdded, sections:sectionsAdded }, skipped }
 }
 export function getDatabaseStats() {
-  return { songs:db.songs.length, custom_songs:db.songs.filter(s=>s.source==='custom').length, hymns:db.songs.filter(s=>s.source==='hymnal').length, sections:db.song_sections.length, bible_verses:db.bible_verses.length, bible_translations:getBibleTranslations(), slides:db.slides.length, queue_items:db.service_queue.length, users:db.users.length, db_path:dbPath }
+  return { songs:db.songs.length, custom_songs:db.songs.filter(s=>s.source==='custom').length, hymns:db.songs.filter(s=>s.source==='hymnal'||s.source==='hymnal-cis').length, sda_hymns:db.songs.filter(s=>s.source==='hymnal').length, cis_hymns:db.songs.filter(s=>s.source==='hymnal-cis').length, sections:db.song_sections.length, bible_verses:db.bible_verses.length, bible_translations:getBibleTranslations(), slides:db.slides.length, queue_items:db.service_queue.length, users:db.users.length, db_path:dbPath }
 }
 
 export default {}
