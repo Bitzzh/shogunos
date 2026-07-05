@@ -5,19 +5,19 @@
 }
 
 body {
-  background: #09090d;
+  background: #f7f7f5;
   overflow: hidden;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-::-webkit-scrollbar { width: 3px; height: 3px; }
+::-webkit-scrollbar { width: 8px; height: 8px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: #2a2a3a; border-radius: 2px; }
-::-webkit-scrollbar-thumb:hover { background: #3d3d54; }
+::-webkit-scrollbar-thumb { background: #c7c7c0; border-radius: 5px; }
+::-webkit-scrollbar-thumb:hover { background: #8b8b84; }
 
-select option { background: #101018; color: #dddcf0; }
-input::placeholder, textarea::placeholder { color: #35344a; }
+select option { background: #ffffff; color: #17171a; }
+input::placeholder, textarea::placeholder { color: #b7b7af; }
 button { font-family: inherit; }
 
 @keyframes pulse-dot { 0%,100%{opacity:1} 50%{opacity:0.3} }

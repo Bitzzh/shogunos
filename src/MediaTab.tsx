@@ -2,12 +2,12 @@ import React, { useState, useEffect, useCallback } from 'react'
 
 // ── Design tokens (matches new App palette) ───────────────────────────────────
 const C = {
-  bg0:'#05050a', bg1:'#09090f', bg2:'#0e0e16', bg3:'#13131d', bg4:'#191926', bg5:'#1f1f2e',
-  b0:'#16162a', b1:'#1e1e32', b2:'#272740',
-  accent:'#6366f1',  accentL:'#818cf8', accentD:'#4f46e5',
-  gold:'#d97706', goldL:'#f59e0b',
-  t1:'#eeedf8', t2:'#9b99bc', t3:'#55536e', t4:'#2e2c42',
-  red:'#ef4444', green:'#22c55e',
+  bg0:'#f6f2e7', bg1:'#fffdf8', bg2:'#faf6ee', bg3:'#efe9db', bg4:'#e5ddc9', bg5:'#d8cdb3',
+  b0:'#e6ddc8', b1:'#d6c9ab', b2:'#bfae87',
+  accent:'#26305c',  accentL:'#4c5a94', accentD:'#1b2340',
+  gold:'#b8862f', goldL:'#cf9c3f',
+  t1:'#1b1a17', t2:'#4a463d', t3:'#8b8072', t4:'#b3a690',
+  red:'#a3242e', green:'#47623f',
 }
 
 interface MediaFolder { id:number; name:string; eventDate:string|null; item_count:number; created_at:string }

@@ -26,20 +26,20 @@ interface DisplaySettings {
   borderRadius: number
 }
 
-// Shogun palette — ink, lacquer, aged gold
+// Shogun palette — modern minimal: paper canvas, ink text, indigo accent, red reserved for LIVE only
 const C = {
-  // Backgrounds — near-black ink, layered
-  bg0: '#060406', bg1: '#0b090b', bg2: '#100e10', bg3: '#151215', bg4: '#1b181b', bg5: '#211e21',
-  // Borders — subtle stone
-  b0: '#1e1a1e', b1: '#272227', b2: '#332e33',
-  // Lacquer red — live states only
-  p1: '#8b1a1a', p2: '#b22222', p3: '#d44',
-  // Aged gold — active/selected states
-  g1: '#7a6218', g2: '#b8952a', g3: '#d4af5a',
-  // Text — warm stone scale
-  t1: '#e8e2d8', t2: '#a89e8e', t3: '#5a5048', t4: '#322c28',
-  // Status
-  live: '#b22222', safe: '#4a7c59', warn: '#b8952a',
+  // Washi paper — warm cream, layered light to lighter
+  bg0: '#f6f2e7', bg1: '#fffdf8', bg2: '#faf6ee', bg3: '#efe9db', bg4: '#e5ddc9', bg5: '#d8cdb3',
+  // Ink-tinted hairlines
+  b0: '#e6ddc8', b1: '#d6c9ab', b2: '#bfae87',
+  // Shu-nuri vermillion lacquer — LIVE / action states only, never decorative
+  p1: '#7a1b1f', p2: '#a3242e', p3: '#c23b3b',
+  // Ai-zome indigo — authority / selected states
+  g1: '#1b2340', g2: '#26305c', g3: '#4c5a94',
+  // Sumi ink — warm text scale
+  t1: '#1b1a17', t2: '#4a463d', t3: '#8b8072', t4: '#b3a690',
+  // Status — kin gold doubles as highlight/warn
+  live: '#a3242e', safe: '#47623f', warn: '#b8862f',
 }
 
 type SlideType  = 'text' | 'scripture' | 'announcement' | 'blank'
@@ -895,9 +895,9 @@ function AboutTab() {
         <div style={{display:'flex',alignItems:'center',gap:20,marginBottom:36}}>
           <svg width="64" height="64" viewBox="0 0 100 100">
             <defs>
-              <radialGradient id="ab1" cx="50%" cy="30%" r="70%"><stop offset="0%" stopColor="#1a0a2e"/><stop offset="100%" stopColor="#060609"/></radialGradient>
-              <linearGradient id="ab2" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stopColor="#7c3aed"/><stop offset="50%" stopColor="#f59e0b"/><stop offset="100%" stopColor="#7c3aed"/></linearGradient>
-              <linearGradient id="ab3" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#fcd34d"/><stop offset="100%" stopColor="#d97706"/></linearGradient>
+              <radialGradient id="ab1" cx="50%" cy="30%" r="70%"><stop offset="0%" stopColor="#1e1b4b"/><stop offset="100%" stopColor="#0f0e2b"/></radialGradient>
+              <linearGradient id="ab2" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stopColor={C.p2}/><stop offset="50%" stopColor={C.g2}/><stop offset="100%" stopColor={C.p2}/></linearGradient>
+              <linearGradient id="ab3" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={C.g3}/><stop offset="100%" stopColor={C.g1}/></linearGradient>
             </defs>
             <circle cx="50" cy="50" r="48" fill="url(#ab1)" stroke="url(#ab2)" strokeWidth="2"/>
             <text x="50" y="66" textAnchor="middle" fontSize="44" fill="url(#ab3)" fontFamily="serif" fontWeight="700">将</text>
@@ -1827,53 +1827,54 @@ export default function App() {
   return (
     <div style={{display:'flex',flexDirection:'column',height:'100vh',background:C.bg0,fontFamily:"'Inter','Segoe UI',system-ui,sans-serif",overflow:'hidden',color:C.t1,fontSize:13,position:'relative'}}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@300;400;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@300;400;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap');
         *{box-sizing:border-box}
-        ::-webkit-scrollbar{width:3px;height:3px}
+        ::-webkit-scrollbar{width:8px;height:8px}
         ::-webkit-scrollbar-track{background:transparent}
-        ::-webkit-scrollbar-thumb{background:${C.b2};border-radius:1px}
+        ::-webkit-scrollbar-thumb{background:${C.b2};border-radius:5px}
+        ::-webkit-scrollbar-thumb:hover{background:${C.t3}}
         input::placeholder,textarea::placeholder{color:${C.t4}}
-        input:focus,select:focus,textarea:focus{outline:none;border-color:${C.g2}88!important}
+        input:focus,select:focus,textarea:focus{outline:none;border-color:${C.g3}!important;box-shadow:0 0 0 3px ${C.g3}1a!important}
         @keyframes pulseGlow{0%,100%{opacity:1}50%{opacity:0.3}}
         @keyframes slideDown{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:translateY(0)}}
         @keyframes slideUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
         @keyframes shimmerSweep{0%{left:-100%}60%,100%{left:150%}}
         .live-dot{animation:pulseGlow 1.8s ease-in-out infinite}
         .shimmer-btn{position:relative;overflow:hidden}
-        .shimmer-btn::after{content:'';position:absolute;top:0;left:-100%;width:50%;height:100%;background:linear-gradient(to right,transparent,rgba(255,255,255,0.08),transparent);transform:skewX(-20deg);animation:shimmerSweep 4s ease infinite;pointer-events:none}
+        .shimmer-btn::after{content:'';position:absolute;top:0;left:-100%;width:50%;height:100%;background:linear-gradient(to right,transparent,rgba(255,255,255,0.14),transparent);transform:skewX(-20deg);animation:shimmerSweep 4s ease infinite;pointer-events:none}
         .toast-anim{animation:slideDown 0.2s ease}
         .queue-anim{animation:slideUp 0.2s ease}
-        .nav-icon:hover{background:${C.bg3}!important;color:${C.t2}!important}
+        .nav-icon:hover{background:${C.bg3}!important;color:${C.t1}!important}
         .sub-btn:hover{background:${C.bg3}!important;color:${C.t1}!important}
       `}</style>
 
-      {/* Gold hairline */}
-      <div style={{position:'absolute',top:0,left:0,right:0,height:1,background:`linear-gradient(to right,transparent 0%,${C.g2}88 30%,${C.g3} 50%,${C.g2}88 70%,transparent 100%)`,zIndex:100,pointerEvents:'none'}}/>
+      {/* Quiet hairline — a single restrained rule instead of the old ornamental gradient */}
+      <div style={{position:'absolute',top:0,left:0,right:0,height:1,background:C.b1,zIndex:100,pointerEvents:'none'}}/>
 
       {/* ── TOPBAR ─────────────────────────────────────── */}
-      <div style={{height:60,background:C.bg1,borderBottom:`1px solid ${C.b0}`,display:'flex',alignItems:'center',flexShrink:0,zIndex:10,position:'relative'}}>
+      <div style={{height:68,background:C.bg1,borderBottom:`1px solid ${C.b0}`,display:'flex',alignItems:'center',flexShrink:0,zIndex:10,position:'relative'}}>
         {/* Logo */}
-        <div style={{width:68,height:'100%',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,borderRight:`1px solid ${C.b0}`}}>
-          <svg width="27" height="27" viewBox="0 0 100 100">
+        <div style={{width:76,height:'100%',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,borderRight:`1px solid ${C.b0}`}}>
+          <svg width="26" height="26" viewBox="0 0 100 100">
             <defs>
               <linearGradient id="lg1" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={C.g3}/><stop offset="100%" stopColor={C.g1}/></linearGradient>
               <linearGradient id="lg2" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stopColor={C.p2}/><stop offset="100%" stopColor={C.g1}/></linearGradient>
             </defs>
-            <circle cx="50" cy="50" r="46" fill="none" stroke="url(#lg2)" strokeWidth="3"/>
+            <circle cx="50" cy="50" r="46" fill="none" stroke="url(#lg2)" strokeWidth="2.5"/>
             <text x="50" y="66" textAnchor="middle" fontSize="46" fill="url(#lg1)" fontFamily="'Noto Serif JP',serif" fontWeight="700">将</text>
           </svg>
         </div>
-        <div style={{padding:'0 20px',borderRight:`1px solid ${C.b0}`,height:'100%',display:'flex',alignItems:'center',flexShrink:0}}>
+        <div style={{padding:'0 24px',borderRight:`1px solid ${C.b0}`,height:'100%',display:'flex',alignItems:'center',flexShrink:0}}>
           <span style={{fontFamily:"'Noto Serif JP',serif",fontSize:14,color:C.t1,letterSpacing:'0.05em'}}>将軍OS</span>
         </div>
         {/* Search */}
-        <div style={{flex:1,maxWidth:400,display:'flex',alignItems:'center',background:C.bg2,border:`1px solid ${C.b1}`,borderRadius:5,padding:'0 14px',gap:10,margin:'0 22px'}}>
+        <div style={{flex:1,maxWidth:420,display:'flex',alignItems:'center',background:C.bg2,border:`1px solid ${C.b1}`,borderRadius:8,padding:'0 16px',gap:10,margin:'0 28px'}}>
           <span style={{color:C.t3,fontSize:14,lineHeight:1}}>⌕</span>
           <input
             value={navGroup==='library'&&libTab==='bible'?bibleQuery:query}
             onChange={e=>navGroup==='library'&&libTab==='bible'?handleBibleSearch(e.target.value):handleSearch(e.target.value)}
             placeholder={navGroup==='library'&&libTab==='bible'?`Search ${bibleVersion}…`:navGroup==='library'&&libTab==='hymnal'?'Filter hymns…':'Search…'}
-            style={{flex:1,background:'none',border:'none',color:C.t1,fontSize:13,outline:'none',padding:'8px 0',fontFamily:'inherit'}}
+            style={{flex:1,background:'none',border:'none',color:C.t1,fontSize:13,outline:'none',padding:'9px 0',fontFamily:'inherit'}}
           />
           {navGroup==='library'&&libTab==='bible'&&(
             <select value={bibleVersion} onChange={async e=>{
@@ -1892,26 +1893,26 @@ export default function App() {
         <div style={{flex:1}}/>
         {/* Verse of day */}
         <button onClick={()=>setShowDailyPopup(true)} title="Verse of the Day"
-          style={{background:'none',border:`1px solid ${C.b1}`,color:C.g2,cursor:'pointer',fontSize:13,width:36,height:36,borderRadius:5,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,marginRight:16}}
-          onMouseEnter={e=>{(e.currentTarget as HTMLElement).style.borderColor=C.g2}}
+          style={{background:'none',border:`1px solid ${C.b1}`,color:C.g2,cursor:'pointer',fontSize:13,width:38,height:38,borderRadius:8,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,marginRight:20}}
+          onMouseEnter={e=>{(e.currentTarget as HTMLElement).style.borderColor=C.g3}}
           onMouseLeave={e=>{(e.currentTarget as HTMLElement).style.borderColor=C.b1}}>✦</button>
         {currentUser&&(
-          <div style={{display:'flex',alignItems:'center',gap:10,paddingLeft:18,paddingRight:18,borderLeft:`1px solid ${C.b0}`,height:'100%'}}>
+          <div style={{display:'flex',alignItems:'center',gap:10,paddingLeft:20,paddingRight:20,borderLeft:`1px solid ${C.b0}`,height:'100%'}}>
             <div style={{width:5,height:5,borderRadius:'50%',background:C.safe,flexShrink:0}}/>
             <span style={{fontSize:12,color:C.t2}}>{currentUser.display_name}</span>
-            <span style={{fontSize:10,color:C.t3,padding:'2px 8px',border:`1px solid ${C.b2}`,borderRadius:3}}>{currentUser.role}</span>
+            <span style={{fontSize:10,color:C.t3,padding:'2px 8px',border:`1px solid ${C.b2}`,borderRadius:4}}>{currentUser.role}</span>
           </div>
         )}
-        <div style={{fontSize:12,color:C.g2,fontVariantNumeric:'tabular-nums',minWidth:46,textAlign:'right',paddingLeft:18,paddingRight:20,borderLeft:`1px solid ${C.b0}`,height:'100%',display:'flex',alignItems:'center',fontFamily:"'Noto Serif JP',serif"}}>{clock}</div>
+        <div style={{fontSize:12,color:C.t2,fontVariantNumeric:'tabular-nums',minWidth:50,textAlign:'right',paddingLeft:20,paddingRight:24,borderLeft:`1px solid ${C.b0}`,height:'100%',display:'flex',alignItems:'center',fontFamily:"'IBM Plex Mono',monospace",fontWeight:600}}>{clock}</div>
       </div>
 
       {/* ── SECTION NAV (horizontal — echoes Quelea's flat top menu, keeps our icon+label identity) ── */}
-      <div style={{height:42,background:C.bg1,borderBottom:`1px solid ${C.b0}`,display:'flex',alignItems:'center',flexShrink:0,padding:'0 14px',gap:2,overflowX:'auto'}}>
+      <div style={{height:48,background:C.bg1,borderBottom:`1px solid ${C.b0}`,display:'flex',alignItems:'center',flexShrink:0,padding:'0 20px',gap:2,overflowX:'auto'}}>
         {NAV.filter(([gid])=>gid!=='service').map(([gid,gLabel])=>{
           const active=navGroup===gid
           return (
             <button key={gid} onClick={()=>setNavGroup(gid as NavGroup)} className="nav-icon"
-              style={{display:'flex',alignItems:'center',gap:8,padding:'8px 14px',background:'none',border:'none',borderBottom:`2px solid ${active?C.g2:'transparent'}`,color:active?C.t1:C.t3,cursor:'pointer',fontSize:12.5,fontWeight:active?600:500,letterSpacing:'0.02em',whiteSpace:'nowrap' as const,transition:'all 0.12s',flexShrink:0}}>
+              style={{display:'flex',alignItems:'center',gap:8,padding:'9px 16px',background:'none',border:'none',borderBottom:`2px solid ${active?C.g2:'transparent'}`,color:active?C.t1:C.t3,cursor:'pointer',fontSize:12.5,fontWeight:active?600:500,letterSpacing:'0.02em',whiteSpace:'nowrap' as const,transition:'all 0.12s',flexShrink:0,borderRadius:6}}>
               <span style={{fontSize:13,color:active?C.g2:C.t3}}>{(NAV_ICONS as any)[gid as string]}</span>
               {gLabel}
             </button>
@@ -1919,7 +1920,7 @@ export default function App() {
         })}
         {subItems[navGroup].length>0&&(
           <>
-            <div style={{width:1,height:18,background:C.b1,margin:'0 8px',flexShrink:0}}/>
+            <div style={{width:1,height:20,background:C.b1,margin:'0 10px',flexShrink:0}}/>
             {subItems[navGroup].map(sub=>{
               const active=activeSubId===sub.id
               return (
@@ -1929,7 +1930,7 @@ export default function App() {
                     if(navGroup==='present')setPresentTab(sub.id as PresentTab)
                     if(navGroup==='settings')setSettingsTab(sub.id as SettingsTab)
                   }}
-                  style={{padding:'6px 13px',background:active?C.bg4:'none',border:`1px solid ${active?C.b2:'transparent'}`,borderRadius:5,color:active?C.g2:C.t4,cursor:'pointer',fontFamily:'inherit',fontSize:11.5,fontWeight:active?600:400,whiteSpace:'nowrap' as const,flexShrink:0,transition:'all 0.1s'}}>
+                  style={{padding:'7px 14px',background:active?C.bg4:'none',border:`1px solid ${active?C.b2:'transparent'}`,borderRadius:7,color:active?C.g2:C.t3,cursor:'pointer',fontFamily:'inherit',fontSize:11.5,fontWeight:active?600:500,whiteSpace:'nowrap' as const,flexShrink:0,transition:'all 0.1s'}}>
                   {sub.label}
                 </button>
               )
@@ -1945,32 +1946,32 @@ export default function App() {
         <div ref={leftColRef} style={{width:leftWidth,flexShrink:0,background:C.bg0,display:'flex',flexDirection:'column',minHeight:0}}>
 
           {/* Order of Service — pinned, collapsible */}
-          <div style={{flexShrink:0,display:'flex',flexDirection:'column',maxHeight:queueCollapsed?40:340,overflow:'hidden',borderBottom:`1px solid ${C.b0}`,transition:'max-height 0.15s ease'}}>
-            <div style={{padding:queueCollapsed?'10px 16px':'12px 16px',display:'flex',alignItems:'center',justifyContent:'space-between',flexShrink:0}}>
+          <div style={{flexShrink:0,display:'flex',flexDirection:'column',maxHeight:queueCollapsed?44:340,overflow:'hidden',borderBottom:`1px solid ${C.b0}`,transition:'max-height 0.15s ease'}}>
+            <div style={{padding:queueCollapsed?'12px 20px':'14px 20px',display:'flex',alignItems:'center',justifyContent:'space-between',flexShrink:0}}>
               <div style={{display:'flex',alignItems:'center',gap:9}}>
                 <span style={{fontSize:9,color:C.t4,fontWeight:700,letterSpacing:'0.14em',textTransform:'uppercase' as const}}>Order of Service</span>
-                {queue.length>0&&<span style={{fontSize:10,color:C.g2,padding:'2px 7px',border:`1px solid ${C.b2}`,borderRadius:3}}>{queue.length}</span>}
+                {queue.length>0&&<span style={{fontSize:10,color:C.g2,padding:'2px 7px',border:`1px solid ${C.b2}`,borderRadius:4}}>{queue.length}</span>}
               </div>
               <div style={{display:'flex',alignItems:'center',gap:8}}>
                 {!queueCollapsed&&queue.length>0&&<button onClick={clearQueue} style={{background:'none',border:'none',color:C.t4,cursor:'pointer',fontSize:11,fontFamily:'inherit',padding:'2px 6px'}}>clear</button>}
                 <button onClick={()=>setQueueCollapsed(v=>!v)} title={queueCollapsed?'Expand':'Collapse'}
-                  style={{background:'none',border:`1px solid ${C.b1}`,color:C.t3,cursor:'pointer',fontSize:11,width:20,height:20,borderRadius:4,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+                  style={{background:'none',border:`1px solid ${C.b1}`,color:C.t3,cursor:'pointer',fontSize:11,width:22,height:22,borderRadius:5,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
                   {queueCollapsed?'▾':'▴'}
                 </button>
               </div>
             </div>
             {!queueCollapsed&&(
               <div onDragOver={onQueueZoneDragOver} onDragLeave={onQueueZoneDragLeave} onDrop={onQueueZoneDrop}
-                style={{overflowY:'auto',padding:'0 14px 12px',minHeight:60,background:queueDragOver?`${C.g2}08`:'transparent',transition:'background 0.15s'}}>
+                style={{overflowY:'auto',padding:'0 20px 16px',minHeight:60,background:queueDragOver?`${C.g3}10`:'transparent',transition:'background 0.15s'}}>
                 {queue.length===0&&(
-                  <div style={{padding:'22px 14px',fontSize:12,color:queueDragOver?C.g2:C.t4,textAlign:'center',lineHeight:1.7,border:`1.5px dashed ${queueDragOver?C.g2:C.b1}`,borderRadius:8}}>
+                  <div style={{padding:'24px 16px',fontSize:12,color:queueDragOver?C.g2:C.t4,textAlign:'center',lineHeight:1.7,border:`1.5px dashed ${queueDragOver?C.g3:C.b1}`,borderRadius:10}}>
                     {queueDragOver?'Drop to add to queue':'Drag hymns, verses or slides here to build the order of service'}
                   </div>
                 )}
                 {queue.map((item,i)=>(
                   <div key={item.id}
                     draggable onDragStart={e=>onQueueItemDragStart(e,i)} onDragOver={onQueueItemDragOver} onDrop={e=>onQueueItemDrop(e,i)} onDragEnd={onQueueItemDragEnd}
-                    style={{display:'flex',alignItems:'center',gap:12,padding:'10px 12px',marginBottom:6,borderRadius:6,background:i===0?C.bg3:C.bg2,border:`1px solid ${i===0?C.b2:C.b0}`,cursor:'grab',opacity:draggedQueueIdx===i?0.3:1,transition:'opacity 0.12s'}}>
+                    style={{display:'flex',alignItems:'center',gap:12,padding:'11px 14px',marginBottom:6,borderRadius:8,background:i===0?C.bg3:C.bg2,border:`1px solid ${i===0?C.b2:C.b0}`,cursor:'grab',opacity:draggedQueueIdx===i?0.3:1,transition:'opacity 0.12s'}}>
                     <span style={{fontSize:10,color:i===0?C.g2:C.t4,width:16,flexShrink:0,fontVariantNumeric:'tabular-nums',fontWeight:600}}>{i+1}</span>
                     <span style={{fontSize:12,color:C.t1,flex:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{item.title}</span>
                     <button onClick={()=>removeFromQueue(item.id)} style={{background:'none',border:'none',color:C.t4,cursor:'pointer',fontSize:15,padding:0,flexShrink:0,lineHeight:1}}>×</button>

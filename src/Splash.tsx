@@ -2,14 +2,14 @@ import React, { useEffect, useState, useRef } from 'react'
 
 type Props = { onDone: (user: { username: string; role: string; display_name: string }) => void }
 
-// Shogun palette — ink, lacquer, aged gold (matches App.tsx)
+// Shogun palette — modern minimal (matches App.tsx)
 const C = {
-  bg0: '#060406', bg1: '#0b090b', bg2: '#100e10', bg3: '#151215', bg4: '#1b181b', bg5: '#211e21',
-  b0: '#1e1a1e', b1: '#272227', b2: '#332e33',
-  p1: '#8b1a1a', p2: '#b22222', p3: '#d44',
-  g1: '#7a6218', g2: '#b8952a', g3: '#d4af5a',
-  t1: '#e8e2d8', t2: '#a89e8e', t3: '#5a5048', t4: '#322c28',
-  live: '#b22222', safe: '#4a7c59', warn: '#b8952a',
+  bg0: '#f6f2e7', bg1: '#fffdf8', bg2: '#faf6ee', bg3: '#efe9db', bg4: '#e5ddc9', bg5: '#d8cdb3',
+  b0: '#e6ddc8', b1: '#d6c9ab', b2: '#bfae87',
+  p1: '#7a1b1f', p2: '#a3242e', p3: '#c23b3b',
+  g1: '#1b2340', g2: '#26305c', g3: '#4c5a94',
+  t1: '#1b1a17', t2: '#4a463d', t3: '#8b8072', t4: '#b3a690',
+  live: '#a3242e', safe: '#47623f', warn: '#b8862f',
 }
 
 export default function Splash({ onDone }: Props) {
@@ -63,22 +63,22 @@ export default function Splash({ onDone }: Props) {
     function draw() {
       ctx.clearRect(0, 0, canvas.width, canvas.height)
 
-      // Ink-wash glow, upper left — lacquer red, very subdued
+      // Soft ambient wash, upper left — barely-there indigo
       const grad1 = ctx.createRadialGradient(canvas.width * 0.22, canvas.height * 0.3, 0, canvas.width * 0.22, canvas.height * 0.3, canvas.width * 0.5)
-      grad1.addColorStop(0, `hsla(0,45%,18%,${0.22 + Math.sin(t * 0.018) * 0.06})`)
+      grad1.addColorStop(0, `hsla(243,45%,92%,${0.5 + Math.sin(t * 0.018) * 0.12})`)
       grad1.addColorStop(1, 'transparent')
       ctx.fillStyle = grad1
       ctx.fillRect(0, 0, canvas.width, canvas.height)
 
-      // Aged gold glow, lower right
+      // Soft ambient wash, lower right — barely-there warm neutral
       const grad2 = ctx.createRadialGradient(canvas.width * 0.78, canvas.height * 0.72, 0, canvas.width * 0.78, canvas.height * 0.72, canvas.width * 0.42)
-      grad2.addColorStop(0, `hsla(42,55%,22%,${0.16 + Math.sin(t * 0.014 + 1) * 0.05})`)
+      grad2.addColorStop(0, `hsla(30,25%,93%,${0.45 + Math.sin(t * 0.014 + 1) * 0.1})`)
       grad2.addColorStop(1, 'transparent')
       ctx.fillStyle = grad2
       ctx.fillRect(0, 0, canvas.width, canvas.height)
 
-      // Faint washi-grid
-      ctx.strokeStyle = 'rgba(184,149,42,0.035)'
+      // Faint grid — quiet paper texture
+      ctx.strokeStyle = 'rgba(140,140,132,0.05)'
       ctx.lineWidth = 1
       const gridSize = 46
       for (let x = 0; x < canvas.width; x += gridSize) {
@@ -197,14 +197,14 @@ export default function Splash({ onDone }: Props) {
           width: p.size, height: p.size,
           borderRadius: '50%',
           background: p.gold ? C.g3 : C.p3,
-          opacity: p.opacity,
+          opacity: p.opacity * 0.5,
           animation: `drift ${5 + p.speed * 10}s ease-in-out ${i * 0.3}s infinite`,
           pointerEvents: 'none',
         }} />
       ))}
 
-      {/* Gold hairline top */}
-      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 1, background: `linear-gradient(to right,transparent 0%,${C.g2}88 30%,${C.g3} 50%,${C.g2}88 70%,transparent 100%)`, zIndex: 2 }} />
+      {/* Quiet hairline top */}
+      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 1, background: C.b1, zIndex: 2 }} />
 
       {/* LEFT — Branding, generously spaced */}
       <div style={{
@@ -303,7 +303,7 @@ export default function Splash({ onDone }: Props) {
                 <div style={{ fontSize: 11, color: C.g3, letterSpacing: '0.24em', fontWeight: 700, marginBottom: 12 }}>ACTION REQUIRED</div>
                 <div style={{ fontSize: 29, fontWeight: 700, color: C.t1, letterSpacing: '0.01em', marginBottom: 12, fontFamily: "'Noto Serif JP',serif" }}>Set your password</div>
                 <div style={{ fontSize: 13, color: C.t3, lineHeight: 1.75 }}>
-                  Welcome, <span style={{ color: C.g3 }}>{pendingUser.display_name}</span>. This is a default account — choose a strong password before you take the field.
+                  Welcome, <span style={{ color: C.g3 }}>{pendingUser.display_name}</span>. Your password was set by an administrator — choose your own before you take the field.
                 </div>
               </div>
               <div style={{ marginBottom: 22 }}>

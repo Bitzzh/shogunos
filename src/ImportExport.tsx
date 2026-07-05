@@ -17,6 +17,7 @@ interface Stats {
   songs: number; custom_songs: number; hymns: number
   sections: number; bible_verses: number; slides: number
   queue_items: number; users: number; db_path: string
+  installation_id?: string
 }
 
 export default function ImportExport({ notify }: Props) {
@@ -118,6 +119,12 @@ export default function ImportExport({ notify }: Props) {
             <div style={{ marginTop: 12, padding: '8px 10px', background: C.ember, border: `1px solid ${C.border2}` }}>
               <div style={{ fontSize: 7, color: C.mist, letterSpacing: '0.1em', marginBottom: 3 }}>DATABASE FILE</div>
               <div style={{ fontSize: 9, color: C.ghost, fontFamily: 'monospace', wordBreak: 'break-all' }}>{stats.db_path}</div>
+              {stats.installation_id && (
+                <>
+                  <div style={{ fontSize: 7, color: C.mist, letterSpacing: '0.1em', marginTop: 8, marginBottom: 3 }}>INSTALLATION ID</div>
+                  <div style={{ fontSize: 9, color: C.ghost, fontFamily: 'monospace', wordBreak: 'break-all' }}>{stats.installation_id}</div>
+                </>
+              )}
             </div>
           </div>
         )}

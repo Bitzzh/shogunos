@@ -2,12 +2,12 @@ import React, { useState, useEffect } from 'react'
 
 // ── Colour tokens (matching App.tsx) ─────────────────────────────────────────
 const C = {
-  bg0: '#060609', bg1: '#0b0b12', bg2: '#101018', bg3: '#16161f', bg4: '#1d1d28', bg5: '#242433',
-  b0: '#1a1a2a', b1: '#222235', b2: '#2d2d45',
-  p1: '#7c3aed', p2: '#9f67f5', p3: '#c4a7f8',
-  g1: '#d97706', g2: '#f59e0b', g3: '#fcd34d',
-  t1: '#f0eff8', t2: '#a09fbe', t3: '#5a5875', t4: '#35344a',
-  live: '#ef4444', safe: '#22c55e', warn: '#f59e0b',
+  bg0: '#f6f2e7', bg1: '#fffdf8', bg2: '#faf6ee', bg3: '#efe9db', bg4: '#e5ddc9', bg5: '#d8cdb3',
+  b0: '#e6ddc8', b1: '#d6c9ab', b2: '#bfae87',
+  p1: '#7a1b1f', p2: '#a3242e', p3: '#c23b3b',
+  g1: '#1b2340', g2: '#26305c', g3: '#4c5a94',
+  t1: '#1b1a17', t2: '#4a463d', t3: '#8b8072', t4: '#b3a690',
+  live: '#a3242e', safe: '#47623f', warn: '#b8862f',
 }
 
 type Role = 'ADMIN' | 'OPERATOR' | 'PRESENTER' | 'VIEWER'
@@ -24,17 +24,17 @@ interface User {
 const ROLES: Role[] = ['ADMIN', 'OPERATOR', 'PRESENTER', 'VIEWER']
 
 const ROLE_META: Record<Role, { color: string; desc: string }> = {
-  ADMIN:     { color: C.live,  desc: 'Full access — manage users, settings, all content' },
-  OPERATOR:  { color: C.p2,   desc: 'Run services, control live output, edit queue' },
-  PRESENTER: { color: C.g2,   desc: 'Present slides, browse library, go live' },
-  VIEWER:    { color: C.t3,   desc: 'View-only — no editing or live control' },
+  ADMIN:     { color: C.g2,    desc: 'Full access — manage users, settings, all content' },
+  OPERATOR:  { color: C.p2,    desc: 'Run services, control live output, edit queue' },
+  PRESENTER: { color: C.warn,  desc: 'Present slides, browse library, go live' },
+  VIEWER:    { color: C.t3,    desc: 'View-only — no editing or live control' },
 }
 
 // ── Shared styles ─────────────────────────────────────────────────────────────
 const inp: React.CSSProperties = {
   width: '100%', background: C.bg4, border: `1px solid ${C.b1}`,
   color: C.t1, padding: '9px 12px', fontSize: 12, outline: 'none',
-  fontFamily: 'inherit', borderRadius: 8, boxSizing: 'border-box',
+  fontFamily: 'inherit', borderRadius: 3, boxSizing: 'border-box',
 }
 const lbl: React.CSSProperties = {
   fontSize: 10, color: C.t3, fontWeight: 600, marginBottom: 6,
@@ -77,7 +77,7 @@ function AddUserForm({ onAdded, notify }: { onAdded: () => void; notify: (m: str
   }
 
   return (
-    <div style={{ background: C.bg3, border: `1px solid ${C.b1}`, borderRadius: 12, padding: 20, marginBottom: 24 }}>
+    <div style={{ background: C.bg3, border: `1px solid ${C.b1}`, borderRadius: 4, padding: 20, marginBottom: 24 }}>
       <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.15em', color: C.p3, marginBottom: 16, textTransform: 'uppercase' }}>
         + Add New User
       </div>
@@ -130,7 +130,7 @@ function ResetPasswordModal({ user, onClose, notify }: { user: User; onClose: ()
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200 }}>
-      <div style={{ background: C.bg2, border: `1px solid ${C.b2}`, borderRadius: 14, padding: 28, width: 360 }}>
+      <div style={{ background: C.bg2, border: `1px solid ${C.b2}`, borderRadius: 4, padding: 28, width: 360 }}>
         <div style={{ fontSize: 13, fontWeight: 700, color: C.t1, marginBottom: 4 }}>Reset Password</div>
         <div style={{ fontSize: 11, color: C.t3, marginBottom: 20 }}>
           Setting a new password for <span style={{ color: C.p3 }}>{user.display_name}</span>
@@ -247,8 +247,8 @@ export default function UsersTab({
             const isSelf = user.username.toLowerCase() === currentUser.username.toLowerCase()
             return (
               <div key={user.id} style={{
-                background: C.bg3, border: `1px solid ${isSelf ? C.p1 : C.b1}`,
-                borderRadius: 10, padding: '14px 18px',
+                background: C.bg3, border: `1px solid ${isSelf ? C.p1 : C.b1}`, borderLeft: `3px solid ${meta.color}`,
+                borderRadius: 4, padding: '14px 18px',
                 display: 'flex', alignItems: 'center', gap: 14,
               }}>
                 {/* Avatar */}

@@ -28,9 +28,10 @@ export interface Slide {
   tags: string[]; created_at: string; updated_at: string
 }
 interface User {
-  id: number; username: string; password_hash: string
+  id: number; uuid?: string; username: string; password_hash: string; salt?: string
   role: 'ADMIN'|'OPERATOR'|'PRESENTER'|'VIEWER'
   display_name: string; created_at: string; last_login: string | null
+  must_change_password?: boolean
 }
 export interface MediaFolder {
   id: number; name: string; event_date: string | null; created_at: string
@@ -48,7 +49,7 @@ interface DB {
   users: User[]; slides: Slide[]
   media_folders: MediaFolder[]; media_items: MediaItem[]
   display_settings: DisplaySettings
-  meta: { last_id: number; bible_loaded?: string }
+  meta: { last_id: number; bible_loaded?: string; songs_loaded?: string; installation_id?: string }
 }
 
 // ── CORE ──────────────────────────────────────────────────────────────────
@@ -56,8 +57,26 @@ interface DB {
 let dbPath: string
 let db: DB
 
-function hashPassword(p: string) {
+// Legacy (pre-fix) hashing scheme — kept only so existing user records can be
+// verified once and transparently upgraded. Do not use for new passwords.
+function legacyHashPassword(p: string) {
   return crypto.createHash('sha256').update(p + 'shogunos_salt_2024').digest('hex')
+}
+// Current scheme: per-user random salt + scrypt (CPU/memory-hard, far more
+// resistant to brute force / rainbow tables than a single unsalted SHA-256 pass).
+function scryptHash(p: string, salt: string) {
+  return crypto.scryptSync(p, salt, 64).toString('hex')
+}
+function setPassword(user: User, password: string) {
+  const salt = crypto.randomBytes(16).toString('hex')
+  user.salt = salt
+  user.password_hash = scryptHash(password, salt)
+}
+function verifyPassword(user: User, password: string): boolean {
+  if (user.salt) return scryptHash(password, user.salt) === user.password_hash
+  // No salt on record yet => this user predates the fix. Check against the
+  // legacy scheme; caller is responsible for upgrading on success.
+  return legacyHashPassword(password) === user.password_hash
 }
 function nextId() { db.meta.last_id += 1; return db.meta.last_id }
 function save() { fs.writeFileSync(dbPath, JSON.stringify(db)) }
@@ -71,9 +90,11 @@ function load(): DB {
     if (!parsed.media_items)   parsed.media_items   = []
     if (!parsed.display_settings) parsed.display_settings = {}
     if (!parsed.meta)   parsed.meta   = { last_id: 0 }
+    if (!parsed.meta.installation_id) parsed.meta.installation_id = crypto.randomUUID()
+    for (const u of parsed.users) { if (!u.uuid) u.uuid = crypto.randomUUID() }
     return parsed
   }
-  return { songs:[], song_sections:[], bible_verses:[], daily_verses:[], service_queue:[], users:[], slides:[], media_folders:[], media_items:[], display_settings:{}, meta:{ last_id:0 } }
+  return { songs:[], song_sections:[], bible_verses:[], daily_verses:[], service_queue:[], users:[], slides:[], media_folders:[], media_items:[], display_settings:{}, meta:{ last_id:0, installation_id: crypto.randomUUID() } }
 }
 
 function findData(file: string): string | null {
@@ -232,7 +253,9 @@ function seedUsers() {
     { username:'presenter', password:'Present@1',   role:'PRESENTER', display_name:'Presenter'        },
     { username:'Admin_10',  password:'Shogun@2024', role:'ADMIN',     display_name:'Admin_10'         },
   ] as any[]) {
-    db.users.push({ id: nextId(), username: u.username, password_hash: hashPassword(u.password), role: u.role, display_name: u.display_name, created_at: new Date().toISOString(), last_login: null })
+    const user: User = { id: nextId(), uuid: crypto.randomUUID(), username: u.username, password_hash: '', role: u.role, display_name: u.display_name, created_at: new Date().toISOString(), last_login: null, must_change_password: true }
+    setPassword(user, u.password)
+    db.users.push(user)
   }
   save()
 }
@@ -303,11 +326,20 @@ export async function initDatabase() {
   const cisHymns = loadCISHymnals().map(s => ({ ...s, title: `[CIS-${s.language.toUpperCase()}] ${s.title}`, source: 'hymnal-cis' }))
   const hasSDA = sdaHymns.length > 0
   const hasCIS = cisHymns.length > 0
-  const needsHymnalReload = db.songs.length === 0 || ((hasSDA || hasCIS) && db.songs.length <= 10)
+  // Build a fingerprint of which hymnal sources actually loaded content, so that adding a
+  // new hymnal (e.g. CIS) after the DB already has songs triggers a re-merge instead of being
+  // silently skipped just because db.songs.length is already above the old ad-hoc threshold.
+  const cisLangsLoaded = Array.from(new Set(cisHymns.map(s => s.language))).sort().join(',')
+  const currentSongsLoaded = db.meta.songs_loaded || ''
+  const targetSongsLoaded = [hasSDA && 'sda', hasCIS && `cis:${cisLangsLoaded}`].filter(Boolean).join('|')
+  const needsHymnalReload = db.songs.length === 0 || ((hasSDA || hasCIS) && (db.songs.length <= 10 || targetSongsLoaded !== currentSongsLoaded))
 
   if (needsHymnalReload) {
-    db.songs = []
-    db.song_sections = []
+    // Keep any user-created/imported songs (source outside the hymnal loaders) intact —
+    // only the hymnal-derived songs get rebuilt from the data files.
+    const keptSongIds = new Set(db.songs.filter(s => s.source !== 'hymnal' && s.source !== 'hymnal-cis').map(s => s.id))
+    db.songs = db.songs.filter(s => keptSongIds.has(s.id))
+    db.song_sections = db.song_sections.filter(sec => keptSongIds.has(sec.song_id))
     const songs = (hasSDA || hasCIS) ? [...sdaHymns, ...cisHymns] : FALLBACK_SONGS.map(s => ({ ...s, language: 'en', source: 'hymnal' }))
     for (const song of songs) {
       const id = nextId()
@@ -316,6 +348,7 @@ export async function initDatabase() {
         db.song_sections.push({ id: nextId(), song_id: id, type: s.type, order_num: s.order, content: s.content })
       }
     }
+    db.meta.songs_loaded = targetSongsLoaded
     console.log(`Songs loaded: ${db.songs.length} (SDA: ${sdaHymns.length}, CIS: ${cisHymns.length}${!hasSDA && !hasCIS ? ', fallback' : ''})`)
     save()
   }
@@ -360,27 +393,30 @@ export async function initDatabase() {
 
 // ── AUTH ──────────────────────────────────────────────────────────────────
 
-export function loginUser(u: string, p: string): { success: boolean; user?: Omit<User,'password_hash'>; error?: string } {
+export function loginUser(u: string, p: string): { success: boolean; user?: Omit<User,'password_hash'|'salt'>; error?: string } {
   const user = db.users.find(x => x.username.toLowerCase() === u.toLowerCase())
   if (!user) return { success: false, error: 'User not found' }
-  if (hashPassword(p) !== user.password_hash) return { success: false, error: 'Incorrect password' }
+  if (!verifyPassword(user, p)) return { success: false, error: 'Incorrect password' }
+  if (!user.salt) { setPassword(user, p) } // transparently upgrade legacy unsalted hash
   user.last_login = new Date().toISOString(); save()
-  const { password_hash, ...safe } = user
+  const { password_hash, salt, ...safe } = user
   return { success: true, user: safe }
 }
-export function getUsers() { return db.users.map(({ password_hash, ...u }) => u) }
+export function getUsers() { return db.users.map(({ password_hash, salt, ...u }) => u) }
 export function createUser(username: string, password: string, role: User['role'], displayName: string): { success: boolean; error?: string } {
   if (db.users.find(u => u.username.toLowerCase() === username.toLowerCase())) return { success: false, error: 'Username already exists' }
   if (password.length < 6) return { success: false, error: 'Password must be at least 6 characters' }
-  db.users.push({ id: nextId(), username, password_hash: hashPassword(password), role, display_name: displayName || username, created_at: new Date().toISOString(), last_login: null })
+  const user: User = { id: nextId(), uuid: crypto.randomUUID(), username, password_hash: '', role, display_name: displayName || username, created_at: new Date().toISOString(), last_login: null, must_change_password: true }
+  setPassword(user, password)
+  db.users.push(user)
   save(); return { success: true }
 }
 export function updateUserPassword(userId: number, oldPw: string, newPw: string): { success: boolean; error?: string } {
   const user = db.users.find(u => u.id === userId)
   if (!user) return { success: false, error: 'User not found' }
-  if (hashPassword(oldPw) !== user.password_hash) return { success: false, error: 'Current password incorrect' }
+  if (!verifyPassword(user, oldPw)) return { success: false, error: 'Current password incorrect' }
   if (newPw.length < 6) return { success: false, error: 'New password must be at least 6 characters' }
-  user.password_hash = hashPassword(newPw); save(); return { success: true }
+  setPassword(user, newPw); user.must_change_password = false; save(); return { success: true }
 }
 export function deleteUser(userId: number): { success: boolean; error?: string } {
   const user = db.users.find(u => u.id === userId)
@@ -392,7 +428,7 @@ export function adminResetPassword(userId: number, newPw: string): { success: bo
   const user = db.users.find(u => u.id === userId)
   if (!user) return { success: false, error: 'User not found' }
   if (newPw.length < 6) return { success: false, error: 'New password must be at least 6 characters' }
-  user.password_hash = hashPassword(newPw); save(); return { success: true }
+  setPassword(user, newPw); user.must_change_password = true; save(); return { success: true }
 }
 export function updateUserRole(userId: number, role: User['role']): { success: boolean; error?: string } {
   const user = db.users.find(u => u.id === userId)
@@ -403,12 +439,10 @@ export function updateUserRole(userId: number, role: User['role']): { success: b
   user.role = role; save(); return { success: true }
 }
 export function forcedChangePassword(userId: number, newPw: string): { success: boolean; error?: string } {
-  // Same as adminResetPassword — no "must change on next login" flag exists yet on User.
-  // If you need that behavior, add a `must_change_password: boolean` field to the User interface.
   const user = db.users.find(u => u.id === userId)
   if (!user) return { success: false, error: 'User not found' }
   if (newPw.length < 6) return { success: false, error: 'New password must be at least 6 characters' }
-  user.password_hash = hashPassword(newPw); save(); return { success: true }
+  setPassword(user, newPw); user.must_change_password = false; save(); return { success: true }
 }
 
 // ── SONGS ─────────────────────────────────────────────────────────────────
@@ -626,7 +660,7 @@ export function importQSPSongs(songs: { title:string; author:string; language:st
   save(); return { success:true, counts:{ songs:songsAdded, sections:sectionsAdded }, skipped }
 }
 export function getDatabaseStats() {
-  return { songs:db.songs.length, custom_songs:db.songs.filter(s=>s.source==='custom').length, hymns:db.songs.filter(s=>s.source==='hymnal'||s.source==='hymnal-cis').length, sda_hymns:db.songs.filter(s=>s.source==='hymnal').length, cis_hymns:db.songs.filter(s=>s.source==='hymnal-cis').length, sections:db.song_sections.length, bible_verses:db.bible_verses.length, bible_translations:getBibleTranslations(), slides:db.slides.length, queue_items:db.service_queue.length, users:db.users.length, db_path:dbPath }
+  return { songs:db.songs.length, custom_songs:db.songs.filter(s=>s.source==='custom').length, hymns:db.songs.filter(s=>s.source==='hymnal'||s.source==='hymnal-cis').length, sda_hymns:db.songs.filter(s=>s.source==='hymnal').length, cis_hymns:db.songs.filter(s=>s.source==='hymnal-cis').length, sections:db.song_sections.length, bible_verses:db.bible_verses.length, bible_translations:getBibleTranslations(), slides:db.slides.length, queue_items:db.service_queue.length, users:db.users.length, db_path:dbPath, installation_id:db.meta.installation_id }
 }
 
 export default {}
