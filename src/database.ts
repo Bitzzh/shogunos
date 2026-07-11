@@ -28,10 +28,7 @@ export interface Slide {
   tags: string[]; created_at: string; updated_at: string
 }
 interface User {
-  id: number; uuid?: string; username: string; password_hash: string; salt?: string
-  role: 'ADMIN'|'OPERATOR'|'PRESENTER'|'VIEWER'
-  display_name: string; created_at: string; last_login: string | null
-  must_change_password?: boolean
+  id: number; uuid?: string; display_name: string; created_at: string; last_login: string | null
 }
 export interface MediaFolder {
   id: number; name: string; event_date: string | null; created_at: string
@@ -57,27 +54,6 @@ interface DB {
 let dbPath: string
 let db: DB
 
-// Legacy (pre-fix) hashing scheme — kept only so existing user records can be
-// verified once and transparently upgraded. Do not use for new passwords.
-function legacyHashPassword(p: string) {
-  return crypto.createHash('sha256').update(p + 'shogunos_salt_2024').digest('hex')
-}
-// Current scheme: per-user random salt + scrypt (CPU/memory-hard, far more
-// resistant to brute force / rainbow tables than a single unsalted SHA-256 pass).
-function scryptHash(p: string, salt: string) {
-  return crypto.scryptSync(p, salt, 64).toString('hex')
-}
-function setPassword(user: User, password: string) {
-  const salt = crypto.randomBytes(16).toString('hex')
-  user.salt = salt
-  user.password_hash = scryptHash(password, salt)
-}
-function verifyPassword(user: User, password: string): boolean {
-  if (user.salt) return scryptHash(password, user.salt) === user.password_hash
-  // No salt on record yet => this user predates the fix. Check against the
-  // legacy scheme; caller is responsible for upgrading on success.
-  return legacyHashPassword(password) === user.password_hash
-}
 function nextId() { db.meta.last_id += 1; return db.meta.last_id }
 function save() { fs.writeFileSync(dbPath, JSON.stringify(db)) }
 
@@ -244,19 +220,11 @@ function loadCISHymnals() {
 }
 
 // ── SEED DATA ─────────────────────────────────────────────────────────────
-
+// ShogunOS runs as a single local operator profile — no accounts, no passwords.
 function seedUsers() {
   if (db.users.length > 0) return
-  for (const u of [
-    { username:'admin',     password:'Admin@2024',  role:'ADMIN',     display_name:'Administrator'    },
-    { username:'operator',  password:'Operator@1',  role:'OPERATOR',  display_name:'Default Operator' },
-    { username:'presenter', password:'Present@1',   role:'PRESENTER', display_name:'Presenter'        },
-    { username:'Admin_10',  password:'Shogun@2024', role:'ADMIN',     display_name:'Admin_10'         },
-  ] as any[]) {
-    const user: User = { id: nextId(), uuid: crypto.randomUUID(), username: u.username, password_hash: '', role: u.role, display_name: u.display_name, created_at: new Date().toISOString(), last_login: null, must_change_password: true }
-    setPassword(user, u.password)
-    db.users.push(user)
-  }
+  const user: User = { id: nextId(), uuid: crypto.randomUUID(), display_name: 'Operator', created_at: new Date().toISOString(), last_login: new Date().toISOString() }
+  db.users.push(user)
   save()
 }
 
@@ -391,58 +359,21 @@ export async function initDatabase() {
   }
 }
 
-// ── AUTH ──────────────────────────────────────────────────────────────────
+// ── LOCAL OPERATOR ──────────────────────────────────────────────────────────
+// No accounts, no passwords — ShogunOS is a single-operator local install.
+// This just returns the one profile and stamps a session start time.
 
-export function loginUser(u: string, p: string): { success: boolean; user?: Omit<User,'password_hash'|'salt'>; error?: string } {
-  const user = db.users.find(x => x.username.toLowerCase() === u.toLowerCase())
-  if (!user) return { success: false, error: 'User not found' }
-  if (!verifyPassword(user, p)) return { success: false, error: 'Incorrect password' }
-  if (!user.salt) { setPassword(user, p) } // transparently upgrade legacy unsalted hash
+export function getCurrentUser(): Omit<User, never> {
+  let user = db.users[0]
+  if (!user) { seedUsers(); user = db.users[0] }
   user.last_login = new Date().toISOString(); save()
-  const { password_hash, salt, ...safe } = user
-  return { success: true, user: safe }
+  return user
 }
-export function getUsers() { return db.users.map(({ password_hash, salt, ...u }) => u) }
-export function createUser(username: string, password: string, role: User['role'], displayName: string): { success: boolean; error?: string } {
-  if (db.users.find(u => u.username.toLowerCase() === username.toLowerCase())) return { success: false, error: 'Username already exists' }
-  if (password.length < 6) return { success: false, error: 'Password must be at least 6 characters' }
-  const user: User = { id: nextId(), uuid: crypto.randomUUID(), username, password_hash: '', role, display_name: displayName || username, created_at: new Date().toISOString(), last_login: null, must_change_password: true }
-  setPassword(user, password)
-  db.users.push(user)
+export function updateDisplayName(displayName: string): { success: boolean; error?: string } {
+  const user = db.users[0]
+  if (!user) return { success: false, error: 'No operator profile found' }
+  user.display_name = displayName.trim() || 'Operator'
   save(); return { success: true }
-}
-export function updateUserPassword(userId: number, oldPw: string, newPw: string): { success: boolean; error?: string } {
-  const user = db.users.find(u => u.id === userId)
-  if (!user) return { success: false, error: 'User not found' }
-  if (!verifyPassword(user, oldPw)) return { success: false, error: 'Current password incorrect' }
-  if (newPw.length < 6) return { success: false, error: 'New password must be at least 6 characters' }
-  setPassword(user, newPw); user.must_change_password = false; save(); return { success: true }
-}
-export function deleteUser(userId: number): { success: boolean; error?: string } {
-  const user = db.users.find(u => u.id === userId)
-  if (!user) return { success: false, error: 'User not found' }
-  if (user.role === 'ADMIN' && db.users.filter(u => u.role === 'ADMIN').length <= 1) return { success: false, error: 'Cannot delete the last admin' }
-  db.users = db.users.filter(u => u.id !== userId); save(); return { success: true }
-}
-export function adminResetPassword(userId: number, newPw: string): { success: boolean; error?: string } {
-  const user = db.users.find(u => u.id === userId)
-  if (!user) return { success: false, error: 'User not found' }
-  if (newPw.length < 6) return { success: false, error: 'New password must be at least 6 characters' }
-  setPassword(user, newPw); user.must_change_password = true; save(); return { success: true }
-}
-export function updateUserRole(userId: number, role: User['role']): { success: boolean; error?: string } {
-  const user = db.users.find(u => u.id === userId)
-  if (!user) return { success: false, error: 'User not found' }
-  if (user.role === 'ADMIN' && role !== 'ADMIN' && db.users.filter(u => u.role === 'ADMIN').length <= 1) {
-    return { success: false, error: 'Cannot demote the last admin' }
-  }
-  user.role = role; save(); return { success: true }
-}
-export function forcedChangePassword(userId: number, newPw: string): { success: boolean; error?: string } {
-  const user = db.users.find(u => u.id === userId)
-  if (!user) return { success: false, error: 'User not found' }
-  if (newPw.length < 6) return { success: false, error: 'New password must be at least 6 characters' }
-  setPassword(user, newPw); user.must_change_password = false; save(); return { success: true }
 }
 
 // ── SONGS ─────────────────────────────────────────────────────────────────

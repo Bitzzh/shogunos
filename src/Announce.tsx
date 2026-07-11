@@ -5,12 +5,13 @@ interface Props {
   notify: (msg: string) => void
 }
 
+// Edo-period palette — indigo night ground, vermillion lacquer, kin gold
 const C = {
-  void: '#020305', ash: '#07090F', ember: '#0C0F18', coal: '#111520',
-  crimson: '#CC1A1A', blood: '#FF2020',
-  amber: '#FF9A00', gold: '#FFB800',
-  ivory: '#F5EED8', bone: '#C8BEA8',
-  mist: '#3A4258', border2: '#1E2535',
+  void: '#0e1730', ash: '#141f42', ember: '#1a2851', coal: '#213262',
+  crimson: '#a3242e', blood: '#c23b3b',
+  amber: '#c99a34', gold: '#d4af37',
+  ivory: '#f4ecd8', bone: '#dccfa8',
+  mist: '#5c6aa0', border2: '#374a86',
 }
 
 const TEMPLATES = [

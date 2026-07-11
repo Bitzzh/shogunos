@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react'
 import Splash from './Splash'
-import UsersTab from './UsersTab'
 import MediaTab from './MediaTab'
 
 type Song       = { id: number; title: string; hymn_number: number; source: string; language: string }
@@ -9,10 +8,11 @@ type Display    = { id: number; label: string; isPrimary: boolean; bounds?: any 
 type DailyVerse = { book: string; chapter: number; verse: number; text: string; version: string }
 type BibleVerse = { id: number; book: string; chapter: number; verse: number; text: string; version: string }
 type QueueItem  = { id: string; title: string; type: string }
+type LicenseInfo = { tier:'free'|'pro'; status:string; key:string|null; customerEmail:string|null; error:string|null; isOwner:boolean }
 type NavGroup   = 'library' | 'present' | 'media' | 'service' | 'settings'
 type LibTab     = 'hymnal' | 'bible' | 'daily' | 'songs'
 type PresentTab = 'slides' | 'announce'
-type SettingsTab = 'display' | 'import' | 'users' | 'about'
+type SettingsTab = 'display' | 'import' | 'license' | 'about'
 
 interface DisplaySettings {
   bgColor: string; bgImage: string | null
@@ -888,6 +888,100 @@ function SongsTab({ goLive, addToQueue, notify }: { goLive:(t:string,l:string)=>
   )
 }
 
+function LicenseTab({ license, onLicenseChange, notify }: { license:LicenseInfo; onLicenseChange:(l:LicenseInfo)=>void; notify:(m:string)=>void }) {
+  const [key,setKey]         = useState('')
+  const [busy,setBusy]       = useState(false)
+  const [localErr,setLocalErr] = useState<string|null>(null)
+  const isPro = license.tier==='pro'
+  const isOwner = license.isOwner
+
+  async function activate(){
+    if(!key.trim()) return
+    setBusy(true); setLocalErr(null)
+    try{
+      const res = await (window as any).shogunos.activateLicense(key.trim())
+      if(res?.success){
+        const l = await (window as any).shogunos.getLicenseStatus()
+        onLicenseChange({tier:l.tier,status:l.status,key:l.key,customerEmail:l.customerEmail,error:l.error,isOwner:!!l.isOwner})
+        setKey(''); notify(l.isOwner?'Owner access granted — every feature is unlocked':'Pro unlocked — thank you for supporting ShogunOS')
+      } else {
+        setLocalErr(res?.error || 'Could not activate this key')
+      }
+    } catch { setLocalErr('Could not reach the license server') }
+    finally { setBusy(false) }
+  }
+  async function deactivate(){
+    setBusy(true)
+    try{
+      await (window as any).shogunos.deactivateLicense()
+      onLicenseChange({tier:'free',status:'inactive',key:null,customerEmail:null,error:null,isOwner:false})
+      notify('License removed from this device')
+    } finally { setBusy(false) }
+  }
+
+  const PRO_FEATURES = [
+    'All CIS hymnal languages (Shona, Ndebele, Swahili, Kinyarwanda & more)',
+    'Live video & audio projection',
+    'Multi-display / stage-monitor output',
+    'Priority support for new hymnal & bible packs',
+  ]
+
+  return (
+    <div style={{flex:1,padding:40,overflowY:'auto',background:C.bg1}}>
+      <div style={{maxWidth:560}}>
+        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:28}}>
+          <div>
+            <div style={{fontSize:22,fontWeight:800,color:C.t1,marginBottom:4}}>License</div>
+            <div style={{fontSize:12,color:C.t3}}>ShogunOS runs fully free — Pro unlocks the features below</div>
+          </div>
+          <div style={{padding:'6px 14px',borderRadius:8,fontSize:11,fontWeight:700,letterSpacing:'0.08em',background:isOwner?`${C.p2}22`:isPro?`${C.warn}22`:C.bg3,color:isOwner?C.p2:isPro?C.warn:C.t3,border:`1px solid ${isOwner?C.p2:isPro?C.warn:C.b1}`}}>
+            {isOwner?'OWNER ACCESS':isPro?'PRO':'FREE'}
+          </div>
+        </div>
+
+        {isPro ? (
+          <div style={{background:C.bg3,borderRadius:12,padding:'20px 22px',border:`1px solid ${C.b1}`,marginBottom:20}}>
+            <div style={{fontSize:10,color:C.t4,fontWeight:700,letterSpacing:'0.15em',marginBottom:10,textTransform:'uppercase' as const}}>Status</div>
+            <div style={{fontSize:13,color:C.t1,marginBottom:6}}>
+              {isOwner ? 'Owner access is active on this device — every feature, including future Pro-only additions, is unlocked permanently.' : `Pro is active on this device${license.customerEmail?` — licensed to ${license.customerEmail}`:''}.`}
+            </div>
+            {!isOwner && <div style={{fontSize:11,color:C.t3,marginBottom:16}}>Key: •••• {license.key?.slice(-4) ?? '----'}</div>}
+            <button onClick={deactivate} disabled={busy} style={{padding:'9px 16px',fontSize:12,fontWeight:600,borderRadius:8,border:`1px solid ${C.b1}`,background:'transparent',color:C.t2,cursor:busy?'default':'pointer',marginTop:isOwner?12:0}}>
+              {busy?'Working…':isOwner?'Remove owner access from this device':'Remove license from this device'}
+            </button>
+          </div>
+        ) : (
+          <div style={{background:C.bg3,borderRadius:12,padding:'20px 22px',border:`1px solid ${C.b1}`,marginBottom:20}}>
+            <div style={{fontSize:10,color:C.t4,fontWeight:700,letterSpacing:'0.15em',marginBottom:12,textTransform:'uppercase' as const}}>Pro unlocks</div>
+            <div style={{display:'flex',flexDirection:'column',gap:8,marginBottom:18}}>
+              {PRO_FEATURES.map(f=>(
+                <div key={f} style={{display:'flex',gap:8,alignItems:'flex-start',fontSize:12.5,color:C.t2,lineHeight:1.5}}>
+                  <span style={{color:C.warn,flexShrink:0}}>◆</span>{f}
+                </div>
+              ))}
+            </div>
+            <button onClick={()=>(window as any).shogunos.openPurchasePage()} style={{padding:'11px 20px',fontSize:13,fontWeight:700,borderRadius:8,border:'none',background:`linear-gradient(135deg,${C.p2},${C.p1})`,color:'#fff8ec',cursor:'pointer',marginBottom:20}}>
+              Upgrade to Pro
+            </button>
+
+            <div style={{fontSize:10,color:C.t4,fontWeight:700,letterSpacing:'0.15em',marginBottom:10,textTransform:'uppercase' as const,borderTop:`1px solid ${C.b0}`,paddingTop:18}}>Already purchased?</div>
+            <div style={{display:'flex',gap:8}}>
+              <input value={key} onChange={e=>setKey(e.target.value)} placeholder="Paste your license key"
+                style={{flex:1,padding:'10px 12px',fontSize:12,borderRadius:8,border:`1px solid ${C.b1}`,background:C.bg1,color:C.t1,outline:'none'}}/>
+              <button onClick={activate} disabled={busy||!key.trim()} style={{padding:'10px 18px',fontSize:12,fontWeight:700,borderRadius:8,border:'none',background:busy||!key.trim()?C.bg4:C.g2,color:'#fff',cursor:busy||!key.trim()?'default':'pointer'}}>
+                {busy?'Checking…':'Activate'}
+              </button>
+            </div>
+            {(localErr||license.error) && <div style={{fontSize:11,color:C.p2,marginTop:10}}>{localErr||license.error}</div>}
+          </div>
+        )}
+
+        <div style={{fontSize:11,color:C.t4,lineHeight:1.6}}>Licenses are managed through Lemon Squeezy and can be moved between devices from your purchase confirmation email at any time.</div>
+      </div>
+    </div>
+  )
+}
+
 function AboutTab() {
   return (
     <div style={{flex:1,padding:40,overflowY:'auto',background:C.bg1}}>
@@ -1193,7 +1287,8 @@ function DisplaySettingsTab({ settings, onChange, notify }: { settings:DisplaySe
 
 export default function App() {
   const [showSplash,setShowSplash]       = useState(true)
-  const [currentUser,setCurrentUser]     = useState<{username:string;role:string;display_name:string}|null>(null)
+  const [currentUser,setCurrentUser]     = useState<{display_name:string}|null>(null)
+  const [license,setLicense]             = useState<LicenseInfo>({tier:'free',status:'inactive',key:null,customerEmail:null,error:null,isOwner:false})
   const [navGroup,setNavGroup]           = useState<NavGroup>('library')
   const [queueCollapsed,setQueueCollapsed] = useState(false)
   const [libTab,setLibTab]               = useState<LibTab>('hymnal')
@@ -1216,6 +1311,7 @@ export default function App() {
   const [dailyVerse,setDailyVerse]       = useState<DailyVerse|null>(null)
   const [queue,setQueue]                 = useState<QueueItem[]>([])
   const [blankScreen,setBlankScreen]     = useState(false)
+  const [showShortcuts,setShowShortcuts] = useState(false)
   const [clock,setClock]                 = useState('')
   const [toast,setToast]                 = useState('')
   const [displaySettings,setDisplaySettings] = useState<DisplaySettings>({bgColor:'#000000',bgImage:null,fontColor:'#ffffff',fontSize:52,textAlign:'center',fontFamily:'Georgia, serif',borderWidth:0,borderColor:'#ffffff',borderStyle:'solid',borderRadius:0})
@@ -1236,6 +1332,55 @@ export default function App() {
   const [showDailyPopup,setShowDailyPopup]   = useState(false)
   const [previewDragOver,setPreviewDragOver] = useState(false)
   const [liveDragOver,setLiveDragOver]       = useState(false)
+
+  // ── KEYBOARD SHORTCUTS ──────────────────────────────────────────────────
+  // Operator shortcuts for running a live service without reaching for the
+  // mouse. Disabled while typing in any field so search/inputs work normally.
+  useEffect(()=>{
+    function isTypingTarget(el: EventTarget | null){
+      if(!(el instanceof HTMLElement)) return false
+      const tag = el.tagName
+      return tag==='INPUT'||tag==='TEXTAREA'||tag==='SELECT'||el.isContentEditable
+    }
+    function onKeyDown(e: KeyboardEvent){
+      if(isTypingTarget(e.target)) return
+      if(e.metaKey||e.ctrlKey||e.altKey) return // leave OS/app-level shortcuts alone
+      switch(e.key){
+        case ' ':
+        case 'ArrowRight':
+        case 'ArrowDown':
+        case 'PageDown':
+          if(sections.length){ e.preventDefault(); handleSectionClick(Math.min(currentSection+1,sections.length-1)) }
+          break
+        case 'ArrowLeft':
+        case 'ArrowUp':
+        case 'PageUp':
+          if(sections.length){ e.preventDefault(); handleSectionClick(Math.max(currentSection-1,0)) }
+          break
+        case 'Enter': {
+          e.preventDefault()
+          const sec=sections[currentSection]
+          if(sec) goLive(selected?.title||'',sec.content)
+          else if(selectedVerse) goLive(`${selectedVerse.book} ${selectedVerse.chapter}:${selectedVerse.verse}`,selectedVerse.text)
+          break
+        }
+        case 'b': case 'B':
+          e.preventDefault(); handleBlank()
+          break
+        case 'Escape':
+          e.preventDefault()
+          if(showDailyPopup) setShowDailyPopup(false)
+          else if(showShortcuts) setShowShortcuts(false)
+          else handleClear()
+          break
+        case '?':
+          e.preventDefault(); setShowShortcuts(s=>!s)
+          break
+      }
+    }
+    window.addEventListener('keydown',onKeyDown)
+    return ()=>window.removeEventListener('keydown',onKeyDown)
+  },[sections,currentSection,selected,selectedVerse,showDailyPopup,showShortcuts])
 
   // ── Resizable panels (Library / Preview / Live) — Quelea-style draggable dividers ──
   const bodyRef       = useRef<HTMLDivElement>(null)
@@ -1307,6 +1452,7 @@ export default function App() {
       const q=await(window as any).shogunos.getServiceQueue()
       setQueue(q.map((x:any)=>({id:String(x.id),title:x.title,type:x.type})))
       try{const v=await(window as any).shogunos.getBibleTranslations();if(v?.length)setAvailableVersions(v)}catch{}
+      try{const l=await(window as any).shogunos.getLicenseStatus();if(l)setLicense({tier:l.tier,status:l.status,key:l.key,customerEmail:l.customerEmail,error:l.error,isOwner:!!l.isOwner})}catch{}
       // Load saved display settings
       try{const ds=await(window as any).shogunos.getDisplaySettings();if(ds)setDisplaySettings(s=>({...s,...ds}))}catch{}
       // Load all hymns for default browse view
@@ -1317,12 +1463,22 @@ export default function App() {
     load()
   },[showSplash])
 
-  if(showSplash) return <Splash onDone={user=>{setCurrentUser(user);setShowSplash(false);notify(`Welcome, ${user.display_name}`)}}/>
+  if(showSplash) return <Splash onDone={user=>{setCurrentUser(user);setShowSplash(false)}}/>
 
   async function handleSearch(val:string){
     setQuery(val)
     if(val.trim().length<1){setResults([]);return}
-    setResults(allSongs.filter(s=>s.title.toLowerCase().includes(val.toLowerCase())))
+    const q=val.trim().toLowerCase()
+    // Accept a bare number ("32"), a zero-padded number ("032"), or a
+    // "#32"/"no. 32"/"hymn 32" style query as a hymn-number lookup, in
+    // addition to the existing title-text search.
+    const numMatch=q.match(/^(?:#|no\.?\s*|hymn\s*)?0*(\d+)$/)
+    const asNumber=numMatch?parseInt(numMatch[1],10):null
+    setResults(allSongs.filter(s=>
+      s.title.toLowerCase().includes(q) ||
+      (asNumber!=null && s.hymn_number===asNumber) ||
+      String(s.hymn_number||'').includes(q)
+    ))
   }
 
   async function handleBibleSearch(val:string){
@@ -1522,7 +1678,7 @@ export default function App() {
 
   const renderContent = () => {
     if(navGroup==='media'){
-      return <MediaTab goLive={(t,l,type,extra)=>{ (window as any).shogunos?.goLiveMedia?.(extra||{type:'image'}) }} notify={notify}/>
+      return <MediaTab goLive={(t,l,type,extra)=>{ (window as any).shogunos?.goLiveMedia?.(extra||{type:'image'}) }} notify={notify} isPro={license.tier==='pro'} onUpgrade={()=>{setNavGroup('settings');setSettingsTab('license')}}/>
     }
     if(navGroup==='present'){
       if(presentTab==='slides') return <SlidesTab goLive={goLive} addToQueue={addToQueue} notify={notify}/>
@@ -1562,8 +1718,8 @@ export default function App() {
     if(navGroup==='settings'){
       if(settingsTab==='display') return <DisplaySettingsTab settings={displaySettings} onChange={setDisplaySettings} notify={notify}/>
       if(settingsTab==='import') return <ImportTab notify={notify}/>
+      if(settingsTab==='license') return <LicenseTab license={license} onLicenseChange={setLicense} notify={notify}/>
       if(settingsTab==='about')  return <AboutTab/>
-      if(settingsTab==='users')  return <UsersTab currentUser={currentUser!} notify={notify}/>
     }
     // Library
     if(libTab==='songs') return <SongsTab goLive={(t,l)=>goLive(t,l)} addToQueue={addToQueue} notify={notify}/>
@@ -1736,6 +1892,13 @@ export default function App() {
       acc[key]=searchFiltered.filter(s=>groupKey(s)===key)
       return acc
     },{} as Record<string,Song[]>)
+    // Free tier: SDA hymnal plus the first CIS language are unlocked; every
+    // other CIS language requires Pro. Keep this in sync with
+    // licensing.ts's FREE_TIER_LIMITS.maxFreeHymnalLanguages.
+    const isPro = license.tier==='pro'
+    const FREE_CIS_LANGUAGES = 1
+    const cisOrder = hymnLangs.filter(l=>l!=='sda')
+    const isLocked = (lang:string) => !isPro && lang!=='sda' && cisOrder.indexOf(lang)>=FREE_CIS_LANGUAGES
     const btn2: React.CSSProperties = {cursor:'pointer',fontFamily:'inherit',border:'none',outline:'none',transition:'all 0.15s'}
     return (
       <div style={{flex:1,display:'flex',overflow:'hidden',minHeight:0}}>
@@ -1755,21 +1918,29 @@ export default function App() {
               if(!group||group.length===0) return null
               const isOpen = expandedHymnLangs[lang]!==false
               const accent = LANG_COLORS[li%LANG_COLORS.length]
+              const locked = isLocked(lang)
               return (
                 <div key={lang}>
                   <button
-                    onClick={()=>setExpandedHymnLangs(e=>({...e,[lang]:!isOpen}))}
+                    onClick={()=>locked ? (setNavGroup('settings'),setSettingsTab('license')) : setExpandedHymnLangs(e=>({...e,[lang]:!isOpen}))}
                     style={{...btn2,width:'100%',padding:'10px 14px 10px 12px',
                       display:'flex',alignItems:'center',justifyContent:'space-between',
-                      background:C.bg1,borderLeft:`3px solid ${accent}`,
-                      borderBottom:`1px solid ${C.b0}`,color:C.t2,textAlign:'left' as const}}>
+                      background:C.bg1,borderLeft:`3px solid ${locked?C.b2:accent}`,
+                      borderBottom:`1px solid ${C.b0}`,color:C.t2,textAlign:'left' as const,
+                      opacity:locked?0.6:1}}>
                     <div style={{display:'flex',alignItems:'center',gap:8}}>
-                      <span style={{fontSize:11,fontWeight:700,letterSpacing:'0.1em',color:accent}}>{groupLabel(lang).toUpperCase()}</span>
+                      <span style={{fontSize:11,fontWeight:700,letterSpacing:'0.1em',color:locked?C.t4:accent}}>{groupLabel(lang).toUpperCase()}</span>
                       <span style={{fontSize:9,color:C.t4,background:C.bg3,padding:'1px 7px',borderRadius:10,border:`1px solid ${C.b1}`}}>{group.length}</span>
+                      {locked && <span style={{fontSize:9,color:C.warn,fontWeight:700,letterSpacing:'0.06em'}}>🔒 PRO</span>}
                     </div>
-                    <span style={{fontSize:9,color:C.t4}}>{isOpen?'▾':'▸'}</span>
+                    <span style={{fontSize:9,color:C.t4}}>{locked?'':(isOpen?'▾':'▸')}</span>
                   </button>
-                  {isOpen && group.map(song=>(
+                  {locked && (
+                    <div style={{padding:'10px 14px',fontSize:10.5,color:C.t3,background:C.bg2,borderBottom:`1px solid ${C.b0}`,lineHeight:1.5}}>
+                      Unlock all CIS hymnal languages with Pro. <span style={{color:C.g2,fontWeight:700,cursor:'pointer'}} onClick={()=>(setNavGroup('settings'),setSettingsTab('license'))}>Upgrade →</span>
+                    </div>
+                  )}
+                  {isOpen && !locked && group.map(song=>(
                     <div key={song.id} onClick={()=>handleSelectSong(song)}
                       {...dragSource(song.title,'song')}
                       style={{padding:'9px 14px 9px 15px',
@@ -1817,7 +1988,7 @@ export default function App() {
     present:  [{id:'slides',label:'Slides'},{id:'announce',label:'Announce'}],
     media:    [],
     service:  [{id:'queue',label:'Queue'}],
-    settings: [{id:'display',label:'Display'},{id:'import',label:'Import'},{id:'users',label:'Users'},{id:'about',label:'About'}],
+    settings: [{id:'display',label:'Display'},{id:'import',label:'Import'},{id:'license',label:'License'},{id:'about',label:'About'}],
   }
 
   const NAV_ICONS: Record<NavGroup,string> = {
@@ -1873,7 +2044,7 @@ export default function App() {
           <input
             value={navGroup==='library'&&libTab==='bible'?bibleQuery:query}
             onChange={e=>navGroup==='library'&&libTab==='bible'?handleBibleSearch(e.target.value):handleSearch(e.target.value)}
-            placeholder={navGroup==='library'&&libTab==='bible'?`Search ${bibleVersion}…`:navGroup==='library'&&libTab==='hymnal'?'Filter hymns…':'Search…'}
+            placeholder={navGroup==='library'&&libTab==='bible'?`Search ${bibleVersion}…`:navGroup==='library'&&libTab==='hymnal'?'Search title or hymn #…':'Search…'}
             style={{flex:1,background:'none',border:'none',color:C.t1,fontSize:13,outline:'none',padding:'9px 0',fontFamily:'inherit'}}
           />
           {navGroup==='library'&&libTab==='bible'&&(
@@ -1900,7 +2071,6 @@ export default function App() {
           <div style={{display:'flex',alignItems:'center',gap:10,paddingLeft:20,paddingRight:20,borderLeft:`1px solid ${C.b0}`,height:'100%'}}>
             <div style={{width:5,height:5,borderRadius:'50%',background:C.safe,flexShrink:0}}/>
             <span style={{fontSize:12,color:C.t2}}>{currentUser.display_name}</span>
-            <span style={{fontSize:10,color:C.t3,padding:'2px 8px',border:`1px solid ${C.b2}`,borderRadius:4}}>{currentUser.role}</span>
           </div>
         )}
         <div style={{fontSize:12,color:C.t2,fontVariantNumeric:'tabular-nums',minWidth:50,textAlign:'right',paddingLeft:20,paddingRight:24,borderLeft:`1px solid ${C.b0}`,height:'100%',display:'flex',alignItems:'center',fontFamily:"'IBM Plex Mono',monospace",fontWeight:600}}>{clock}</div>
@@ -2075,6 +2245,8 @@ export default function App() {
         </button>
         <button onClick={handleClear} title="Clear output"
           style={{padding:'8px 14px',background:'none',border:`1px solid ${C.b1}`,color:C.t3,fontSize:13,cursor:'pointer',borderRadius:5,flexShrink:0}}>✕</button>
+        <button onClick={()=>setShowShortcuts(true)} title="Keyboard shortcuts (?)"
+          style={{padding:'8px 14px',background:'none',border:`1px solid ${C.b1}`,color:C.t3,fontSize:13,cursor:'pointer',borderRadius:5,flexShrink:0}}>⌨</button>
 
         <div style={{flex:1}}/>
 
@@ -2083,6 +2255,38 @@ export default function App() {
           {displays.map(d=><option key={d.id} value={d.id}>{d.label}{d.isPrimary?' (Primary)':''}</option>)}
         </select>
       </div>
+
+      {/* ── KEYBOARD SHORTCUTS OVERLAY ── */}
+      {showShortcuts&&(
+        <div onClick={()=>setShowShortcuts(false)}
+          style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.75)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:9999,backdropFilter:'blur(6px)'}}>
+          <div onClick={e=>e.stopPropagation()}
+            style={{background:C.bg2,border:`1px solid ${C.b2}`,borderRadius:8,padding:36,maxWidth:420,width:'90%',position:'relative',boxShadow:'0 40px 80px rgba(0,0,0,0.9)'}}>
+            <button onClick={()=>setShowShortcuts(false)}
+              style={{position:'absolute',top:14,right:16,background:'none',border:'none',color:C.t3,cursor:'pointer',fontSize:18,lineHeight:1,padding:4}}>×</button>
+            <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:20}}>
+              <span style={{fontSize:18,color:C.g2}}>⌨</span>
+              <span style={{fontSize:15,fontWeight:700,color:C.t1}}>Keyboard Shortcuts</span>
+            </div>
+            <div style={{display:'flex',flexDirection:'column',gap:10}}>
+              {[
+                ['Space / →','Next slide'],
+                ['←','Previous slide'],
+                ['Enter','Send current selection live'],
+                ['B','Toggle blank screen'],
+                ['Esc','Clear live output'],
+                ['?','Show this panel'],
+              ].map(([key,desc])=>(
+                <div key={key} style={{display:'flex',alignItems:'center',justifyContent:'space-between',fontSize:12.5}}>
+                  <span style={{color:C.t2}}>{desc}</span>
+                  <span style={{padding:'3px 10px',background:C.bg3,border:`1px solid ${C.b1}`,borderRadius:5,color:C.t1,fontSize:11,fontWeight:600,fontFamily:'ui-monospace,monospace'}}>{key}</span>
+                </div>
+              ))}
+            </div>
+            <div style={{fontSize:10.5,color:C.t4,marginTop:20,lineHeight:1.6}}>Shortcuts are disabled while typing in a search box or text field.</div>
+          </div>
+        </div>
+      )}
 
       {/* ── DAILY VERSE POPUP ── */}
       {showDailyPopup&&(

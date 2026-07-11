@@ -28,9 +28,11 @@ function fileSizeLabel(bytes:number) {
 interface Props {
   goLive: (title:string, lyrics:string, type?:string, extra?:any) => void
   notify: (msg:string) => void
+  isPro: boolean
+  onUpgrade: () => void
 }
 
-export default function MediaTab({ goLive, notify }:Props) {
+export default function MediaTab({ goLive, notify, isPro, onUpgrade }:Props) {
   const [folders, setFolders]         = useState<MediaFolder[]>([])
   const [selected, setSelected]       = useState<MediaFolder|null>(null)
   const [items, setItems]             = useState<MediaItem[]>([])
@@ -93,6 +95,9 @@ export default function MediaTab({ goLive, notify }:Props) {
     const isVideo = item.mime_type.startsWith('video/')
     const isImage = item.mime_type.startsWith('image/')
     const isAudio = item.mime_type.startsWith('audio/')
+    if (isVideo && !isPro) {
+      notify('Video projection is a Pro feature'); onUpgrade(); return
+    }
     if (isVideo) {
       api.goLiveMedia({ type:'video', filePath:item.file_path, loop, muted, title:item.name })
     } else if (isImage) {
@@ -222,7 +227,10 @@ export default function MediaTab({ goLive, notify }:Props) {
                     }}>
                     <span style={{ fontSize:16, color: isV ? C.accentL : isI ? C.goldL : C.t3, flexShrink:0 }}>{fileIcon(item.mime_type)}</span>
                     <div style={{ flex:1, minWidth:0 }}>
-                      <div style={{ fontSize:11, color:C.t1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{item.name}</div>
+                      <div style={{ fontSize:11, color:C.t1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', display:'flex', alignItems:'center', gap:6 }}>
+                        {item.name}
+                        {isV && !isPro && <span title="Requires Pro" style={{ fontSize:9, color:C.gold, flexShrink:0 }}>🔒</span>}
+                      </div>
                       <div style={{ fontSize:9, color:C.t4, marginTop:1 }}>{item.mime_type.split('/')[1]?.toUpperCase()} · {fileSizeLabel(item.file_size)}</div>
                     </div>
                     <button onClick={e=>{e.stopPropagation();deleteItem(item.id)}} style={{ background:'none',border:'none',color:C.t4,cursor:'pointer',fontSize:14,padding:0,opacity:0.5,lineHeight:1 }}>×</button>

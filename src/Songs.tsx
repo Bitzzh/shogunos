@@ -6,12 +6,13 @@ interface Props {
   notify: (msg: string) => void
 }
 
+// Edo-period palette — indigo night (ai-zome) ground, shu-nuri vermillion lacquer accents, kin gold
 const C = {
-  void: '#0a0e14', ash: '#0f1419', ember: '#141923', coal: '#17202c',
-  crimson: '#d32f2f', blood: '#ff5252', fire: '#ff6f00',
-  amber: '#fbc02d', gold: '#ffd54f',
-  ivory: '#f5f5f5', bone: '#e0e0e0', ghost: '#9e9e9e',
-  mist: '#616161', border: '#2c3e50', divider: '#37474f'
+  void: '#0e1730', ash: '#141f42', ember: '#1a2851', coal: '#213262',
+  crimson: '#a3242e', blood: '#c23b3b', fire: '#c5652e',
+  amber: '#c99a34', gold: '#d4af37',
+  ivory: '#f4ecd8', bone: '#dccfa8', ghost: '#8f9bc4',
+  mist: '#5c6aa0', border: '#2c3d73', divider: '#374a86'
 }
 
 interface Song { id: number; title: string; hymn_number: number | null; source: string; language: string; created_at: string }

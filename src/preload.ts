@@ -63,14 +63,14 @@ contextBridge.exposeInMainWorld('shogunos', {
   getDisplaySettings:  () => ipcRenderer.invoke('get-display-settings'),
   saveDisplaySettings: (settings: any) => ipcRenderer.invoke('save-display-settings', settings),
 
-  // ── AUTH ───────────────────────────────────────────────────────────────────
-  login:              (username: string, password: string) => ipcRenderer.invoke('auth-login', username, password),
-  logout:             () => ipcRenderer.invoke('auth-logout'),
-  getUsers:           () => ipcRenderer.invoke('auth-get-users'),
-  createUser:         (username: string, password: string, role: string, displayName: string) => ipcRenderer.invoke('auth-create-user', username, password, role, displayName),
-  updateUserPassword: (userId: number, oldPassword: string, newPassword: string) => ipcRenderer.invoke('auth-update-password', userId, oldPassword, newPassword),
-  deleteUser:         (userId: number) => ipcRenderer.invoke('auth-delete-user', userId),
-  adminResetPassword: (userId: number, newPassword: string) => ipcRenderer.invoke('auth-admin-reset-password', userId, newPassword),
-  updateUserRole:     (userId: number, role: string) => ipcRenderer.invoke('auth-update-role', userId, role),
-  forcedChangePassword: (userId: number, newPassword: string) => ipcRenderer.invoke('auth-forced-change-password', userId, newPassword),
+  // ── LOCAL OPERATOR ───────────────────────────────────────────────────────────
+  getCurrentUser:     () => ipcRenderer.invoke('get-current-user'),
+  updateDisplayName:  (displayName: string) => ipcRenderer.invoke('update-display-name', displayName),
+
+  // ── LICENSING ────────────────────────────────────────────────────────────────
+  getLicenseStatus:   () => ipcRenderer.invoke('license-get-status'),
+  activateLicense:    (key: string) => ipcRenderer.invoke('license-activate', key),
+  deactivateLicense:  () => ipcRenderer.invoke('license-deactivate'),
+  getFreeTierLimits:  () => ipcRenderer.invoke('license-get-free-limits'),
+  openPurchasePage:   () => ipcRenderer.invoke('license-open-purchase'),
 })

@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, screen, dialog } from 'electron'
+import { app, BrowserWindow, ipcMain, screen, dialog, shell } from 'electron'
 import path from 'node:path'
 import fs from 'node:fs'
 import started from 'electron-squirrel-startup'
@@ -10,33 +10,18 @@ import {
   getThemes,
   getSlides, getSlide, createSlide, updateSlide, deleteSlide, reorderSlides, duplicateSlide,
   exportDatabase, importDatabase, getDatabaseStats,
-  loginUser, getUsers, createUser, updateUserPassword, deleteUser, adminResetPassword, updateUserRole, forcedChangePassword,
+  getCurrentUser, updateDisplayName,
   importQSPSongs,
   getDisplaySettings, saveDisplaySettings,
   getMediaFolders, createMediaFolder, deleteMediaFolder, addMediaItem, deleteMediaItem, getMediaItems,
 } from './database'
 import { parseQSP } from './qsp-parser'
+import { getLicenseStatus, activateLicense, deactivateLicense, PURCHASE_URL, FREE_TIER_LIMITS } from './licensing'
 
 if (started) { app.quit() }
 
 let mainWindow: BrowserWindow
 let liveWindow: BrowserWindow | null = null
-
-// ── AUTH SESSION ────────────────────────────────────────────────────────────
-// The renderer's "isAdmin" checks are UI-only. Every privileged action must
-// also be gated here in the main process, since the renderer's window.shogunos
-// bridge is reachable by any script running in that page (devtools, a bug
-// elsewhere in the UI, etc). We track who is currently logged in and require
-// ADMIN for user-management actions regardless of what the renderer claims.
-type Session = { id: number; username: string; role: string } | null
-let session: Session = null
-
-// Returns null when the current session is an admin, or an error string otherwise.
-function requireAdminError(): string | null {
-  if (!session) return 'Not logged in'
-  if (session.role !== 'ADMIN') return 'Admin access required'
-  return null
-}
 
 const createWindow = () => {
   mainWindow = new BrowserWindow({
@@ -273,56 +258,16 @@ app.on('ready', async () => {
   })
 
   // ── AUTH ─────────────────────────────────────────────────────────────────
-  // Note: this app has one active user per window (no multi-window multi-
-  // session support), so a single module-level `session` is sufficient.
-  ipcMain.handle('auth-login', (_e, username: string, password: string) => {
-    const res = loginUser(username, password)
-    if (res.success && res.user) session = { id: res.user.id, username: res.user.username, role: res.user.role }
-    return res
-  })
-  ipcMain.handle('auth-logout', () => { session = null; return { success: true } })
+  // Single local operator profile — no login, no accounts.
+  ipcMain.handle('get-current-user', () => getCurrentUser())
+  ipcMain.handle('update-display-name', (_e, displayName: string) => updateDisplayName(displayName))
 
-  ipcMain.handle('auth-get-users', () => {
-    if (requireAdminError()) return []
-    return getUsers()
-  })
-  ipcMain.handle('auth-create-user', (_e, username: string, password: string, role: string, displayName: string) => {
-    const err = requireAdminError()
-    if (err) return { success: false, error: err }
-    return createUser(username, password, role as any, displayName)
-  })
-  ipcMain.handle('auth-update-password', (_e, userId: number, oldPw: string, newPw: string) => {
-    // Self-service password change: only allowed on your own account. This
-    // does not require ADMIN, but it does require you to already be logged
-    // in as the account you're changing.
-    if (!session) return { success: false, error: 'Not logged in' }
-    if (session.id !== userId) return { success: false, error: 'You can only change your own password this way' }
-    return updateUserPassword(userId, oldPw, newPw)
-  })
-  ipcMain.handle('auth-delete-user', (_e, userId: number) => {
-    const err = requireAdminError()
-    if (err) return { success: false, error: err }
-    if (session!.id === userId) return { success: false, error: 'Cannot delete your own account while logged in' }
-    return deleteUser(userId)
-  })
-  ipcMain.handle('auth-admin-reset-password', (_e, userId: number, newPw: string) => {
-    const err = requireAdminError()
-    if (err) return { success: false, error: err }
-    return adminResetPassword(userId, newPw)
-  })
-  ipcMain.handle('auth-update-role', (_e, userId: number, role: string) => {
-    const err = requireAdminError()
-    if (err) return { success: false, error: err }
-    if (session!.id === userId) return { success: false, error: 'Cannot change your own role — ask another admin' }
-    return updateUserRole(userId, role as any)
-  })
-  ipcMain.handle('auth-forced-change-password', (_e, userId: number, newPw: string) => {
-    // Used for the "must change password" first-login flow, so it's allowed
-    // without an established admin session — but only for the account that
-    // just authenticated (loginUser must have been called first).
-    if (!session || session.id !== userId) return { success: false, error: 'Not logged in as this user' }
-    return forcedChangePassword(userId, newPw)
-  })
+  // Licensing — Pro unlock via Lemon Squeezy license keys.
+  ipcMain.handle('license-get-status', () => getLicenseStatus())
+  ipcMain.handle('license-activate', (_e, key: string) => activateLicense(key))
+  ipcMain.handle('license-deactivate', () => deactivateLicense())
+  ipcMain.handle('license-get-free-limits', () => FREE_TIER_LIMITS)
+  ipcMain.handle('license-open-purchase', () => shell.openExternal(PURCHASE_URL))
 
   createWindow()
 

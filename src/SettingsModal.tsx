@@ -1,11 +1,12 @@
 import React, { useState } from 'react'
 
+// Edo-period palette — indigo night ground, gold accents, vermillion for alerts
 const C = {
-  bg: '#040508', s1: '#080B12', s2: '#0C1018', s3: '#111620',
-  teal: '#00FFB2', teal2: '#00CDA0', teal3: '#008C6E', teal4: '#004D3D', teal5: '#001F18',
-  white: '#E8EDF8', dim: '#6B7899', muted: '#2D3550',
-  border: '#161D2E', border2: '#1F2840',
-  rose: '#F43F5E', rose2: '#FB7185',
+  bg: '#0c1329', s1: '#111b3a', s2: '#162047', s3: '#1c2853',
+  teal: '#c99a34', teal2: '#d4af37', teal3: '#a8791f', teal4: '#6e5115', teal5: '#3c2c0e',
+  white: '#f4ecd8', dim: '#8f9bc4', muted: '#374a86',
+  border: '#233060', border2: '#2b3a70',
+  rose: '#a3242e', rose2: '#c23b3b',
 }
 
 type Props = { onClose: () => void }
