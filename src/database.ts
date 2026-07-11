@@ -52,25 +52,79 @@ interface DB {
 // ── CORE ──────────────────────────────────────────────────────────────────
 
 let dbPath: string
+let libraryPath: string
+let statePath: string
 let db: DB
 
 function nextId() { db.meta.last_id += 1; return db.meta.last_id }
-function save() { fs.writeFileSync(dbPath, JSON.stringify(db)) }
+
+// The hymnal + Bible text (songs, song_sections, bible_verses) can easily be
+// 50MB+ once every CIS language and every Bible translation is loaded — but
+// it almost never changes after the initial seed. Everything else (queue,
+// settings, users, slides, media) is tiny but changes on nearly every click.
+// Splitting these into two files means everyday actions no longer serialize
+// and rewrite tens of megabytes of scripture/hymn text to disk on every
+// single interaction, which is what was causing the lag.
+function saveLibrary() {
+  fs.writeFileSync(libraryPath, JSON.stringify({
+    songs: db.songs, song_sections: db.song_sections, bible_verses: db.bible_verses,
+    songs_loaded: db.meta.songs_loaded || '', bible_loaded: db.meta.bible_loaded || '',
+  }))
+}
+function save() {
+  const { songs, song_sections, bible_verses, ...state } = db
+  fs.writeFileSync(statePath, JSON.stringify(state))
+}
 
 function load(): DB {
-  if (fs.existsSync(dbPath)) {
-    const parsed = JSON.parse(fs.readFileSync(dbPath, 'utf-8'))
-    if (!parsed.users)  parsed.users  = []
-    if (!parsed.slides) parsed.slides = []
-    if (!parsed.media_folders) parsed.media_folders = []
-    if (!parsed.media_items)   parsed.media_items   = []
-    if (!parsed.display_settings) parsed.display_settings = {}
-    if (!parsed.meta)   parsed.meta   = { last_id: 0 }
-    if (!parsed.meta.installation_id) parsed.meta.installation_id = crypto.randomUUID()
-    for (const u of parsed.users) { if (!u.uuid) u.uuid = crypto.randomUUID() }
-    return parsed
+  // Already migrated to the split format — load both files.
+  if (fs.existsSync(statePath) || fs.existsSync(libraryPath)) {
+    const state: any   = fs.existsSync(statePath)   ? JSON.parse(fs.readFileSync(statePath, 'utf-8'))   : {}
+    const library: any = fs.existsSync(libraryPath) ? JSON.parse(fs.readFileSync(libraryPath, 'utf-8')) : {}
+    return finishLoad({
+      songs: library.songs || [], song_sections: library.song_sections || [], bible_verses: library.bible_verses || [],
+      daily_verses: state.daily_verses || [], service_queue: state.service_queue || [],
+      users: state.users || [], slides: state.slides || [],
+      media_folders: state.media_folders || [], media_items: state.media_items || [],
+      display_settings: state.display_settings || {},
+      meta: {
+        ...(state.meta || { last_id: 0 }),
+        songs_loaded: library.songs_loaded ?? state.meta?.songs_loaded,
+        bible_loaded: library.bible_loaded ?? state.meta?.bible_loaded,
+      },
+    })
   }
-  return { songs:[], song_sections:[], bible_verses:[], daily_verses:[], service_queue:[], users:[], slides:[], media_folders:[], media_items:[], display_settings:{}, meta:{ last_id:0, installation_id: crypto.randomUUID() } }
+  // One-time migration: an older version of ShogunOS wrote everything into
+  // a single shogunos.json file. If that's all we find, split it now — and
+  // write both new files immediately, rather than waiting for some future
+  // save()/saveLibrary() call to get around to it. Otherwise, if the app
+  // closes before anything happens to trigger a library write, the next
+  // launch would see statePath exists but libraryPath doesn't, and silently
+  // treat the hymnal/Bible library as empty.
+  if (fs.existsSync(dbPath)) {
+    const old = JSON.parse(fs.readFileSync(dbPath, 'utf-8'))
+    const migrated = finishLoad(old)
+    fs.writeFileSync(libraryPath, JSON.stringify({
+      songs: migrated.songs, song_sections: migrated.song_sections, bible_verses: migrated.bible_verses,
+      songs_loaded: migrated.meta.songs_loaded || '', bible_loaded: migrated.meta.bible_loaded || '',
+    }))
+    const { songs, song_sections, bible_verses, ...state } = migrated
+    fs.writeFileSync(statePath, JSON.stringify(state))
+    return migrated
+  }
+  return finishLoad({ songs:[], song_sections:[], bible_verses:[], daily_verses:[], service_queue:[], users:[], slides:[], media_folders:[], media_items:[], display_settings:{}, meta:{ last_id:0, installation_id: crypto.randomUUID() } })
+}
+
+function finishLoad(parsed: any): DB {
+  if (!parsed.users)  parsed.users  = []
+  if (!parsed.slides) parsed.slides = []
+  if (!parsed.media_folders) parsed.media_folders = []
+  if (!parsed.media_items)   parsed.media_items   = []
+  if (!parsed.display_settings) parsed.display_settings = {}
+  if (!parsed.meta)   parsed.meta   = { last_id: 0 }
+  if (!parsed.meta.installation_id) parsed.meta.installation_id = crypto.randomUUID()
+  for (const u of parsed.users) { if (!u.uuid) u.uuid = crypto.randomUUID() }
+  return parsed
 }
 
 function findData(file: string): string | null {
@@ -285,7 +339,9 @@ const FALLBACK_VERSES = [
 // ── INIT ──────────────────────────────────────────────────────────────────
 
 export async function initDatabase() {
-  dbPath = path.join(app.getPath('userData'), 'shogunos.json')
+  dbPath = path.join(app.getPath('userData'), 'shogunos.json') // legacy single-file format, migrated from if found
+  libraryPath = path.join(app.getPath('userData'), 'shogunos-library.json') // songs, hymnal, bible text — big, rarely rewritten
+  statePath = path.join(app.getPath('userData'), 'shogunos-state.json')     // queue, settings, users, slides, media — small, written often
   db = load()
   seedUsers()
 
@@ -318,7 +374,7 @@ export async function initDatabase() {
     }
     db.meta.songs_loaded = targetSongsLoaded
     console.log(`Songs loaded: ${db.songs.length} (SDA: ${sdaHymns.length}, CIS: ${cisHymns.length}${!hasSDA && !hasCIS ? ', fallback' : ''})`)
-    save()
+    saveLibrary()
   }
 
   // ── Bible ────────────────────────────────────────────────────────────
@@ -355,7 +411,7 @@ export async function initDatabase() {
       const d = new Date(today); d.setDate(today.getDate() + i)
       db.daily_verses.push({ id: nextId(), verse_id: src[i % src.length].id, date: d.toISOString().split('T')[0], region: 'ZW' })
     }
-    save()
+    saveLibrary(); save()
   }
 }
 
@@ -390,14 +446,14 @@ export function getSongSections(songId: number) {
 export function addSong(title: string, language: string, source: string, hymnNumber?: number) {
   const id = nextId()
   db.songs.push({ id, title, language, source, hymn_number: hymnNumber || null, created_at: new Date().toISOString() })
-  save(); return id
+  saveLibrary(); return id
 }
 export function addSongSection(songId: number, type: string, orderNum: number, content: string) {
-  db.song_sections.push({ id: nextId(), song_id: songId, type, order_num: orderNum, content }); save()
+  db.song_sections.push({ id: nextId(), song_id: songId, type, order_num: orderNum, content }); saveLibrary()
 }
 export function deleteSong(songId: number) {
   db.songs = db.songs.filter(s => s.id !== songId)
-  db.song_sections = db.song_sections.filter(s => s.song_id !== songId); save()
+  db.song_sections = db.song_sections.filter(s => s.song_id !== songId); saveLibrary()
 }
 
 // ── BIBLE ─────────────────────────────────────────────────────────────────
@@ -576,7 +632,7 @@ export function importDatabase(json: string): { success: boolean; error?: string
       if (db.slides.find(s => s.title.toLowerCase()===slide.title.toLowerCase())) continue
       db.slides.push({ ...slide, id:nextId(), order_num:db.slides.length+1 }); slidesAdded++
     }
-    save(); return { success:true, counts:{ songs:songsAdded, sections:sectionsAdded, slides:slidesAdded } }
+    save(); saveLibrary(); return { success:true, counts:{ songs:songsAdded, sections:sectionsAdded, slides:slidesAdded } }
   } catch(e:any) { return { success:false, error:`Parse error: ${e.message}` } }
 }
 export function importQSPSongs(songs: { title:string; author:string; language:string; sections:{type:string;order:number;content:string}[] }[]) {
@@ -588,10 +644,10 @@ export function importQSPSongs(songs: { title:string; author:string; language:st
     for (const sec of song.sections) { db.song_sections.push({ id:nextId(), song_id:id, type:sec.type, order_num:sec.order, content:sec.content }); sectionsAdded++ }
     songsAdded++
   }
-  save(); return { success:true, counts:{ songs:songsAdded, sections:sectionsAdded }, skipped }
+  saveLibrary(); return { success:true, counts:{ songs:songsAdded, sections:sectionsAdded }, skipped }
 }
 export function getDatabaseStats() {
-  return { songs:db.songs.length, custom_songs:db.songs.filter(s=>s.source==='custom').length, hymns:db.songs.filter(s=>s.source==='hymnal'||s.source==='hymnal-cis').length, sda_hymns:db.songs.filter(s=>s.source==='hymnal').length, cis_hymns:db.songs.filter(s=>s.source==='hymnal-cis').length, sections:db.song_sections.length, bible_verses:db.bible_verses.length, bible_translations:getBibleTranslations(), slides:db.slides.length, queue_items:db.service_queue.length, users:db.users.length, db_path:dbPath, installation_id:db.meta.installation_id }
+  return { songs:db.songs.length, custom_songs:db.songs.filter(s=>s.source==='custom').length, hymns:db.songs.filter(s=>s.source==='hymnal'||s.source==='hymnal-cis').length, sda_hymns:db.songs.filter(s=>s.source==='hymnal').length, cis_hymns:db.songs.filter(s=>s.source==='hymnal-cis').length, sections:db.song_sections.length, bible_verses:db.bible_verses.length, bible_translations:getBibleTranslations(), slides:db.slides.length, queue_items:db.service_queue.length, users:db.users.length, db_path:statePath, installation_id:db.meta.installation_id }
 }
 
 export default {}

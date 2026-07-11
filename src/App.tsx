@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react'
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import Splash from './Splash'
 import MediaTab from './MediaTab'
 
@@ -12,6 +12,24 @@ type NavGroup   = 'library' | 'present' | 'media' | 'service' | 'settings'
 type LibTab     = 'hymnal' | 'bible' | 'daily' | 'songs'
 type PresentTab = 'slides' | 'announce'
 type SettingsTab = 'display' | 'import' | 'about'
+
+// ── HYMNAL GROUPING (module-level — pure, never changes per-render) ────────
+// Used to group songs by hymnal collection/language. Kept outside the
+// component so grouping a song is a cheap function call, not something
+// recreated on every render.
+const HYMN_LANG_LABELS: Record<string,string> = {
+  en:'English', sn:'Shona', nd:'Ndebele/IsiZulu', xh:'IsiXhosa', tn:'Tswana', st:'Sotho',
+  ny:'Chichewa', toi:'Tonga', ve:'Venda', sw:'Swahili', ts:'Xitsonga', ki:'Kikuyu',
+  guz:'Abagusii', luo:'Dholuo', rw:'Kinyarwanda', pt:'Português', es:'Español',
+  fr:'Français', ru:'Русский', tum:'Tumbuka', nso:'Sepedi', bem:'Icibemba', tw:'Twi',
+}
+const hymnLangLabel = (l:string) => HYMN_LANG_LABELS[l] || (l.charAt(0).toUpperCase()+l.slice(1))
+// Group key: 'sda' is one group; each CIS language is its own group ('cis-en','cis-sn',…)
+const hymnGroupKey = (s:Song) => s.source==='hymnal-cis' ? `cis-${s.language}` : 'sda'
+const hymnGroupLabel = (key:string) => key==='sda' ? 'SDA Hymnal' : `CIS · ${hymnLangLabel(key.slice(4))}`
+const HYMN_GROUP_ORDER = ['sda','cis-en','cis-sn','cis-nd','cis-xh','cis-tn','cis-st','cis-ny','cis-toi',
+  'cis-ve','cis-sw','cis-ts','cis-ki','cis-guz','cis-luo','cis-rw','cis-pt','cis-es','cis-fr',
+  'cis-ru','cis-tum','cis-nso','cis-bem','cis-tw']
 
 interface DisplaySettings {
   bgColor: string; bgImage: string | null
@@ -1204,6 +1222,26 @@ export default function App() {
   const [availableVersions,setAvailableVersions] = useState<string[]>(['KJV'])
   const [results,setResults]             = useState<Song[]>([])
   const [allSongs,setAllSongs]           = useState<Song[]>([])
+
+  // Grouping/filtering thousands of hymns by language used to happen inline
+  // in the render function, which reran on every App re-render — including
+  // the once-a-second clock tick — regardless of which tab was even open.
+  // With 20+ hymnal languages that's a real, continuous cost. Memoizing it
+  // means this only recomputes when the songs or search term actually change.
+  const hymnSearchFiltered = useMemo(
+    () => query.trim().length>0 ? results : allSongs,
+    [query, results, allSongs]
+  )
+  const hymnLangsMemo = useMemo(
+    () => Array.from(new Set(allSongs.map(hymnGroupKey)))
+      .sort((a,b)=>HYMN_GROUP_ORDER.indexOf(a)-HYMN_GROUP_ORDER.indexOf(b)),
+    [allSongs]
+  )
+  const hymnByLangMemo = useMemo(() => {
+    const acc: Record<string,Song[]> = {}
+    for (const key of hymnLangsMemo) acc[key] = hymnSearchFiltered.filter(s=>hymnGroupKey(s)===key)
+    return acc
+  }, [hymnLangsMemo, hymnSearchFiltered])
   const [bibleResults,setBibleResults]   = useState<BibleVerse[]>([])
   const [selected,setSelected]           = useState<Song|null>(null)
   const [selectedVerse,setSelectedVerse] = useState<BibleVerse|null>(null)
@@ -1769,31 +1807,18 @@ export default function App() {
       </div>
     )
     // Default: show hymnal grouped by collection (SDA vs CIS), then by language within CIS
-    const LANG_LABELS: Record<string,string> = {
-      en:'English', sn:'Shona', nd:'Ndebele/IsiZulu', xh:'IsiXhosa', tn:'Tswana', st:'Sotho',
-      ny:'Chichewa', toi:'Tonga', ve:'Venda', sw:'Swahili', ts:'Xitsonga', ki:'Kikuyu',
-      guz:'Abagusii', luo:'Dholuo', rw:'Kinyarwanda', pt:'Português', es:'Español',
-      fr:'Français', ru:'Русский', tum:'Tumbuka', nso:'Sepedi', bem:'Icibemba', tw:'Twi',
-    }
-    const langLabel = (l:string) => LANG_LABELS[l] || (l.charAt(0).toUpperCase()+l.slice(1))
-    // Group key: 'sda' is one group; each CIS language is its own group ('cis-en','cis-sn',…)
-    const groupKey = (s:Song) => s.source==='hymnal-cis' ? `cis-${s.language}` : 'sda'
-    const groupLabel = (key:string) => key==='sda' ? 'SDA Hymnal' : `CIS · ${langLabel(key.slice(4))}`
-    const GROUP_ORDER = ['sda','cis-en','cis-sn','cis-nd','cis-xh','cis-tn','cis-st','cis-ny','cis-toi',
-      'cis-ve','cis-sw','cis-ts','cis-ki','cis-guz','cis-luo','cis-rw','cis-pt','cis-es','cis-fr',
-      'cis-ru','cis-tum','cis-nso','cis-bem','cis-tw']
+    const langLabel = hymnLangLabel
+    const groupKey = hymnGroupKey
+    const groupLabel = hymnGroupLabel
+    const GROUP_ORDER = HYMN_GROUP_ORDER
     const LANG_COLORS = [C.g2, C.p1, C.g1, C.live+'cc', C.safe+'cc', C.p2]
-    const searchFiltered = query.trim().length>0 ? results : allSongs
-    const hymnLangs = Array.from(new Set(allSongs.map(groupKey)))
-      .sort((a,b)=>GROUP_ORDER.indexOf(a)-GROUP_ORDER.indexOf(b))
+    const searchFiltered = hymnSearchFiltered
+    const hymnLangs = hymnLangsMemo
     // Auto-expand first group on first load
     if(Object.keys(expandedHymnLangs).length===0 && hymnLangs.length>0) {
       setTimeout(()=>setExpandedHymnLangs({[hymnLangs[0]]:true}),0)
     }
-    const byLang = hymnLangs.reduce((acc,key)=>{
-      acc[key]=searchFiltered.filter(s=>groupKey(s)===key)
-      return acc
-    },{} as Record<string,Song[]>)
+    const byLang = hymnByLangMemo
     const btn2: React.CSSProperties = {cursor:'pointer',fontFamily:'inherit',border:'none',outline:'none',transition:'all 0.15s'}
     return (
       <div style={{flex:1,display:'flex',overflow:'hidden',minHeight:0}}>

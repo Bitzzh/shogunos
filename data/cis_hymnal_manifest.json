@@ -7,10 +7,150 @@
     "count": 300
   },
   {
+    "code": "bem",
+    "language": "Bemba",
+    "hymnalTitle": "Christ In Song",
+    "file": "cis_hymnal_bem.json",
+    "count": 311
+  },
+  {
+    "code": "ny",
+    "language": "Chichewa",
+    "hymnalTitle": "Christ In Song",
+    "file": "cis_hymnal_ny.json",
+    "count": 350
+  },
+  {
+    "code": "tum",
+    "language": "Chitumbuka",
+    "hymnalTitle": "Christ In Song",
+    "file": "cis_hymnal_tum.json",
+    "count": 367
+  },
+  {
+    "code": "luo",
+    "language": "Dholuo",
+    "hymnalTitle": "Christ In Song",
+    "file": "cis_hymnal_luo.json",
+    "count": 332
+  },
+  {
+    "code": "fr",
+    "language": "French",
+    "hymnalTitle": "Christ In Song",
+    "file": "cis_hymnal_fr.json",
+    "count": 520
+  },
+  {
+    "code": "guz",
+    "language": "Gusii",
+    "hymnalTitle": "Christ In Song",
+    "file": "cis_hymnal_guz.json",
+    "count": 370
+  },
+  {
+    "code": "ki",
+    "language": "Kikuyu",
+    "hymnalTitle": "Christ In Song",
+    "file": "cis_hymnal_ki.json",
+    "count": 299
+  },
+  {
+    "code": "rw",
+    "language": "Kinyarwanda",
+    "hymnalTitle": "Christ In Song",
+    "file": "cis_hymnal_rw.json",
+    "count": 500
+  },
+  {
+    "code": "pt",
+    "language": "Portuguese",
+    "hymnalTitle": "Christ In Song",
+    "file": "cis_hymnal_pt.json",
+    "count": 610
+  },
+  {
+    "code": "ru",
+    "language": "Russian",
+    "hymnalTitle": "Christ In Song",
+    "file": "cis_hymnal_ru.json",
+    "count": 384
+  },
+  {
+    "code": "nso",
+    "language": "Sepedi",
+    "hymnalTitle": "Christ In Song",
+    "file": "cis_hymnal_nso.json",
+    "count": 303
+  },
+  {
+    "code": "st",
+    "language": "Sesotho",
+    "hymnalTitle": "Christ In Song",
+    "file": "cis_hymnal_st.json",
+    "count": 300
+  },
+  {
+    "code": "tn",
+    "language": "Setswana",
+    "hymnalTitle": "Christ In Song",
+    "file": "cis_hymnal_tn.json",
+    "count": 300
+  },
+  {
     "code": "sn",
     "language": "Shona",
     "hymnalTitle": "Kristu MuNzwiyo",
     "file": "cis_hymnal_sn.json",
     "count": 300
+  },
+  {
+    "code": "es",
+    "language": "Spanish",
+    "hymnalTitle": "Christ In Song",
+    "file": "cis_hymnal_es.json",
+    "count": 614
+  },
+  {
+    "code": "sw",
+    "language": "Swahili",
+    "hymnalTitle": "Christ In Song",
+    "file": "cis_hymnal_sw.json",
+    "count": 220
+  },
+  {
+    "code": "toi",
+    "language": "Tonga",
+    "hymnalTitle": "Christ In Song",
+    "file": "cis_hymnal_toi.json",
+    "count": 341
+  },
+  {
+    "code": "ve",
+    "language": "Tshivenda",
+    "hymnalTitle": "Christ In Song",
+    "file": "cis_hymnal_ve.json",
+    "count": 306
+  },
+  {
+    "code": "tw",
+    "language": "Twi",
+    "hymnalTitle": "Christ In Song",
+    "file": "cis_hymnal_tw.json",
+    "count": 770
+  },
+  {
+    "code": "xh",
+    "language": "Xhosa",
+    "hymnalTitle": "Christ In Song",
+    "file": "cis_hymnal_xh.json",
+    "count": 352
+  },
+  {
+    "code": "ts",
+    "language": "Xitsonga",
+    "hymnalTitle": "Christ In Song",
+    "file": "cis_hymnal_ts.json",
+    "count": 311
   }
 ]
