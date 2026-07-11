@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, screen, dialog } from 'electron'
+import { app, BrowserWindow, ipcMain, screen, dialog, Menu } from 'electron'
 import path from 'node:path'
 import fs from 'node:fs'
 import started from 'electron-squirrel-startup'
@@ -132,6 +132,36 @@ const createLiveWindow = (displayId?: number, initialData?: any) => {
 }
 
 app.on('ready', async () => {
+  // Electron shows a default File/Edit/View/Window/Help menu bar unless told
+  // otherwise — that's what was making this look like a dev tool rather than
+  // a finished app. On Windows/Linux we remove it entirely. On macOS the
+  // menu bar lives at the OS level (not in the window), and totally removing
+  // it breaks expected behavior like Cmd+C/Cmd+V/Cmd+Q — so there we keep a
+  // minimal one with just those essentials, nothing else.
+  if (process.platform === 'darwin') {
+    Menu.setApplicationMenu(Menu.buildFromTemplate([
+      {
+        label: app.name,
+        submenu: [
+          { role: 'about' },
+          { type: 'separator' },
+          { role: 'hide' }, { role: 'hideOthers' }, { role: 'unhide' },
+          { type: 'separator' },
+          { role: 'quit' },
+        ],
+      },
+      {
+        label: 'Edit',
+        submenu: [
+          { role: 'undo' }, { role: 'redo' }, { type: 'separator' },
+          { role: 'cut' }, { role: 'copy' }, { role: 'paste' }, { role: 'selectAll' },
+        ],
+      },
+    ]))
+  } else {
+    Menu.setApplicationMenu(null)
+  }
+
   await initDatabase()
 
   // ── SONGS ────────────────────────────────────────────────────────────────
@@ -290,4 +320,4 @@ function getMimeType(ext: string): string {
 }
 
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit() })
-app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow() })
+app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow() })s
