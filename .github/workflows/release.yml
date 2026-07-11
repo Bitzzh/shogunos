@@ -1,0 +1,87 @@
+name: Build & Release
+
+# Push a tag like "v1.0.0" to trigger this — it builds installers for
+# Windows, macOS, and Linux, then attaches them all to a GitHub Release
+# matching that tag. That release's asset URLs are what the website's
+# Download buttons should point to (see notes at the bottom of this file).
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch: {} # lets you trigger a build manually from the Actions tab, no tag needed
+
+permissions:
+  contents: write # required so the workflow can create/attach files to a Release
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            asset_glob: |
+              out/make/**/*.exe
+              out/make/**/*.nupkg
+          - os: macos-latest
+            asset_glob: |
+              out/make/**/*.zip
+              out/make/**/*.dmg
+          - os: ubuntu-latest
+            asset_glob: |
+              out/make/**/*.deb
+              out/make/**/*.rpm
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build installers (electron-forge make)
+        run: npm run make
+
+      - name: Attach installers to the GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          # Multiple OS jobs finish at different times; each one appends its
+          # own files to the same release rather than overwriting it.
+          files: ${{ matrix.asset_glob }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload build as a workflow artifact (manual runs / PR checks)
+        if: ${{ !startsWith(github.ref, 'refs/tags/') }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: shogunos-${{ matrix.os }}
+          path: out/make/**/*
+          retention-days: 14
+
+# ── HOW TO CUT A RELEASE ─────────────────────────────────────────────────────
+#   git tag v1.0.0
+#   git push origin v1.0.0
+#
+# That's it — this workflow builds all three platforms and creates a
+# "v1.0.0" GitHub Release with the installers attached automatically.
+#
+# ── WIRING UP THE WEBSITE'S DOWNLOAD BUTTONS ────────────────────────────────
+# Once you've pushed your first tag and this workflow has finished, replace
+# the placeholder in index.html:
+#   https://github.com/YOUR-ORG/shogunos/releases/latest
+# with your real repo path, e.g.:
+#   https://github.com/ngaatendwe/shogunos/releases/latest
+#
+# "/releases/latest" always resolves to the newest tagged release, so you
+# never need to update that link again after future releases — just cut a
+# new tag and the same URL serves the newest installers.
