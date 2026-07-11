@@ -66,11 +66,4 @@ contextBridge.exposeInMainWorld('shogunos', {
   // ── LOCAL OPERATOR ───────────────────────────────────────────────────────────
   getCurrentUser:     () => ipcRenderer.invoke('get-current-user'),
   updateDisplayName:  (displayName: string) => ipcRenderer.invoke('update-display-name', displayName),
-
-  // ── LICENSING ────────────────────────────────────────────────────────────────
-  getLicenseStatus:   () => ipcRenderer.invoke('license-get-status'),
-  activateLicense:    (key: string) => ipcRenderer.invoke('license-activate', key),
-  deactivateLicense:  () => ipcRenderer.invoke('license-deactivate'),
-  getFreeTierLimits:  () => ipcRenderer.invoke('license-get-free-limits'),
-  openPurchasePage:   () => ipcRenderer.invoke('license-open-purchase'),
 })

@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, screen, dialog, shell } from 'electron'
+import { app, BrowserWindow, ipcMain, screen, dialog } from 'electron'
 import path from 'node:path'
 import fs from 'node:fs'
 import started from 'electron-squirrel-startup'
@@ -16,7 +16,6 @@ import {
   getMediaFolders, createMediaFolder, deleteMediaFolder, addMediaItem, deleteMediaItem, getMediaItems,
 } from './database'
 import { parseQSP } from './qsp-parser'
-import { getLicenseStatus, activateLicense, deactivateLicense, PURCHASE_URL, FREE_TIER_LIMITS } from './licensing'
 
 if (started) { app.quit() }
 
@@ -261,13 +260,6 @@ app.on('ready', async () => {
   // Single local operator profile — no login, no accounts.
   ipcMain.handle('get-current-user', () => getCurrentUser())
   ipcMain.handle('update-display-name', (_e, displayName: string) => updateDisplayName(displayName))
-
-  // Licensing — Pro unlock via Lemon Squeezy license keys.
-  ipcMain.handle('license-get-status', () => getLicenseStatus())
-  ipcMain.handle('license-activate', (_e, key: string) => activateLicense(key))
-  ipcMain.handle('license-deactivate', () => deactivateLicense())
-  ipcMain.handle('license-get-free-limits', () => FREE_TIER_LIMITS)
-  ipcMain.handle('license-open-purchase', () => shell.openExternal(PURCHASE_URL))
 
   createWindow()
 
