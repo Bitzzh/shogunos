@@ -13,11 +13,36 @@ const config: ForgeConfig = {
     icon: './assets/icon',
     extraResource: [
       './data'
-    ]
+    ],
+    appBundleId: 'app.shogunos.desktop',
+    appCopyright: `Copyright © ${new Date().getFullYear()} ShogunOS`,
+    // These show up in Windows' file Properties → Details tab. Right now
+    // that tab shows generic/blank fields, which is one of the small "does
+    // a real company make this" signals people notice on unsigned software.
+    win32metadata: {
+      CompanyName: 'ShogunOS',
+      FileDescription: 'ShogunOS — Multilingual Worship Presentation Software',
+      ProductName: 'ShogunOS',
+      OriginalFilename: 'ShogunOS.exe',
+    },
+    // ── CODE SIGNING (Windows) ────────────────────────────────────────────
+    // Inactive until a real certificate is available — building without
+    // these env vars set produces an unsigned installer exactly as before,
+    // so this is safe to leave in. Once you buy a code-signing certificate
+    // (see the docs/PACKAGING.md note), set these two locally or as CI
+    // secrets and signing turns on automatically, no code changes needed:
+    //   WINDOWS_CERT_FILE      — path to your .pfx certificate file
+    //   WINDOWS_CERT_PASSWORD  — its password
   },
   rebuildConfig: {},
   makers: [
-    new MakerSquirrel({ setupIcon: './assets/icon.ico' }),
+    new MakerSquirrel({
+      setupIcon: './assets/icon.ico',
+      ...(process.env.WINDOWS_CERT_FILE ? {
+        certificateFile: process.env.WINDOWS_CERT_FILE,
+        certificatePassword: process.env.WINDOWS_CERT_PASSWORD,
+      } : {}),
+    }),
     new MakerZIP({}, ['darwin']),
     new MakerRpm({ options: { icon: './assets/icon.png' } }),
     new MakerDeb({ options: { icon: './assets/icon.png' } }),

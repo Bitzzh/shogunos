@@ -320,4 +320,4 @@ function getMimeType(ext: string): string {
 }
 
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit() })
-app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow() })s
+app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow() })

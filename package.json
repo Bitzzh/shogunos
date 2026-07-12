@@ -1,8 +1,8 @@
 {
   "name": "shogunos",
-  "productName": "shogunos",
-  "version": "1.0.0",
-  "description": "My Electron application description",
+  "productName": "ShogunOS",
+  "version": "1.1.0",
+  "description": "Multilingual worship presentation software — hymnals and scripture in 20+ languages, offline-first.",
   "main": ".vite/build/main.js",
   "private": true,
   "scripts": {
@@ -13,7 +13,7 @@
     "lint": "eslint --ext .ts,.tsx ."
   },
   "keywords": [],
-  "author": "Ngaatendwe Manjeya~~",
+  "author": "ShogunOS",
   "license": "MIT",
   "devDependencies": {
     "@electron-forge/cli": "^7.11.1",
