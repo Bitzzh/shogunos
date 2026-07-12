@@ -1,7 +1,7 @@
 {
   "name": "shogunos",
   "productName": "ShogunOS",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Multilingual worship presentation software — hymnals and scripture in 20+ languages, offline-first.",
   "main": ".vite/build/main.js",
   "private": true,
