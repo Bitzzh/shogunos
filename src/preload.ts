@@ -61,6 +61,7 @@ contextBridge.exposeInMainWorld('shogunos', {
   importData:          (json: string) => ipcRenderer.invoke('import-data', json),
   getDatabaseStats:    () => ipcRenderer.invoke('get-db-stats'),
   importQSP:           (base64: string, language?: string) => ipcRenderer.invoke('import-qsp', base64, language),
+  importPPTX:          (base64: string) => ipcRenderer.invoke('import-pptx', base64),
   getDisplaySettings:  () => ipcRenderer.invoke('get-display-settings'),
   saveDisplaySettings: (settings: any) => ipcRenderer.invoke('save-display-settings', settings),
 

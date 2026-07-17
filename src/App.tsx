@@ -594,20 +594,20 @@ function SongsTab({ goLive, addToQueue, notify }: { goLive:(t:string,l:string)=>
     setSections(await api.getSongSections(song.id))
   }
 
-  const visible = songs.filter(s=>{
+  const visible = useMemo(() => songs.filter(s=>{
     if(filter!=='all'&&s.source!==filter) return false
     if(search) return s.title.toLowerCase().includes(search.toLowerCase()) ||
       String(s.hymn_number||'').includes(search)
     return true
-  })
+  }), [songs, filter, search])
 
-  const langs = Array.from(new Set(songs.map(groupKey)))
-    .sort((a,b)=>GROUP_ORDER.indexOf(a)-GROUP_ORDER.indexOf(b) || a.localeCompare(b))
+  const langs = useMemo(() => Array.from(new Set(songs.map(groupKey)))
+    .sort((a,b)=>GROUP_ORDER.indexOf(a)-GROUP_ORDER.indexOf(b) || a.localeCompare(b)), [songs])
 
-  const byLang = langs.reduce((acc,key)=>{
+  const byLang = useMemo(() => langs.reduce((acc,key)=>{
     acc[key]=visible.filter(s=>groupKey(s)===key)
     return acc
-  },{} as Record<string,Song[]>)
+  },{} as Record<string,Song[]>), [langs, visible])
 
   const sec=sections[cur]
   const btn: React.CSSProperties = {cursor:'pointer',fontFamily:'inherit',border:'none',outline:'none',transition:'all 0.15s'}
@@ -1014,11 +1014,12 @@ function AboutTab() {
 function ImportTab({ notify }: { notify:(m:string)=>void }) {
   const [importing,setImporting] = useState(false)
   const [result,setResult]       = useState<{success:boolean;message:string}|null>(null)
-  const [mode,setMode]           = useState<'json'|'qsp'>('json')
+  const [mode,setMode]           = useState<'json'|'qsp'|'pptx'>('json')
   const [dragOver,setDragOver]   = useState(false)
   const [qspLang,setQspLang]     = useState('en')
   const fileRef  = useRef<HTMLInputElement>(null)
   const qspRef   = useRef<HTMLInputElement>(null)
+  const pptxRef  = useRef<HTMLInputElement>(null)
   const api = (window as any).shogunos
 
   const QSP_LANGS: { id:string; label:string }[] = [
@@ -1056,19 +1057,40 @@ function ImportTab({ notify }: { notify:(m:string)=>void }) {
     setImporting(false)
   }
 
+  async function handlePPTX(file:File){
+    if(!file.name.toLowerCase().endsWith('.pptx')){setResult({success:false,message:'Please select a .pptx PowerPoint file'});return}
+    setImporting(true);setResult(null)
+    try{
+      const ab=await file.arrayBuffer()
+      const u8=new Uint8Array(ab)
+      let bin='';for(let i=0;i<u8.length;i++)bin+=String.fromCharCode(u8[i])
+      const b64=btoa(bin)
+      const r=await api.importPPTX(b64)
+      if(r.success){
+        const skippedCount=(r.total||0)-(r.parsed||0)
+        const msg=`PowerPoint import — ${r.counts.slides} slide${r.counts.slides!==1?'s':''} added${skippedCount>0?`, ${skippedCount} blank slide${skippedCount!==1?'s':''} skipped`:''}. Find them in Present → Slides.`
+        setResult({success:true,message:msg});notify(`PPTX: ${r.counts.slides} slides imported`)
+      }else setResult({success:false,message:r.error||'PowerPoint import failed'})
+    }catch(e:any){setResult({success:false,message:e.message})}
+    setImporting(false)
+  }
+
   function onDrop(e:React.DragEvent){
     e.preventDefault();setDragOver(false)
     const f=e.dataTransfer.files[0];if(!f)return
-    f.name.toLowerCase().endsWith('.qsp')?handleQSP(f):handleJson(f)
+    const lower=f.name.toLowerCase()
+    if(lower.endsWith('.qsp'))handleQSP(f)
+    else if(lower.endsWith('.pptx'))handlePPTX(f)
+    else handleJson(f)
   }
 
   return (
     <div style={{flex:1,padding:36,overflowY:'auto',background:C.bg1,display:'flex',flexDirection:'column',gap:20,maxWidth:560}}>
       <div style={{fontSize:9,fontWeight:700,letterSpacing:'0.2em',color:C.t4,textTransform:'uppercase' as const}}>Import Data</div>
       <div style={{display:'flex',gap:4,background:C.bg3,padding:4,borderRadius:10,border:`1px solid ${C.b1}`}}>
-        {(['json','qsp'] as const).map(m=>(
+        {(['json','qsp','pptx'] as const).map(m=>(
           <button key={m} onClick={()=>{setMode(m);setResult(null)}} style={{flex:1,padding:'9px 0',fontSize:11,fontWeight:600,cursor:'pointer',fontFamily:'inherit',borderRadius:7,background:mode===m?C.bg5:'none',border:`1px solid ${mode===m?C.b2:'transparent'}`,color:mode===m?C.t1:C.t3}}>
-            {m==='json'?'ShogunOS Backup (.json)':'Quelea Song Pack (.qsp)'}
+            {m==='json'?'ShogunOS Backup (.json)':m==='qsp'?'Quelea Song Pack (.qsp)':'PowerPoint (.pptx)'}
           </button>
         ))}
       </div>
@@ -1084,14 +1106,21 @@ function ImportTab({ notify }: { notify:(m:string)=>void }) {
           <div style={{fontSize:10,color:C.t4,marginTop:6,lineHeight:1.5}}>Quelea song packs don't store a language, so pick the one that matches this pack — it'll be used to group these songs in the Hymnal and My Songs views.</div>
         </div>
       )}
-      <div onDragOver={e=>{e.preventDefault();setDragOver(true)}} onDragLeave={()=>setDragOver(false)} onDrop={onDrop} onClick={()=>mode==='qsp'?qspRef.current?.click():fileRef.current?.click()}
+      {mode==='pptx'&&(
+        <div style={{padding:'12px 16px',background:`color-mix(in srgb, ${C.g2} 7%, transparent)`,border:`1px solid color-mix(in srgb, ${C.g2} 27%, transparent)`,borderRadius:10}}>
+          <div style={{fontSize:11,color:C.g2,fontWeight:700,marginBottom:4}}>PowerPoint Import</div>
+          <div style={{fontSize:12,color:C.t3,lineHeight:1.6}}>Each slide becomes a ShogunOS slide, ready to send live from <strong style={{color:C.t2}}>Present → Slides</strong>. The first line of text on each slide becomes its title; everything else becomes the body. Images, animations, and layout aren't imported — just the text.</div>
+        </div>
+      )}
+      <div onDragOver={e=>{e.preventDefault();setDragOver(true)}} onDragLeave={()=>setDragOver(false)} onDrop={onDrop} onClick={()=>mode==='qsp'?qspRef.current?.click():mode==='pptx'?pptxRef.current?.click():fileRef.current?.click()}
         style={{border:`2px dashed ${dragOver?C.p1:C.b1}`,background:dragOver?`color-mix(in srgb, ${C.p1} 3%, transparent)`:C.bg2,borderRadius:12,padding:'40px 24px',textAlign:'center',cursor:'pointer',transition:'all 0.15s'}}>
-        <div style={{fontSize:28,marginBottom:10,opacity:0.4}}>{mode==='qsp'?'🎵':'📂'}</div>
-        <div style={{fontSize:14,color:dragOver?C.p2:C.t2,fontWeight:600,marginBottom:4}}>{importing?'Importing…':mode==='qsp'?'Drop your .qsp file':'Drop your backup file'}</div>
+        <div style={{fontSize:28,marginBottom:10,opacity:0.4}}>{mode==='qsp'?'🎵':mode==='pptx'?'📊':'📂'}</div>
+        <div style={{fontSize:14,color:dragOver?C.p2:C.t2,fontWeight:600,marginBottom:4}}>{importing?'Importing…':mode==='qsp'?'Drop your .qsp file':mode==='pptx'?'Drop your .pptx file':'Drop your backup file'}</div>
         <div style={{fontSize:11,color:C.t4}}>or click to browse</div>
       </div>
       <input ref={fileRef} type="file" accept=".json" onChange={e=>{const f=e.target.files?.[0];if(f)handleJson(f);e.target.value=''}} style={{display:'none'}}/>
       <input ref={qspRef} type="file" accept=".qsp" onChange={e=>{const f=e.target.files?.[0];if(f)handleQSP(f);e.target.value=''}} style={{display:'none'}}/>
+      <input ref={pptxRef} type="file" accept=".pptx" onChange={e=>{const f=e.target.files?.[0];if(f)handlePPTX(f);e.target.value=''}} style={{display:'none'}}/>
       {result&&(
         <div style={{padding:'14px 18px',background:result.success?`color-mix(in srgb, ${C.safe} 6%, transparent)`:`color-mix(in srgb, ${C.live} 6%, transparent)`,border:`1px solid ${result.success?C.safe:C.live}44`,borderRadius:10}}>
           <div style={{fontSize:12,color:result.success?C.safe:C.live,fontWeight:600}}>{result.success?'✓ ':'✗ '}{result.message}</div>

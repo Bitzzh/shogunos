@@ -655,6 +655,21 @@ export function importQSPSongs(songs: { title:string; author:string; language:st
   }
   saveLibrary(); return { success:true, counts:{ songs:songsAdded, sections:sectionsAdded }, skipped }
 }
+export function importPPTXSlides(slides: { title:string; content:string }[]) {
+  let maxOrder = db.slides.reduce((m,s) => Math.max(m,s.order_num), 0)
+  let added = 0
+  for (const s of slides) {
+    maxOrder += 1
+    db.slides.push({
+      id: nextId(), title: s.title || `Slide ${added+1}`, type: 'text', content: s.content,
+      notes: '', bg_color: '#000000', font_color: '#FFFFFF', font_size: 48, text_align: 'center',
+      order_num: maxOrder, tags: ['pptx-import'], created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
+    })
+    added++
+  }
+  save()
+  return { success: true, counts: { slides: added } }
+}
 export function getDatabaseStats() {
   return { songs:db.songs.length, custom_songs:db.songs.filter(s=>s.source==='custom').length, hymns:db.songs.filter(s=>s.source==='hymnal'||s.source==='hymnal-cis').length, sda_hymns:db.songs.filter(s=>s.source==='hymnal').length, cis_hymns:db.songs.filter(s=>s.source==='hymnal-cis').length, sections:db.song_sections.length, bible_verses:db.bible_verses.length, bible_translations:getBibleTranslations(), slides:db.slides.length, queue_items:db.service_queue.length, users:db.users.length, db_path:statePath, installation_id:db.meta.installation_id }
 }

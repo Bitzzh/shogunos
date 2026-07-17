@@ -12,10 +12,12 @@ import {
   exportDatabase, importDatabase, getDatabaseStats,
   getCurrentUser, updateDisplayName,
   importQSPSongs,
+  importPPTXSlides,
   getDisplaySettings, saveDisplaySettings,
   getMediaFolders, createMediaFolder, deleteMediaFolder, addMediaItem, deleteMediaItem, getMediaItems,
 } from './database'
 import { parseQSP } from './qsp-parser'
+import { parsePPTX } from './pptx-parser'
 import { startRemoteServer, stopRemoteServer, updateRemoteState, getRemoteInfo, RemoteState } from './remote-server'
 
 if (started) { app.quit() }
@@ -316,6 +318,19 @@ app.on('ready', async () => {
       }
       const result = importQSPSongs(parsed.songs)
       return { parsed: parsed.parsed, ...result, errors: parsed.errors }
+    } catch (e: any) {
+      return { success: false, error: e.message }
+    }
+  })
+  ipcMain.handle('import-pptx',  (_e, base64: string) => {
+    try {
+      const buf    = Buffer.from(base64, 'base64')
+      const parsed = parsePPTX(buf)
+      if (!parsed.success || parsed.slides.length === 0) {
+        return { success: false, error: `No slide text found. ${parsed.errors.join(', ')}` }
+      }
+      const result = importPPTXSlides(parsed.slides)
+      return { parsed: parsed.parsed, total: parsed.total, ...result, errors: parsed.errors }
     } catch (e: any) {
       return { success: false, error: e.message }
     }
