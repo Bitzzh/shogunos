@@ -21,6 +21,7 @@ contextBridge.exposeInMainWorld('shogunos', {
   getDisplays:          () => ipcRenderer.invoke('get-displays'),
   goLive:               (data: any) => ipcRenderer.invoke('go-live', data),
   goLiveMedia:          (data: any) => ipcRenderer.invoke('go-live-media', data),
+  goLiveTimer:          (data: any) => ipcRenderer.invoke('go-live-media', data),
   closeLive:            () => ipcRenderer.invoke('close-live'),
   moveLiveToDisplay:    (displayId: number) => ipcRenderer.invoke('move-live-to-display', displayId),
   onUpdateLive:         (cb: (data: any) => void) => ipcRenderer.on('update-live', (_e: any, d: any) => cb(d)),
@@ -66,4 +67,9 @@ contextBridge.exposeInMainWorld('shogunos', {
   // ── LOCAL OPERATOR ───────────────────────────────────────────────────────────
   getCurrentUser:     () => ipcRenderer.invoke('get-current-user'),
   updateDisplayName:  (displayName: string) => ipcRenderer.invoke('update-display-name', displayName),
+
+  // ── REMOTE CONTROL ───────────────────────────────────────────────────────────
+  getRemoteInfo:      () => ipcRenderer.invoke('get-remote-info'),
+  pushRemoteState:    (state: any) => ipcRenderer.send('remote-state-update', state),
+  onRemoteCommand:    (cb: (data: { action: string; id?: string }) => void) => ipcRenderer.on('remote-command', (_e: any, d: any) => cb(d)),
 })

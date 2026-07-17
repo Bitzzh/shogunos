@@ -81,6 +81,33 @@
       transition: opacity 0.3s ease;
     }
     #blank-layer.visible { opacity: 1; }
+
+    #timer-layer {
+      position: fixed; inset: 0;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      background: #000;
+      opacity: 0; pointer-events: none;
+      transition: opacity 0.4s ease;
+    }
+    #timer-layer.visible { opacity: 1; pointer-events: auto }
+    #timer-label {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      font-size: 22px; font-weight: 400;
+      color: rgba(255,255,255,0.6);
+      letter-spacing: 0.28em;
+      text-transform: uppercase;
+      margin-bottom: 28px;
+      text-align: center;
+    }
+    #timer-clock {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      font-variant-numeric: tabular-nums;
+      font-size: 168px; font-weight: 200;
+      color: #fff; letter-spacing: 0.04em;
+      line-height: 1;
+    }
+    #timer-clock.done { color: #c23b3b; }
   </style>
 </head>
 <body>
@@ -102,6 +129,11 @@
 
   <div id="blank-layer"></div>
 
+  <div id="timer-layer">
+    <div id="timer-label"></div>
+    <div id="timer-clock">00:00</div>
+  </div>
+
   <script>
     const bgLayer    = document.getElementById('bg-layer')
     const textLayer  = document.getElementById('text-layer')
@@ -112,12 +144,44 @@
     const videoEl    = document.getElementById('video-el')
     const imageLayer = document.getElementById('image-layer')
     const blankLayer = document.getElementById('blank-layer')
+    const timerLayer = document.getElementById('timer-layer')
+    const timerLabelEl = document.getElementById('timer-label')
+    const timerClockEl = document.getElementById('timer-clock')
+    let timerInterval = null
+
+    function stopTimer() {
+      if (timerInterval) { clearInterval(timerInterval); timerInterval = null }
+    }
+
+    function formatCountdown(ms) {
+      const totalSeconds = Math.max(0, Math.round(ms / 1000))
+      const h = Math.floor(totalSeconds / 3600)
+      const m = Math.floor((totalSeconds % 3600) / 60)
+      const s = totalSeconds % 60
+      const pad = n => String(n).padStart(2, '0')
+      return h > 0 ? `${h}:${pad(m)}:${pad(s)}` : `${pad(m)}:${pad(s)}`
+    }
+
+    function startTimer(data) {
+      stopTimer()
+      timerLabelEl.textContent = data.label || ''
+      const tick = () => {
+        const remaining = data.targetTime - Date.now()
+        timerClockEl.textContent = formatCountdown(remaining)
+        timerClockEl.classList.toggle('done', remaining <= 0)
+        if (remaining <= 0) stopTimer()
+      }
+      tick()
+      timerInterval = setInterval(tick, 250)
+    }
 
     function hideAll() {
       textLayer.classList.remove('visible')
       videoLayer.classList.remove('visible')
       imageLayer.classList.remove('visible')
       blankLayer.classList.remove('visible')
+      timerLayer.classList.remove('visible')
+      stopTimer()
     }
 
     function update(data) {
@@ -156,6 +220,16 @@
           imageLayer.style.backgroundImage = `url("file://${data.filePath.replace(/\\/g, '/')}")`
           imageLayer.style.backgroundSize = data.fitMode === 'fill' ? 'cover' : 'contain'
           imageLayer.classList.add('visible')
+        }
+        return
+      }
+
+      if (type === 'timer') {
+        hideAll()
+        videoEl.pause()
+        if (data.targetTime) {
+          startTimer(data)
+          timerLayer.classList.add('visible')
         }
         return
       }
@@ -218,6 +292,17 @@
         if (registerLiveListener() || ++attempts > 20) clearInterval(retry)
       }, 50)
     }
+
+    // Escape closes the live output. This window can end up as the only
+    // thing with OS focus (borderless, always-on-top on multi-display
+    // setups) — without this, the only way back to the app was killing the
+    // process, since the operator's keyboard shortcuts live in the main
+    // window and never reach this one.
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && window.shogunos && typeof window.shogunos.closeLive === 'function') {
+        window.shogunos.closeLive()
+      }
+    })
   </script>
 </body>
 </html>

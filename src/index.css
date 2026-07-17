@@ -1,3 +1,35 @@
+:root {
+  /* Washi paper — warm cream, layered light to lighter */
+  --bg0: #f6f2e7; --bg1: #fffdf8; --bg2: #faf6ee; --bg3: #efe9db; --bg4: #e5ddc9; --bg5: #d8cdb3;
+  /* Ink-tinted hairlines */
+  --b0: #e6ddc8; --b1: #d6c9ab; --b2: #bfae87;
+  /* Lingfield crest red — LIVE / action states only, never decorative
+     (sampled from the badge's banner flags, #e42430, deepened for UI contrast) */
+  --p1: #8f1620; --p2: #c22430; --p3: #dc4650;
+  /* Lingfield crest blue — authority / selected states
+     (sampled from the badge's navy + sky blue, #183084 / #24a8d8) */
+  --g1: #142c66; --g2: #145a9e; --g3: #23a6d8;
+  /* Sumi ink — warm text scale */
+  --t1: #1b1a17; --t2: #4a463d; --t3: #8b8072; --t4: #b3a690;
+  /* Status — Lingfield's trim gold doubles as highlight/warn (sampled #eee61e, deepened for legibility) */
+  --live: #c22430; --safe: #47623f; --warn: #b3941f;
+  --gold: #b3941f; --goldL: #d4b62f;
+}
+
+[data-theme='dark'] {
+  /* Sumi ink paper — dark charcoal, layered dark to darker (mirrors the light scale) */
+  --bg0: #171613; --bg1: #201f1b; --bg2: #1c1b18; --bg3: #2a2822; --bg4: #34322a; --bg5: #454136;
+  --b0: #2a2822; --b1: #3a3730; --b2: #514c3f;
+  /* Crest red — a touch brighter so it still reads as "live" against a dark ground */
+  --p1: #c22430; --p2: #dc4650; --p3: #ea6870;
+  /* Crest blue — lifted for contrast on dark backgrounds */
+  --g1: #145a9e; --g2: #2f86c4; --g3: #5cc4ea;
+  /* Text scale inverted: lightest first */
+  --t1: #f3efe4; --t2: #cfc8b4; --t3: #9a927c; --t4: #6b6455;
+  --live: #dc4650; --safe: #6a9160; --warn: #d4b62f;
+  --gold: #d4b62f; --goldL: #e6cf5f;
+}
+
 * {
   margin: 0;
   padding: 0;
@@ -5,7 +37,7 @@
 }
 
 body {
-  background: #f7f7f5;
+  background: var(--bg0);
   overflow: hidden;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -13,11 +45,11 @@ body {
 
 ::-webkit-scrollbar { width: 8px; height: 8px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: #c7c7c0; border-radius: 5px; }
-::-webkit-scrollbar-thumb:hover { background: #8b8b84; }
+::-webkit-scrollbar-thumb { background: var(--b2); border-radius: 5px; }
+::-webkit-scrollbar-thumb:hover { background: var(--t3); }
 
-select option { background: #ffffff; color: #17171a; }
-input::placeholder, textarea::placeholder { color: #b7b7af; }
+select option { background: var(--bg1); color: var(--t1); }
+input::placeholder, textarea::placeholder { color: var(--t4); }
 button { font-family: inherit; }
 
 @keyframes pulse-dot { 0%,100%{opacity:1} 50%{opacity:0.3} }

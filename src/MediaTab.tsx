@@ -1,13 +1,15 @@
 import React, { useState, useEffect, useCallback } from 'react'
 
 // ── Design tokens (matches new App palette) ───────────────────────────────────
+// Same design tokens as App.tsx, under MediaTab's own key names — pointed at
+// the shared CSS variables (see index.css) so dark mode applies here too.
 const C = {
-  bg0:'#f6f2e7', bg1:'#fffdf8', bg2:'#faf6ee', bg3:'#efe9db', bg4:'#e5ddc9', bg5:'#d8cdb3',
-  b0:'#e6ddc8', b1:'#d6c9ab', b2:'#bfae87',
-  accent:'#26305c',  accentL:'#4c5a94', accentD:'#1b2340',
-  gold:'#b8862f', goldL:'#cf9c3f',
-  t1:'#1b1a17', t2:'#4a463d', t3:'#8b8072', t4:'#b3a690',
-  red:'#a3242e', green:'#47623f',
+  bg0:'var(--bg0)', bg1:'var(--bg1)', bg2:'var(--bg2)', bg3:'var(--bg3)', bg4:'var(--bg4)', bg5:'var(--bg5)',
+  b0:'var(--b0)', b1:'var(--b1)', b2:'var(--b2)',
+  accent:'var(--g2)', accentL:'var(--g3)', accentD:'var(--g1)',
+  gold:'var(--gold)', goldL:'var(--goldL)',
+  t1:'var(--t1)', t2:'var(--t2)', t3:'var(--t3)', t4:'var(--t4)',
+  red:'var(--live)', green:'var(--safe)',
 }
 
 interface MediaFolder { id:number; name:string; eventDate:string|null; item_count:number; created_at:string }
@@ -20,6 +22,7 @@ function fileIcon(mime:string) {
   return '⊞'
 }
 function fileSizeLabel(bytes:number) {
+  if (bytes == null || Number.isNaN(bytes)) return '—'
   if (bytes < 1024) return `${bytes} B`
   if (bytes < 1024*1024) return `${(bytes/1024).toFixed(1)} KB`
   return `${(bytes/(1024*1024)).toFixed(1)} MB`
@@ -114,14 +117,14 @@ export default function MediaTab({ goLive, notify }:Props) {
       fontFamily: 'inherit',
       borderRadius: 7,
       border: variant==='primary' ? 'none' : `1px solid ${variant==='danger'?C.red:C.b2}`,
-      background: variant==='primary' ? C.accent : variant==='danger' ? `${C.red}22` : 'transparent',
+      background: variant==='primary' ? C.accent : variant==='danger' ? `color-mix(in srgb, ${C.red} 13%, transparent)` : 'transparent',
       color: variant==='primary' ? '#fff' : variant==='danger' ? C.red : C.t2,
       transition: 'all 0.12s',
     }}>{label}</button>
   )
 
   return (
-    <div style={{ flex:1, display:'flex', overflow:'hidden', minHeight:0 }}>
+    <div style={{ flex:1, display:'flex', overflowX:'auto', overflowY:'hidden', minHeight:0 }}>
 
       {/* ── FOLDER PANEL ──────────────────────────────────────────────── */}
       <div style={{ width:240, background:C.bg1, borderRight:`1px solid ${C.b0}`, display:'flex', flexDirection:'column', flexShrink:0 }}>
@@ -174,7 +177,7 @@ export default function MediaTab({ goLive, notify }:Props) {
                 </div>
                 {confirmDelete===f.id ? (
                   <div style={{display:'flex',gap:4}} onClick={e=>e.stopPropagation()}>
-                    <button onClick={()=>deleteFolder(f.id)} style={{fontSize:9,padding:'2px 6px',background:`${C.red}22`,border:`1px solid ${C.red}44`,color:C.red,borderRadius:4,cursor:'pointer',fontFamily:'inherit'}}>Del</button>
+                    <button onClick={()=>deleteFolder(f.id)} style={{fontSize:9,padding:'2px 6px',background:`color-mix(in srgb, ${C.red} 13%, transparent)`,border:`1px solid color-mix(in srgb, ${C.red} 27%, transparent)`,color:C.red,borderRadius:4,cursor:'pointer',fontFamily:'inherit'}}>Del</button>
                     <button onClick={()=>setConfirmDelete(null)} style={{fontSize:9,padding:'2px 6px',background:'none',border:`1px solid ${C.b2}`,color:C.t3,borderRadius:4,cursor:'pointer',fontFamily:'inherit'}}>×</button>
                   </div>
                 ) : (
@@ -237,7 +240,7 @@ export default function MediaTab({ goLive, notify }:Props) {
       </div>
 
       {/* ── DETAIL / CONTROLS ─────────────────────────────────────────── */}
-      <div style={{ flex:1, background:C.bg1, display:'flex', flexDirection:'column', overflow:'hidden' }}>
+      <div style={{ flex:1, minWidth:380, background:C.bg1, display:'flex', flexDirection:'column', overflow:'hidden' }}>
         {!activeItem ? (
           <div style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center', flexDirection:'column', gap:8, color:C.t4 }}>
             <div style={{ fontSize:40, opacity:0.1 }}>▶</div>

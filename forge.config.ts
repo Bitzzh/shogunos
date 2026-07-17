@@ -12,7 +12,8 @@ const config: ForgeConfig = {
     asar: true,
     icon: './assets/icon',
     extraResource: [
-      './data'
+      './data',
+      './src/live.html'
     ],
     appBundleId: 'app.shogunos.desktop',
     appCopyright: `Copyright © ${new Date().getFullYear()} ShogunOS`,

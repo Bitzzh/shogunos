@@ -8,9 +8,9 @@ type Props = { onDone: (user: { display_name: string }) => void }
 const C = {
   bg0: '#f4ecd8', bg1: '#fffaf0', bg2: '#faf1de', bg3: '#efe2c4', bg4: '#e3d3a8', bg5: '#d3bd85',
   b0: '#e2d2a3', b1: '#cdb377', b2: '#a98f4f',
-  p1: '#7a1b1f', p2: '#a3242e', p3: '#c23b3b',
-  g1: '#101a3d', g2: '#1f2f63', g3: '#3d539e',
-  gold: '#a8791f', goldL: '#c99a34',
+  p1: '#8f1620', p2: '#c22430', p3: '#dc4650',
+  g1: '#142c66', g2: '#145a9e', g3: '#23a6d8',
+  gold: '#b3941f', goldL: '#d4b62f',
   t1: '#1c1712', t2: '#463c2c', t3: '#8a7a54', t4: '#b3a06c',
   safe: '#47623f',
 }

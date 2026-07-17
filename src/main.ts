@@ -16,6 +16,7 @@ import {
   getMediaFolders, createMediaFolder, deleteMediaFolder, addMediaItem, deleteMediaItem, getMediaItems,
 } from './database'
 import { parseQSP } from './qsp-parser'
+import { startRemoteServer, stopRemoteServer, updateRemoteState, getRemoteInfo, RemoteState } from './remote-server'
 
 if (started) { app.quit() }
 
@@ -66,19 +67,38 @@ function mapDisplays() {
   }))
 }
 
-const createLiveWindow = (displayId?: number, initialData?: any) => {
+function resolveTargetDisplay(displayId?: number) {
   const displays = screen.getAllDisplays()
+  let target = displays.length > 1
+    ? (displays.find(d => d.id !== screen.getPrimaryDisplay().id) || displays[0])
+    : displays[0]
+  if (displayId !== undefined) target = displays.find(d => d.id === displayId) || target
+  return target
+}
 
-  // Pick the non-primary display if available, else fallback to primary
-  let targetDisplay = displays.find(d => !d.bounds.x === false) || displays[0]
-  if (displays.length > 1) {
-    targetDisplay = displays.find(d => d.id !== screen.getPrimaryDisplay().id) || displays[0]
-  }
-  if (displayId !== undefined) {
-    targetDisplay = displays.find(d => d.id === displayId) || targetDisplay
-  }
+function boundsEqual(a: Electron.Rectangle, b: Electron.Rectangle) {
+  return a.x === b.x && a.y === b.y && a.width === b.width && a.height === b.height
+}
 
+// Only actually resizes/moves the window when the target display's bounds
+// differ from where it already is. Calling setBounds() unconditionally on
+// every single content update (i.e. every slide/section click) forces a
+// real native window resize each time, which is what was causing the app
+// to feel laggy — most go-live calls target the same display as before.
+function ensureLiveWindowOnDisplay(displayId?: number) {
+  if (!liveWindow) return
+  const target = resolveTargetDisplay(displayId)
+  if (!boundsEqual(liveWindow.getBounds(), target.bounds)) {
+    liveWindow.setBounds(target.bounds)
+  }
+}
+
+const createLiveWindow = (displayId?: number, initialData?: any) => {
+  const targetDisplay = resolveTargetDisplay(displayId)
+  const displays = screen.getAllDisplays()
   const { x, y, width, height } = targetDisplay.bounds
+
+  const singleDisplay = displays.length <= 1
 
   liveWindow = new BrowserWindow({
     x, y, width, height,
@@ -93,8 +113,14 @@ const createLiveWindow = (displayId?: number, initialData?: any) => {
     frame: false,
     resizable: false,
     movable: false,
-    skipTaskbar: true,
-    alwaysOnTop: true,
+    // On a single-display machine the live window covers the SAME screen as
+    // the control window. alwaysOnTop + skipTaskbar together make it
+    // impossible to Alt-Tab back to the app if Escape doesn't land — that's
+    // the "won't go away without a restart" trap. With a real second
+    // display, always-on-top/no-taskbar is fine (and desired) because the
+    // control window stays reachable on the primary screen the whole time.
+    skipTaskbar: !singleDisplay,
+    alwaysOnTop: !singleDisplay,
     backgroundColor: '#000',
     show: false,
     webPreferences: {
@@ -106,10 +132,17 @@ const createLiveWindow = (displayId?: number, initialData?: any) => {
 
   const liveHtml = getLiveHtmlPath()
   liveWindow.loadFile(liveHtml)
+  liveWindow.setBounds({ x, y, width, height })
 
   const sendInitial = () => { if (initialData) liveWindow?.webContents.send('update-live', initialData) }
 
   liveWindow.once('ready-to-show', () => {
+    // Re-assert bounds here too: on a display that was only just connected,
+    // Windows can report provisional/incorrect bounds at the moment the
+    // BrowserWindow is constructed and only settle on the real resolution a
+    // beat later — re-applying them right before showing avoids a window
+    // that's the wrong size for the screen it's on.
+    liveWindow?.setBounds(targetDisplay.bounds)
     liveWindow?.show()
     sendInitial()
     // Notify renderer about the display being used
@@ -196,6 +229,7 @@ app.on('ready', async () => {
     if (!liveWindow) {
       createLiveWindow(data.displayId, data)
     } else {
+      ensureLiveWindowOnDisplay(data.displayId)
       liveWindow.webContents.send('update-live', data)
     }
   })
@@ -262,6 +296,7 @@ app.on('ready', async () => {
     if (!liveWindow) {
       createLiveWindow(data.displayId, data)
     } else {
+      ensureLiveWindowOnDisplay(data.displayId)
       liveWindow.webContents.send('update-live', data)
     }
   })
@@ -291,7 +326,15 @@ app.on('ready', async () => {
   ipcMain.handle('get-current-user', () => getCurrentUser())
   ipcMain.handle('update-display-name', (_e, displayName: string) => updateDisplayName(displayName))
 
+  // ── REMOTE CONTROL ───────────────────────────────────────────────────────
+  // Renderer pushes its live/queue snapshot here whenever it changes (fire
+  // and forget — no reply needed), so the HTTP server can answer phone
+  // polls instantly without round-tripping into the renderer per request.
+  ipcMain.on('remote-state-update', (_e, s: RemoteState) => updateRemoteState(s))
+  ipcMain.handle('get-remote-info', () => getRemoteInfo())
+
   createWindow()
+  startRemoteServer(() => mainWindow)
 
   // Watch for display changes and notify renderer with the SAME shape
   // get-displays returns (label/isPrimary included), not the raw Electron
@@ -301,7 +344,17 @@ app.on('ready', async () => {
   // 'metrics-changed' fires when an existing display's resolution/position
   // changes, and on some Windows setups also fires more reliably than
   // 'display-added' the moment a monitor is plugged in — cover both.
-  screen.on('display-metrics-changed', () => mainWindow?.webContents.send('displays-changed', mapDisplays()))
+  screen.on('display-metrics-changed', (_e, changedDisplay) => {
+    mainWindow?.webContents.send('displays-changed', mapDisplays())
+    // If the live window is currently sitting on the display whose metrics
+    // just changed, re-apply its (now-correct) bounds immediately instead of
+    // waiting for the next Go Live click.
+    if (liveWindow) {
+      const current = screen.getAllDisplays().find(d =>
+        d.bounds.x === liveWindow!.getBounds().x && d.bounds.y === liveWindow!.getBounds().y)
+      if (current && changedDisplay.id === current.id) liveWindow.setBounds(changedDisplay.bounds)
+    }
+  })
 })
 
 function getMimeType(ext: string): string {
@@ -319,5 +372,5 @@ function getMimeType(ext: string): string {
   return map[ext] || 'application/octet-stream'
 }
 
-app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit() })
+app.on('window-all-closed', () => { stopRemoteServer(); if (process.platform !== 'darwin') app.quit() })
 app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow() })

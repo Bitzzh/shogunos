@@ -34,8 +34,8 @@ export interface MediaFolder {
   id: number; name: string; event_date: string | null; created_at: string
 }
 export interface MediaItem {
-  id: number; folder_id: number; name: string; path: string
-  mime_type: string; size: number; created_at: string
+  id: number; folder_id: number; name: string; file_path: string
+  mime_type: string; file_size: number; created_at: string
 }
 export interface DisplaySettings {
   [key: string]: any
@@ -120,6 +120,13 @@ function finishLoad(parsed: any): DB {
   if (!parsed.slides) parsed.slides = []
   if (!parsed.media_folders) parsed.media_folders = []
   if (!parsed.media_items)   parsed.media_items   = []
+  // Older builds stored media items as {path, size}; the renderer has always
+  // read {file_path, file_size}, which is why existing libraries showed
+  // "NaN MB" and broken previews. Migrate in place, once, on load.
+  for (const m of parsed.media_items as any[]) {
+    if (m.file_path === undefined && m.path !== undefined) { m.file_path = m.path; delete m.path }
+    if (m.file_size === undefined && m.size !== undefined) { m.file_size = m.size; delete m.size }
+  }
   if (!parsed.display_settings) parsed.display_settings = {}
   if (!parsed.meta)   parsed.meta   = { last_id: 0 }
   if (!parsed.meta.installation_id) parsed.meta.installation_id = crypto.randomUUID()
@@ -587,7 +594,9 @@ export function saveDisplaySettings(settings: DisplaySettings) {
 // ── MEDIA LIBRARY ─────────────────────────────────────────────────────────
 
 export function getMediaFolders() {
-  return db.media_folders.sort((a,b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+  return db.media_folders
+    .map(f => ({ ...f, item_count: db.media_items.filter(i => i.folder_id === f.id).length }))
+    .sort((a,b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
 }
 export function createMediaFolder(name: string, eventDate?: string): MediaFolder {
   const folder: MediaFolder = { id: nextId(), name, event_date: eventDate || null, created_at: new Date().toISOString() }
@@ -602,7 +611,7 @@ export function getMediaItems(folderId: number) {
   return db.media_items.filter(i => i.folder_id === folderId).sort((a,b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
 }
 export function addMediaItem(folderId: number, name: string, filePath: string, mimeType: string, size: number): MediaItem {
-  const item: MediaItem = { id: nextId(), folder_id: folderId, name, path: filePath, mime_type: mimeType, size, created_at: new Date().toISOString() }
+  const item: MediaItem = { id: nextId(), folder_id: folderId, name, file_path: filePath, mime_type: mimeType, file_size: size, created_at: new Date().toISOString() }
   db.media_items.push(item); save(); return item
 }
 export function deleteMediaItem(id: number) {
