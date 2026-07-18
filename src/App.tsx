@@ -42,6 +42,16 @@ interface DisplaySettings {
   borderColor: string
   borderStyle: 'solid' | 'dashed' | 'dotted' | 'double'
   borderRadius: number
+  // "Sunlight Mode" — a one-flip override for rooms where daylight is
+  // washing out the projector. We can't add lumens in software, so instead
+  // this forces the highest-contrast rendering we can: pure black-on-white
+  // (or vice versa), max font weight, a thin text stroke to keep letterforms
+  // crisp at the edges, and a larger minimum size — plus it drops any
+  // background image, since a photo behind the text only gives glare more
+  // detail to wash out. Underlying bgColor/fontColor/etc. are left alone so
+  // switching this off returns exactly to the operator's normal look.
+  highVisibility: boolean
+  highVisibilityInvert: boolean // false = black text on white; true = white text on black
 }
 
 // Shogun palette — modern minimal: paper canvas, ink text, indigo accent, red reserved for LIVE only
@@ -1211,6 +1221,28 @@ function DisplaySettingsTab({ settings, onChange, notify }: { settings:DisplaySe
     <div style={{flex:1,padding:32,overflowY:'auto',background:C.bg1,display:'flex',flexDirection:'column',gap:20,maxWidth:520}}>
       <div style={{fontSize:9,fontWeight:700,letterSpacing:'0.2em',color:C.t4,textTransform:'uppercase' as const}}>Display Settings</div>
       <div style={{fontSize:12,color:C.t3,lineHeight:1.6,padding:'12px 16px',background:C.bg3,borderRadius:10,border:`1px solid ${C.b1}`}}>These settings apply to hymns and Bible verses sent live. Slides use their own individual settings.</div>
+
+      <div style={{padding:'16px',background:settings.highVisibility?'color-mix(in srgb, #f59e0b 10%, transparent)':C.bg3,border:`1px solid ${settings.highVisibility?'#f59e0b':C.b1}`,borderRadius:10,display:'flex',flexDirection:'column',gap:12}}>
+        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+          <div>
+            <div style={{fontSize:12,fontWeight:700,color:C.t1}}>☀ Sunlight Mode</div>
+            <div style={{fontSize:10,color:C.t3,marginTop:2,maxWidth:340,lineHeight:1.5}}>Maximizes contrast for rooms fighting daylight glare on the projector — a bright, high-contrast, bold-weight look with no background image. This can't add brightness a projector doesn't have, but it's the closest software gets to fighting a washed-out screen.</div>
+          </div>
+          <div onClick={()=>set('highVisibility',!settings.highVisibility)} style={{width:44,height:24,borderRadius:12,background:settings.highVisibility?'#f59e0b':C.b2,position:'relative',cursor:'pointer',flexShrink:0,transition:'background 0.15s'}}>
+            <div style={{width:18,height:18,borderRadius:'50%',background:'#fff',position:'absolute',top:3,left:settings.highVisibility?23:3,transition:'left 0.15s'}}/>
+          </div>
+        </div>
+        {settings.highVisibility && (
+          <div>
+            <label style={lbl}>Polarity</label>
+            <div style={{display:'flex',gap:4}}>
+              <button onClick={()=>set('highVisibilityInvert',false)} style={{flex:1,padding:'8px 0',fontSize:10,fontWeight:700,border:`1px solid ${!settings.highVisibilityInvert?'#f59e0b':C.b1}`,color:!settings.highVisibilityInvert?'#f59e0b':C.t3,background:!settings.highVisibilityInvert?'color-mix(in srgb, #f59e0b 10%, transparent)':'none',cursor:'pointer',fontFamily:'inherit',borderRadius:6}}>Black on White</button>
+              <button onClick={()=>set('highVisibilityInvert',true)} style={{flex:1,padding:'8px 0',fontSize:10,fontWeight:700,border:`1px solid ${settings.highVisibilityInvert?'#f59e0b':C.b1}`,color:settings.highVisibilityInvert?'#f59e0b':C.t3,background:settings.highVisibilityInvert?'color-mix(in srgb, #f59e0b 10%, transparent)':'none',cursor:'pointer',fontFamily:'inherit',borderRadius:6}}>White on Black</button>
+            </div>
+            <div style={{fontSize:9,color:C.t4,marginTop:6,lineHeight:1.5}}>Black-on-white usually reads best in bright rooms — a projector's "black" is never fully dark, so a light background hides that better than a dark one.</div>
+          </div>
+        )}
+      </div>
       <div>
         <label style={lbl}>Background Color</label>
         <div style={{display:'flex',gap:8,alignItems:'center',marginBottom:8}}>
@@ -1314,16 +1346,25 @@ function DisplaySettingsTab({ settings, onChange, notify }: { settings:DisplaySe
       </div>
       <div>
         <label style={lbl}>Preview</label>
-        <div style={{aspectRatio:'16/9',borderRadius:10,overflow:'hidden',border:`1px solid ${C.b1}`,background:settings.bgColor,display:'flex',alignItems:'center',justifyContent:'center',padding:16,position:'relative',
-          backgroundImage:settings.bgImage?`url(${settings.bgImage})`:undefined,backgroundSize:'cover',backgroundPosition:'center'}}>
-          {settings.bgImage&&<div style={{position:'absolute',inset:0,background:'rgba(0,0,0,0.3)'}}/>}
-          <div style={{position:'relative',zIndex:1,fontSize:settings.fontSize*0.22,color:settings.fontColor,textAlign:settings.textAlign,fontFamily:settings.fontFamily,fontWeight:300,lineHeight:1.6,
-            padding:settings.borderWidth?14:0,
-            border:settings.borderWidth?`${settings.borderWidth}px ${settings.borderStyle} ${settings.borderColor}`:'none',
-            borderRadius:settings.borderRadius}}>
-            "Amazing grace! How sweet the sound<br/>That saved a wretch like me!"
-          </div>
-        </div>
+        {(() => {
+          const hv = settings.highVisibility
+          const effBg = hv ? (settings.highVisibilityInvert ? '#000000' : '#ffffff') : settings.bgColor
+          const effFont = hv ? (settings.highVisibilityInvert ? '#ffffff' : '#000000') : settings.fontColor
+          const effWeight = hv ? 900 : 300
+          return (
+            <div style={{aspectRatio:'16/9',borderRadius:10,overflow:'hidden',border:`1px solid ${C.b1}`,background:effBg,display:'flex',alignItems:'center',justifyContent:'center',padding:16,position:'relative',
+              backgroundImage:(!hv && settings.bgImage)?`url(${settings.bgImage})`:undefined,backgroundSize:'cover',backgroundPosition:'center'}}>
+              {!hv && settings.bgImage&&<div style={{position:'absolute',inset:0,background:'rgba(0,0,0,0.3)'}}/>}
+              <div style={{position:'relative',zIndex:1,fontSize:settings.fontSize*0.22,color:effFont,textAlign:settings.textAlign,fontFamily:settings.fontFamily,fontWeight:effWeight,lineHeight:1.6,
+                WebkitTextStroke:hv?`0.4px ${effFont}`:undefined,
+                padding:settings.borderWidth?14:0,
+                border:settings.borderWidth?`${settings.borderWidth}px ${settings.borderStyle} ${settings.borderColor}`:'none',
+                borderRadius:settings.borderRadius} as any}>
+                "Amazing grace! How sweet the sound<br/>That saved a wretch like me!"
+              </div>
+            </div>
+          )
+        })()}
       </div>
       <button onClick={handleSave} style={{padding:'12px 0',background:`linear-gradient(135deg,${C.p1},#5b21b6)`,border:'none',color:'#fff',fontSize:12,fontWeight:700,cursor:'pointer',fontFamily:'inherit',borderRadius:8,letterSpacing:'0.05em'}}>Save Settings</button>
     </div>
@@ -1399,7 +1440,7 @@ export default function App() {
   const [blankScreen,setBlankScreen]     = useState(false)
   const [showShortcuts,setShowShortcuts] = useState(false)
   const [toast,setToast]                 = useState('')
-  const [displaySettings,setDisplaySettings] = useState<DisplaySettings>({bgColor:'#000000',bgImage:null,fontColor:'#ffffff',fontSize:52,textAlign:'center',fontFamily:'Georgia, serif',borderWidth:0,borderColor:'#ffffff',borderStyle:'solid',borderRadius:0})
+  const [displaySettings,setDisplaySettings] = useState<DisplaySettings>({bgColor:'#000000',bgImage:null,fontColor:'#ffffff',fontSize:52,textAlign:'center',fontFamily:'Georgia, serif',borderWidth:0,borderColor:'#ffffff',borderStyle:'solid',borderRadius:0,highVisibility:false,highVisibilityInvert:false})
   const toastTimer = useRef<any>(null)
   // Bible chapter browser state
   const [hymnLangFilter,setHymnLangFilter] = useState<string>('all')
@@ -1660,7 +1701,7 @@ export default function App() {
   // to the next verse/section while live.
   function liveDisplayFields(overrides?: Partial<DisplaySettings>) {
     const s = { ...displaySettings, ...overrides }
-    return { fontSize:s.fontSize, textAlign:s.textAlign, bgColor:s.bgColor, bgImage:s.bgImage, fontColor:s.fontColor, fontFamily:s.fontFamily, borderWidth:s.borderWidth, borderColor:s.borderColor, borderStyle:s.borderStyle, borderRadius:s.borderRadius }
+    return { fontSize:s.fontSize, textAlign:s.textAlign, bgColor:s.bgColor, bgImage:s.bgImage, fontColor:s.fontColor, fontFamily:s.fontFamily, borderWidth:s.borderWidth, borderColor:s.borderColor, borderStyle:s.borderStyle, borderRadius:s.borderRadius, highVisibility:s.highVisibility, highVisibilityInvert:s.highVisibilityInvert }
   }
 
   async function goLive(title:string,lyrics:string,ds?:Partial<DisplaySettings>){

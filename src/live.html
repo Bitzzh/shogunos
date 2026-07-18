@@ -244,8 +244,18 @@
       videoEl.pause()
       hideAll()
 
-      bgLayer.style.background = data.bgColor || '#000000'
-      if (data.bgImage) {
+      // Sunlight Mode: force max-contrast rendering — no software can add
+      // brightness a projector doesn't have, but pure black/white, a heavier
+      // weight, a thin matching text-stroke (crisper glyph edges), and a
+      // larger minimum size are the levers that actually help against glare.
+      // A background image only gives ambient light more detail to wash out,
+      // so it's dropped entirely while this is on.
+      const hv = !!data.highVisibility
+      const hvBg   = data.highVisibilityInvert ? '#000000' : '#ffffff'
+      const hvFont = data.highVisibilityInvert ? '#ffffff' : '#000000'
+
+      bgLayer.style.background = hv ? hvBg : (data.bgColor || '#000000')
+      if (!hv && data.bgImage) {
         bgLayer.style.backgroundImage = `url(${data.bgImage})`
         bgLayer.style.backgroundSize  = 'cover'
         bgLayer.style.backgroundPosition = 'center'
@@ -253,10 +263,14 @@
         bgLayer.style.backgroundImage = 'none'
       }
 
-      lyricsEl.style.fontSize   = (data.fontSize || 52) + 'px'
+      const baseFontSize = data.fontSize || 52
+      lyricsEl.style.fontSize   = (hv ? Math.max(baseFontSize, 64) : baseFontSize) + 'px'
       lyricsEl.style.textAlign  = data.textAlign  || 'center'
       lyricsEl.style.fontFamily = data.fontFamily || "Georgia, 'Times New Roman', serif"
-      lyricsEl.style.color      = data.fontColor  || '#ffffff'
+      lyricsEl.style.color      = hv ? hvFont : (data.fontColor  || '#ffffff')
+      lyricsEl.style.fontWeight = hv ? '900' : '300'
+      lyricsEl.style.webkitTextStroke = hv ? `0.4px ${hvFont}` : ''
+      titleEl.style.color = hv ? (data.highVisibilityInvert ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.55)') : 'rgba(255,255,255,0.5)'
       if (data.textAlign === 'left')  textLayer.style.alignItems = 'flex-start'
       else if (data.textAlign === 'right') textLayer.style.alignItems = 'flex-end'
       else textLayer.style.alignItems = 'center'
