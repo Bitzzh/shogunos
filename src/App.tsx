@@ -181,7 +181,23 @@ function SlidesTab({ goLive, addToQueue, notify }: {
   function set(k:string,v:any){setEditing(e=>e?{...e,[k]:v}:e)}
   function pickBgImage(){
     const inp=document.createElement('input');inp.type='file';inp.accept='image/*'
-    inp.onchange=(e:any)=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=(ev:any)=>set('bg_image',ev.target.result);r.readAsDataURL(f)}
+    inp.onchange=(e:any)=>{
+      const f=e.target.files[0];if(!f)return
+      const r=new FileReader()
+      r.onload=async(ev:any)=>{
+        try{
+          const ab=ev.target.result as ArrayBuffer
+          const u8=new Uint8Array(ab)
+          let bin='';for(let i=0;i<u8.length;i++)bin+=String.fromCharCode(u8[i])
+          const b64=btoa(bin)
+          const ext='.'+(f.name.split('.').pop()||'png').toLowerCase()
+          const res=await api.saveSlideBgImage(b64,ext)
+          if(res.success)set('bg_image',res.path)
+          else notify('Failed to set background image')
+        }catch{notify('Failed to set background image')}
+      }
+      r.readAsArrayBuffer(f)
+    }
     inp.click()
   }
 
@@ -655,7 +671,7 @@ function SongsTab({ goLive, addToQueue, notify }: { goLive:(t:string,l:string)=>
           {!loading&&langs.map((lang,li)=>{
             const group=byLang[lang]
             if(!group||group.length===0) return null
-            const isOpen=expandedLangs[lang]!==false
+            const isOpen=expandedLangs[lang]===true
             const accent=LANG_COLORS[li%LANG_COLORS.length]
             return (
               <div key={lang}>
@@ -1065,10 +1081,11 @@ function ImportTab({ notify }: { notify:(m:string)=>void }) {
       const u8=new Uint8Array(ab)
       let bin='';for(let i=0;i<u8.length;i++)bin+=String.fromCharCode(u8[i])
       const b64=btoa(bin)
-      const r=await api.importPPTX(b64)
+      const r=await api.importPPTX(b64,file.name)
       if(r.success){
         const skippedCount=(r.total||0)-(r.parsed||0)
-        const msg=`PowerPoint import — ${r.counts.slides} slide${r.counts.slides!==1?'s':''} added${skippedCount>0?`, ${skippedCount} blank slide${skippedCount!==1?'s':''} skipped`:''}. Find them in Present → Slides.`
+        const mediaNote=r.mediaImported>0?`, ${r.mediaImported} photo${r.mediaImported!==1?'s':''}/video${r.mediaImported!==1?'s':''} imported into Media`:''
+        const msg=`PowerPoint import — ${r.counts.slides} slide${r.counts.slides!==1?'s':''} added${mediaNote}${skippedCount>0?`, ${skippedCount} blank slide${skippedCount!==1?'s':''} skipped`:''}. Find them in Present → Slides.`
         setResult({success:true,message:msg});notify(`PPTX: ${r.counts.slides} slides imported`)
       }else setResult({success:false,message:r.error||'PowerPoint import failed'})
     }catch(e:any){setResult({success:false,message:e.message})}
@@ -1109,7 +1126,7 @@ function ImportTab({ notify }: { notify:(m:string)=>void }) {
       {mode==='pptx'&&(
         <div style={{padding:'12px 16px',background:`color-mix(in srgb, ${C.g2} 7%, transparent)`,border:`1px solid color-mix(in srgb, ${C.g2} 27%, transparent)`,borderRadius:10}}>
           <div style={{fontSize:11,color:C.g2,fontWeight:700,marginBottom:4}}>PowerPoint Import</div>
-          <div style={{fontSize:12,color:C.t3,lineHeight:1.6}}>Each slide becomes a ShogunOS slide, ready to send live from <strong style={{color:C.t2}}>Present → Slides</strong>. The first line of text on each slide becomes its title; everything else becomes the body. Images, animations, and layout aren't imported — just the text.</div>
+          <div style={{fontSize:12,color:C.t3,lineHeight:1.6}}>Each slide becomes a ShogunOS slide, ready to send live from <strong style={{color:C.t2}}>Present → Slides</strong>. The first line of text on each slide becomes its title; everything else becomes the body. Photos and videos embedded in the deck are extracted too — they're added to your <strong style={{color:C.t2}}>Media</strong> library, and a slide's first photo is set as its background automatically. Animations and layout still aren't imported.</div>
         </div>
       )}
       <div onDragOver={e=>{e.preventDefault();setDragOver(true)}} onDragLeave={()=>setDragOver(false)} onDrop={onDrop} onClick={()=>mode==='qsp'?qspRef.current?.click():mode==='pptx'?pptxRef.current?.click():fileRef.current?.click()}
@@ -1214,7 +1231,23 @@ function DisplaySettingsTab({ settings, onChange, notify }: { settings:DisplaySe
           </div>
           :<button onClick={()=>{
             const i=document.createElement('input');i.type='file';i.accept='image/*'
-            i.onchange=(e:any)=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=(ev:any)=>set('bgImage',ev.target.result);r.readAsDataURL(f)}
+            i.onchange=(e:any)=>{
+              const f=e.target.files[0];if(!f)return
+              const r=new FileReader()
+              r.onload=async(ev:any)=>{
+                try{
+                  const ab=ev.target.result as ArrayBuffer
+                  const u8=new Uint8Array(ab)
+                  let bin='';for(let j=0;j<u8.length;j++)bin+=String.fromCharCode(u8[j])
+                  const b64=btoa(bin)
+                  const ext='.'+(f.name.split('.').pop()||'png').toLowerCase()
+                  const res=await (window as any).shogunos.saveSlideBgImage(b64,ext)
+                  if(res.success)set('bgImage',res.path)
+                  else notify('Failed to set background image')
+                }catch{notify('Failed to set background image')}
+              }
+              r.readAsArrayBuffer(f)
+            }
             i.click()
           }} style={{width:'100%',padding:'11px 0',background:'none',border:`1px dashed ${C.b2}`,color:C.t3,fontSize:12,cursor:'pointer',fontFamily:'inherit',borderRadius:8}}>Choose Image...</button>
         }
@@ -1296,6 +1329,28 @@ function DisplaySettingsTab({ settings, onChange, notify }: { settings:DisplaySe
   )
 }
 
+// The header clock used to be App-level state ticking every second with
+// setInterval, which meant App — and every heavy child reachable from its
+// render tree, including whichever library/present tab was currently mounted
+// (e.g. thousands of song list rows) — re-rendered once a second regardless
+// of what was on screen. React re-runs a function component's body on every
+// parent re-render unless that component is isolated, so a list of a few
+// thousand rows with fresh inline style objects each time is real, continuous
+// CPU work — enough to visibly compete with (and delay) whatever click the
+// person actually made, which is what read as "lag when navigating." Giving
+// the clock its own component with its own state means only this one small
+// element re-renders each tick; everything else stops paying that tax.
+function Clock() {
+  const [clock, setClock] = useState('')
+  useEffect(() => {
+    const tick = () => setClock(new Date().toLocaleTimeString('en-ZW', { hour: '2-digit', minute: '2-digit' }))
+    tick()
+    const t = setInterval(tick, 1000)
+    return () => clearInterval(t)
+  }, [])
+  return <div style={{fontSize:12,color:C.t2,fontVariantNumeric:'tabular-nums',minWidth:50,textAlign:'right',paddingLeft:20,paddingRight:24,borderLeft:`1px solid ${C.b0}`,height:'100%',display:'flex',alignItems:'center',fontFamily:"'IBM Plex Mono',monospace",fontWeight:600}}>{clock}</div>
+}
+
 export default function App() {
   const [showSplash,setShowSplash]       = useState(true)
   const [currentUser,setCurrentUser]     = useState<{display_name:string}|null>(null)
@@ -1342,7 +1397,6 @@ export default function App() {
   const [queue,setQueue]                 = useState<QueueItem[]>([])
   const [blankScreen,setBlankScreen]     = useState(false)
   const [showShortcuts,setShowShortcuts] = useState(false)
-  const [clock,setClock]                 = useState('')
   const [toast,setToast]                 = useState('')
   const [displaySettings,setDisplaySettings] = useState<DisplaySettings>({bgColor:'#000000',bgImage:null,fontColor:'#ffffff',fontSize:52,textAlign:'center',fontFamily:'Georgia, serif',borderWidth:0,borderColor:'#ffffff',borderStyle:'solid',borderRadius:0})
   const toastTimer = useRef<any>(null)
@@ -1477,11 +1531,6 @@ export default function App() {
     else{ setPreviewWidth(null); try{localStorage.removeItem('shogun_preview_width')}catch{} }
   }
   const dividerStyle=(): React.CSSProperties=>({width:6,flexShrink:0,cursor:'col-resize',background:'transparent',position:'relative',zIndex:2})
-
-  useEffect(()=>{
-    const tick=()=>setClock(new Date().toLocaleTimeString('en-ZW',{hour:'2-digit',minute:'2-digit'}))
-    tick();const t=setInterval(tick,1000);return()=>clearInterval(t)
-  },[])
 
   useEffect(()=>{
     if(showSplash)return
@@ -2001,7 +2050,7 @@ export default function App() {
             {hymnLangs.map((lang,li)=>{
               const group = byLang[lang]
               if(!group||group.length===0) return null
-              const isOpen = expandedHymnLangs[lang]!==false
+              const isOpen = expandedHymnLangs[lang]===true
               const accent = LANG_COLORS[li%LANG_COLORS.length]
               return (
                 <div key={lang}>
@@ -2160,7 +2209,7 @@ export default function App() {
             <span style={{fontSize:12,color:C.t2}}>{currentUser.display_name}</span>
           </div>
         )}
-        <div style={{fontSize:12,color:C.t2,fontVariantNumeric:'tabular-nums',minWidth:50,textAlign:'right',paddingLeft:20,paddingRight:24,borderLeft:`1px solid ${C.b0}`,height:'100%',display:'flex',alignItems:'center',fontFamily:"'IBM Plex Mono',monospace",fontWeight:600}}>{clock}</div>
+        <Clock/>
       </div>
 
       {/* ── SECTION NAV (horizontal — echoes Quelea's flat top menu, keeps our icon+label identity) ── */}

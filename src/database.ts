@@ -1,6 +1,7 @@
 import { app } from 'electron'
 import path from 'path'
 import fs from 'fs'
+import fsp from 'fs/promises'
 import crypto from 'crypto'
 
 // ── INTERFACES ────────────────────────────────────────────────────────────
@@ -23,7 +24,7 @@ interface ServiceQueueItem {
 }
 export interface Slide {
   id: number; title: string; type: 'text'|'scripture'|'announcement'|'blank'
-  content: string; notes: string; bg_color: string; font_color: string
+  content: string; notes: string; bg_color: string; bg_image: string | null; font_color: string
   font_size: number; text_align: 'left'|'center'|'right'; order_num: number
   tags: string[]; created_at: string; updated_at: string
 }
@@ -71,9 +72,47 @@ function saveLibrary() {
     songs_loaded: db.meta.songs_loaded || '', bible_loaded: db.meta.bible_loaded || '',
   }))
 }
-function save() {
+// save() used to be a single synchronous fs.writeFileSync called directly
+// from ~20 call sites (createSlide, updateSlide, addToQueue, reorderSlides,
+// addMediaItem, ...). Every one of those rewrote the *entire* state blob
+// (all slides, all queue items, all media, all users/settings) to disk,
+// blocking Electron's single main-process thread until the write finished —
+// so a big state file (e.g. slide backgrounds stored as base64 images, see
+// bg_image) made even unrelated actions like reordering the queue stall.
+// db is always the up-to-date in-memory source of truth already, so nothing
+// downstream needs the disk write to have finished by the time save()
+// returns — only that it eventually happens, and happens before the app
+// quits. Debouncing collapses a burst of rapid actions into one write, and
+// doing the write with fs.promises keeps it off the main thread entirely.
+let saveTimer: ReturnType<typeof setTimeout> | null = null
+let savePending = false
+let saveInFlight: Promise<void> | null = null
+
+function writeStateNow(): Promise<void> {
   const { songs, song_sections, bible_verses, ...state } = db
-  fs.writeFileSync(statePath, JSON.stringify(state))
+  const json = JSON.stringify(state)
+  return fsp.writeFile(statePath, json).catch(err => {
+    console.error('ShogunOS: failed to write state file', err)
+  })
+}
+
+function save() {
+  savePending = true
+  if (saveTimer) return
+  saveTimer = setTimeout(() => {
+    saveTimer = null
+    if (!savePending) return
+    savePending = false
+    saveInFlight = writeStateNow().finally(() => { saveInFlight = null })
+  }, 250)
+}
+
+// Flush any pending/in-flight write immediately — call this before the app
+// quits so a debounced change isn't lost.
+export async function flushPendingSaves(): Promise<void> {
+  if (saveTimer) { clearTimeout(saveTimer); saveTimer = null }
+  if (savePending) { savePending = false; await writeStateNow() }
+  if (saveInFlight) await saveInFlight
 }
 
 function load(): DB {
@@ -559,7 +598,7 @@ export function getSlides() { return db.slides.sort((a,b) => a.order_num - b.ord
 export function getSlide(id: number) { return db.slides.find(s => s.id === id) }
 export function createSlide(data: Partial<Slide>): Slide {
   const maxOrder = db.slides.reduce((m,s) => Math.max(m,s.order_num), 0)
-  const slide: Slide = { id:nextId(), title:data.title||'Untitled', type:data.type||'text', content:data.content||'', notes:data.notes||'', bg_color:data.bg_color||'#000000', font_color:data.font_color||'#FFFFFF', font_size:data.font_size||48, text_align:data.text_align||'center', order_num:maxOrder+1, tags:data.tags||[], created_at:new Date().toISOString(), updated_at:new Date().toISOString() }
+  const slide: Slide = { id:nextId(), title:data.title||'Untitled', type:data.type||'text', content:data.content||'', notes:data.notes||'', bg_color:data.bg_color||'#000000', bg_image:data.bg_image||null, font_color:data.font_color||'#FFFFFF', font_size:data.font_size||48, text_align:data.text_align||'center', order_num:maxOrder+1, tags:data.tags||[], created_at:new Date().toISOString(), updated_at:new Date().toISOString() }
   db.slides.push(slide); save(); return slide
 }
 export function updateSlide(id: number, data: Partial<Slide>): Slide {
@@ -655,15 +694,16 @@ export function importQSPSongs(songs: { title:string; author:string; language:st
   }
   saveLibrary(); return { success:true, counts:{ songs:songsAdded, sections:sectionsAdded }, skipped }
 }
-export function importPPTXSlides(slides: { title:string; content:string }[]) {
+export function importPPTXSlides(slides: { title:string; content:string; bgImage?: string | null }[]) {
   let maxOrder = db.slides.reduce((m,s) => Math.max(m,s.order_num), 0)
   let added = 0
   for (const s of slides) {
     maxOrder += 1
     db.slides.push({
       id: nextId(), title: s.title || `Slide ${added+1}`, type: 'text', content: s.content,
-      notes: '', bg_color: '#000000', font_color: '#FFFFFF', font_size: 48, text_align: 'center',
-      order_num: maxOrder, tags: ['pptx-import'], created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
+      notes: '', bg_color: '#000000', bg_image: s.bgImage || null, font_color: '#FFFFFF', font_size: 48, text_align: 'center',
+      order_num: maxOrder, tags: s.bgImage ? ['pptx-import', 'has-media'] : ['pptx-import'],
+      created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
     })
     added++
   }

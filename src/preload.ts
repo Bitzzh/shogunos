@@ -47,6 +47,7 @@ contextBridge.exposeInMainWorld('shogunos', {
   deleteSlide:        (id: number) => ipcRenderer.invoke('slides-delete', id),
   reorderSlides:      (orderedIds: number[]) => ipcRenderer.invoke('slides-reorder', orderedIds),
   duplicateSlide:     (id: number) => ipcRenderer.invoke('slides-duplicate', id),
+  saveSlideBgImage:   (base64: string, ext: string) => ipcRenderer.invoke('slides-save-bg-image', base64, ext),
 
   // ── MEDIA ──────────────────────────────────────────────────────────────────
   getMediaFolders:      () => ipcRenderer.invoke('media-get-folders'),
@@ -61,7 +62,7 @@ contextBridge.exposeInMainWorld('shogunos', {
   importData:          (json: string) => ipcRenderer.invoke('import-data', json),
   getDatabaseStats:    () => ipcRenderer.invoke('get-db-stats'),
   importQSP:           (base64: string, language?: string) => ipcRenderer.invoke('import-qsp', base64, language),
-  importPPTX:          (base64: string) => ipcRenderer.invoke('import-pptx', base64),
+  importPPTX:          (base64: string, sourceName?: string) => ipcRenderer.invoke('import-pptx', base64, sourceName),
   getDisplaySettings:  () => ipcRenderer.invoke('get-display-settings'),
   saveDisplaySettings: (settings: any) => ipcRenderer.invoke('save-display-settings', settings),
 

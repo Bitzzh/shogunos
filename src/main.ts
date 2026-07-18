@@ -10,6 +10,7 @@ import {
   getThemes,
   getSlides, getSlide, createSlide, updateSlide, deleteSlide, reorderSlides, duplicateSlide,
   exportDatabase, importDatabase, getDatabaseStats,
+  flushPendingSaves,
   getCurrentUser, updateDisplayName,
   importQSPSongs,
   importPPTXSlides,
@@ -243,6 +244,26 @@ app.on('ready', async () => {
     liveWindow.setBounds(d.bounds)
   })
 
+  ipcMain.handle('slides-save-bg-image', (_e, base64: string, ext: string) => {
+    try {
+      // Slide backgrounds used to be stored as a full base64 data URI right
+      // inside editing.bg_image, which then got embedded in the state.json
+      // blob that save() rewrites on nearly every action — so one picked
+      // background made every later click (even unrelated ones) rewrite a
+      // multi-MB file. Writing it to disk once and storing a file:// path
+      // instead keeps state.json small, the same way PPTX-imported media does.
+      const dir = path.join(app.getPath('userData'), 'slide-backgrounds')
+      fs.mkdirSync(dir, { recursive: true })
+      const safeExt = /^\.[a-zA-Z0-9]+$/.test(ext) ? ext : '.png'
+      const fileName = `bg-${Date.now()}-${Math.random().toString(36).slice(2, 8)}${safeExt}`
+      const filePath = path.join(dir, fileName)
+      fs.writeFileSync(filePath, Buffer.from(base64, 'base64'))
+      return { success: true, path: `file://${filePath.replace(/\\/g, '/')}` }
+    } catch (e: any) {
+      return { success: false, error: e.message }
+    }
+  })
+
   // ── SLIDES ───────────────────────────────────────────────────────────────
   ipcMain.handle('slides-get-all',   () => getSlides())
   ipcMain.handle('slides-get',       (_e, id: number) => getSlide(id))
@@ -322,15 +343,45 @@ app.on('ready', async () => {
       return { success: false, error: e.message }
     }
   })
-  ipcMain.handle('import-pptx',  (_e, base64: string) => {
+  ipcMain.handle('import-pptx',  (_e, base64: string, sourceName?: string) => {
     try {
       const buf    = Buffer.from(base64, 'base64')
       const parsed = parsePPTX(buf)
       if (!parsed.success || parsed.slides.length === 0) {
-        return { success: false, error: `No slide text found. ${parsed.errors.join(', ')}` }
+        return { success: false, error: `No slide content found. ${parsed.errors.join(', ')}` }
       }
-      const result = importPPTXSlides(parsed.slides)
-      return { parsed: parsed.parsed, total: parsed.total, ...result, errors: parsed.errors }
+
+      // Any photos/videos embedded in the deck get written out to disk and
+      // registered as ordinary Media Library items — that way they survive
+      // independently of the .pptx file and can be reused (go-live,
+      // slide backgrounds) exactly like anything else in the library.
+      const mediaCount = parsed.slides.reduce((n, s) => n + s.media.length, 0)
+      let mediaFolderId: number | null = null
+      if (mediaCount > 0) {
+        const mediaDir = path.join(app.getPath('userData'), 'imported-media')
+        fs.mkdirSync(mediaDir, { recursive: true })
+        const label = sourceName ? sourceName.replace(/\.pptx$/i, '') : 'Untitled'
+        mediaFolderId = createMediaFolder(`PowerPoint Import — ${label}`).id
+      }
+
+      const slidesForDb = parsed.slides.map((slide, i) => {
+        let bgImage: string | null = null
+        slide.media.forEach((m, j) => {
+          const uniqueName = `pptx-${Date.now()}-${i}-${j}${m.ext}`
+          const filePath = path.join(app.getPath('userData'), 'imported-media', uniqueName)
+          fs.writeFileSync(filePath, m.data)
+          addMediaItem(mediaFolderId!, m.fileName, filePath, m.mimeType, m.data.length)
+          // First photo on the slide becomes its background — mirrors how a
+          // hand-picked bg_image is stored (a file:// URL ready for CSS/HTML).
+          if (!bgImage && m.kind === 'image') {
+            bgImage = `file://${filePath.replace(/\\/g, '/')}`
+          }
+        })
+        return { title: slide.title, content: slide.content, bgImage }
+      })
+
+      const result = importPPTXSlides(slidesForDb)
+      return { parsed: parsed.parsed, total: parsed.total, mediaImported: mediaCount, ...result, errors: parsed.errors }
     } catch (e: any) {
       return { success: false, error: e.message }
     }
@@ -388,4 +439,10 @@ function getMimeType(ext: string): string {
 }
 
 app.on('window-all-closed', () => { stopRemoteServer(); if (process.platform !== 'darwin') app.quit() })
+app.on('before-quit', (e) => {
+  if ((app as any).__shogunosFlushed) return
+  e.preventDefault()
+  ;(app as any).__shogunosFlushed = true
+  flushPendingSaves().finally(() => app.quit())
+})
 app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow() })
