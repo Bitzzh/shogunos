@@ -252,9 +252,9 @@ export default function MediaTab({ goLive, notify }:Props) {
             <div style={{ padding:24, borderBottom:`1px solid ${C.b0}`, display:'flex', gap:20, alignItems:'flex-start' }}>
               <div style={{ width:160, aspectRatio:'16/9', background:'#000', borderRadius:8, overflow:'hidden', flexShrink:0, border:`1px solid ${C.b1}`, display:'flex', alignItems:'center', justifyContent:'center' }}>
                 {activeItem.mime_type.startsWith('image/') ? (
-                  <img src={`file://${activeItem.file_path}`} style={{ width:'100%', height:'100%', objectFit:'contain' }} />
+                  <img src={(window as any).shogunos.mediaUrl(activeItem.file_path)} style={{ width:'100%', height:'100%', objectFit:'contain' }} />
                 ) : activeItem.mime_type.startsWith('video/') ? (
-                  <video src={`file://${activeItem.file_path}`} style={{ width:'100%', height:'100%', objectFit:'contain' }} muted />
+                  <video src={(window as any).shogunos.mediaUrl(activeItem.file_path)} style={{ width:'100%', height:'100%', objectFit:'contain' }} muted />
                 ) : (
                   <span style={{ fontSize:28, color:C.t3 }}>{fileIcon(activeItem.mime_type)}</span>
                 )}

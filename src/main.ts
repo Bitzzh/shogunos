@@ -1,6 +1,7 @@
-import { app, BrowserWindow, ipcMain, screen, dialog, Menu } from 'electron'
+import { app, BrowserWindow, ipcMain, screen, dialog, Menu, protocol, net } from 'electron'
 import path from 'node:path'
 import fs from 'node:fs'
+import { pathToFileURL } from 'node:url'
 import started from 'electron-squirrel-startup'
 import {
   initDatabase,
@@ -16,12 +17,31 @@ import {
   importPPTXSlides,
   getDisplaySettings, saveDisplaySettings,
   getMediaFolders, createMediaFolder, deleteMediaFolder, addMediaItem, deleteMediaItem, getMediaItems,
+  getCalendarEvents, createCalendarEvent, updateCalendarEvent, deleteCalendarEvent,
 } from './database'
 import { parseQSP } from './qsp-parser'
 import { parsePPTX } from './pptx-parser'
 import { startRemoteServer, stopRemoteServer, updateRemoteState, getRemoteInfo, RemoteState } from './remote-server'
 
 if (started) { app.quit() }
+
+// Local images/video referenced by the main window (slide + display-settings
+// backgrounds, media library thumbnails) used to be plain `file://` URLs.
+// Those load fine once the app is packaged (the window itself is served
+// from file://), but during development the renderer is served from the
+// Vite dev server at http://localhost — and Chromium refuses to load
+// `file://` resources referenced from a non-file:// page ("Not allowed to
+// load local resource"), which is what made a chosen background image show
+// up blank. Registering a small privileged custom scheme and resolving it
+// to the real file on disk sidesteps that restriction in both dev and
+// packaged builds. Must be called before the app is ready.
+protocol.registerSchemesAsPrivileged([
+  { scheme: 'shogun-media', privileges: { standard: true, secure: true, supportFetchAPI: true, corsEnabled: true, stream: true, bypassCSP: true } },
+])
+
+function toMediaUrl(absPath: string): string {
+  return `shogun-media://local/${encodeURIComponent(absPath)}`
+}
 
 let mainWindow: BrowserWindow
 let liveWindow: BrowserWindow | null = null
@@ -200,6 +220,16 @@ app.on('ready', async () => {
 
   await initDatabase()
 
+  protocol.handle('shogun-media', (request) => {
+    try {
+      const u = new URL(request.url)
+      const filePath = decodeURIComponent(u.pathname.replace(/^\/+/, ''))
+      return net.fetch(pathToFileURL(filePath).href)
+    } catch {
+      return new Response('Not found', { status: 404 })
+    }
+  })
+
   // ── SONGS ────────────────────────────────────────────────────────────────
   ipcMain.handle('search-songs',      (_e, query: string) => searchSongs(query))
   ipcMain.handle('get-song-sections', (_e, id: number) => getSongSections(id))
@@ -258,7 +288,7 @@ app.on('ready', async () => {
       const fileName = `bg-${Date.now()}-${Math.random().toString(36).slice(2, 8)}${safeExt}`
       const filePath = path.join(dir, fileName)
       fs.writeFileSync(filePath, Buffer.from(base64, 'base64'))
-      return { success: true, path: `file://${filePath.replace(/\\/g, '/')}` }
+      return { success: true, path: toMediaUrl(filePath) }
     } catch (e: any) {
       return { success: false, error: e.message }
     }
@@ -372,9 +402,9 @@ app.on('ready', async () => {
           fs.writeFileSync(filePath, m.data)
           addMediaItem(mediaFolderId!, m.fileName, filePath, m.mimeType, m.data.length)
           // First photo on the slide becomes its background — mirrors how a
-          // hand-picked bg_image is stored (a file:// URL ready for CSS/HTML).
+          // hand-picked bg_image is stored (a shogun-media:// URL ready for CSS/HTML).
           if (!bgImage && m.kind === 'image') {
-            bgImage = `file://${filePath.replace(/\\/g, '/')}`
+            bgImage = toMediaUrl(filePath)
           }
         })
         return { title: slide.title, content: slide.content, bgImage }
@@ -398,6 +428,12 @@ app.on('ready', async () => {
   // polls instantly without round-tripping into the renderer per request.
   ipcMain.on('remote-state-update', (_e, s: RemoteState) => updateRemoteState(s))
   ipcMain.handle('get-remote-info', () => getRemoteInfo())
+
+  // ── CALENDAR ─────────────────────────────────────────────────────────────
+  ipcMain.handle('calendar-get-events',    () => getCalendarEvents())
+  ipcMain.handle('calendar-create-event',  (_e, data: any) => createCalendarEvent(data))
+  ipcMain.handle('calendar-update-event',  (_e, id: number, data: any) => updateCalendarEvent(id, data))
+  ipcMain.handle('calendar-delete-event',  (_e, id: number) => { deleteCalendarEvent(id); return { success: true } })
 
   createWindow()
   startRemoteServer(() => mainWindow)

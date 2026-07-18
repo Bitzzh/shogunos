@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import Splash from './Splash'
 import MediaTab from './MediaTab'
+import CalendarTab from './CalendarTab'
 
 type Song       = { id: number; title: string; hymn_number: number; source: string; language: string }
 type Section    = { id: number; song_id: number; type: string; order_num: number; content: string }
@@ -8,7 +9,7 @@ type Display    = { id: number; label: string; isPrimary: boolean; bounds?: any 
 type DailyVerse = { book: string; chapter: number; verse: number; text: string; version: string }
 type BibleVerse = { id: number; book: string; chapter: number; verse: number; text: string; version: string }
 type QueueItem  = { id: string; title: string; type: string }
-type NavGroup   = 'library' | 'present' | 'media' | 'service' | 'settings'
+type NavGroup   = 'library' | 'present' | 'media' | 'calendar' | 'service' | 'settings'
 type LibTab     = 'hymnal' | 'bible' | 'daily' | 'songs'
 type PresentTab = 'slides' | 'announce'
 type SettingsTab = 'display' | 'import' | 'remote' | 'about'
@@ -1651,10 +1652,21 @@ export default function App() {
     setSections(await(window as any).shogunos.getSongSections(song.id))
   }
 
+  // Every place that pushes content to the live window should include the
+  // full display-settings payload (font, colors, border, and — critically —
+  // bgImage). Building this in one place means a chosen background image
+  // can't quietly get dropped from one call site while sticking on another,
+  // which is what used to make it disappear the moment the operator clicked
+  // to the next verse/section while live.
+  function liveDisplayFields(overrides?: Partial<DisplaySettings>) {
+    const s = { ...displaySettings, ...overrides }
+    return { fontSize:s.fontSize, textAlign:s.textAlign, bgColor:s.bgColor, bgImage:s.bgImage, fontColor:s.fontColor, fontFamily:s.fontFamily, borderWidth:s.borderWidth, borderColor:s.borderColor, borderStyle:s.borderStyle, borderRadius:s.borderRadius }
+  }
+
   async function goLive(title:string,lyrics:string,ds?:Partial<DisplaySettings>){
     const s={...displaySettings,...ds}
     setLive(title);setBlankScreen(false)
-    await(window as any).shogunos.goLive({title,lyrics,displayId:selectedDisplay,fontSize:s.fontSize,textAlign:s.textAlign,bgColor:s.bgColor,fontColor:s.fontColor,bgImage:s.bgImage,fontFamily:s.fontFamily,borderWidth:s.borderWidth,borderColor:s.borderColor,borderStyle:s.borderStyle,borderRadius:s.borderRadius})
+    await(window as any).shogunos.goLive({title,lyrics,displayId:selectedDisplay,...liveDisplayFields(ds)})
   }
 
   async function startCountdown(){
@@ -1666,7 +1678,7 @@ export default function App() {
 
   async function handleSectionClick(i:number){
     setCurrentSection(i)
-    if(live&&selected) await(window as any).shogunos.goLive({title:selected.title,lyrics:sections[i].content,displayId:selectedDisplay,fontSize:displaySettings.fontSize,textAlign:displaySettings.textAlign,bgColor:displaySettings.bgColor,fontColor:displaySettings.fontColor,fontFamily:displaySettings.fontFamily,borderWidth:displaySettings.borderWidth,borderColor:displaySettings.borderColor,borderStyle:displaySettings.borderStyle,borderRadius:displaySettings.borderRadius})
+    if(live&&selected) await(window as any).shogunos.goLive({title:selected.title,lyrics:sections[i].content,displayId:selectedDisplay,...liveDisplayFields()})
   }
 
   async function handleClear(){setLive(null);setBlankScreen(false);await(window as any).shogunos.closeLive()}
@@ -1674,7 +1686,7 @@ export default function App() {
   async function handleBlank(){
     const next=!blankScreen;setBlankScreen(next)
     if(next) await(window as any).shogunos.goLive({title:'',lyrics:'',displayId:selectedDisplay,bgColor:'#000000'})
-    else if(live) await(window as any).shogunos.goLive({title:live,lyrics:sections[currentSection]?.content||'',displayId:selectedDisplay,bgColor:displaySettings.bgColor,fontColor:displaySettings.fontColor,fontFamily:displaySettings.fontFamily,fontSize:displaySettings.fontSize,textAlign:displaySettings.textAlign,borderWidth:displaySettings.borderWidth,borderColor:displaySettings.borderColor,borderStyle:displaySettings.borderStyle,borderRadius:displaySettings.borderRadius})
+    else if(live) await(window as any).shogunos.goLive({title:live,lyrics:sections[currentSection]?.content||'',displayId:selectedDisplay,...liveDisplayFields()})
     notify(next?'Screen blanked':'Screen restored')
   }
 
@@ -1824,15 +1836,19 @@ export default function App() {
     ['library','Library','♫'],
     ['present','Present','▣'],
     ['media','Media','◈'],
+    ['calendar','Calendar','暦'],
     ['service','Service','☰'],
     ['settings','Settings','⚙'],
   ]
 
-  const activeSubId = navGroup==='library'?libTab:navGroup==='present'?presentTab:navGroup==='service'?'queue':navGroup==='media'?'media':settingsTab
+  const activeSubId = navGroup==='library'?libTab:navGroup==='present'?presentTab:navGroup==='service'?'queue':navGroup==='media'?'media':navGroup==='calendar'?'calendar':settingsTab
 
   const renderContent = () => {
     if(navGroup==='media'){
       return <MediaTab goLive={(t,l,type,extra)=>{ (window as any).shogunos?.goLiveMedia?.(extra||{type:'image'}) }} notify={notify}/>
+    }
+    if(navGroup==='calendar'){
+      return <CalendarTab notify={notify}/>
     }
     if(navGroup==='present'){
       if(presentTab==='slides') return <SlidesTab goLive={goLive} addToQueue={addToQueue} notify={notify}/>
@@ -2113,12 +2129,13 @@ export default function App() {
     library:  [{id:'hymnal',label:'Hymnal'},{id:'bible',label:'Bible'},{id:'songs',label:'My Songs'}],
     present:  [{id:'slides',label:'Slides'},{id:'announce',label:'Announce'}],
     media:    [],
+    calendar: [],
     service:  [{id:'queue',label:'Queue'}],
     settings: [{id:'display',label:'Display'},{id:'import',label:'Import'},{id:'remote',label:'Remote'},{id:'about',label:'About'}],
   }
 
   const NAV_ICONS: Record<NavGroup,string> = {
-    library:'♪', present:'▶', media:'◫', service:'☰', settings:'⚙'
+    library:'♪', present:'▶', media:'◫', calendar:'暦', service:'☰', settings:'⚙'
   }
 
   return (
@@ -2249,7 +2266,7 @@ export default function App() {
       <div ref={bodyRef} style={{flex:1,display:'flex',minHeight:0,overflow:'hidden'}}>
 
         {/* ── LEFT COLUMN ── */}
-        <div ref={leftColRef} style={navGroup==='media'
+        <div ref={leftColRef} style={navGroup==='media'||navGroup==='calendar'
           ? {flex:1,background:C.bg0,display:'flex',flexDirection:'column',minHeight:0,minWidth:0}
           : {width:leftWidth,flexShrink:0,background:C.bg0,display:'flex',flexDirection:'column',minHeight:0}}>
 
@@ -2303,7 +2320,7 @@ export default function App() {
           </div>
         </div>
 
-        {navGroup!=='media' && <>
+        {navGroup!=='media'&&navGroup!=='calendar' && <>
         {/* ── DIVIDER: Library ↔ Preview ── */}
         <div onMouseDown={e=>beginResize('left',e)} onDoubleClick={()=>resetResize('left')} title="Drag to resize · double-click to reset"
           style={dividerStyle()}

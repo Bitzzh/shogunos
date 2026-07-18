@@ -1,6 +1,14 @@
 const { contextBridge, ipcRenderer } = require('electron')
 
 contextBridge.exposeInMainWorld('shogunos', {
+  // Turns a raw absolute file path into a shogun-media:// URL that can be
+  // used as an <img>/<video> src or CSS background-image — see the matching
+  // protocol.handle('shogun-media', ...) registration in main.ts. Local
+  // file:// URLs referenced from a page that isn't itself file:// (e.g. the
+  // Vite dev server during development) get silently blocked by Chromium,
+  // which is what made picked images render blank.
+  mediaUrl: (filePath: string) => `shogun-media://local/${encodeURIComponent(filePath)}`,
+
   // ── SONGS ──────────────────────────────────────────────────────────────────
   searchSongs:        (query: string) => ipcRenderer.invoke('search-songs', query),
   getSongSections:    (id: number) => ipcRenderer.invoke('get-song-sections', id),
@@ -74,4 +82,10 @@ contextBridge.exposeInMainWorld('shogunos', {
   getRemoteInfo:      () => ipcRenderer.invoke('get-remote-info'),
   pushRemoteState:    (state: any) => ipcRenderer.send('remote-state-update', state),
   onRemoteCommand:    (cb: (data: { action: string; id?: string }) => void) => ipcRenderer.on('remote-command', (_e: any, d: any) => cb(d)),
+
+  // ── CALENDAR ───────────────────────────────────────────────────────────────
+  getCalendarEvents:    () => ipcRenderer.invoke('calendar-get-events'),
+  createCalendarEvent:  (data: any) => ipcRenderer.invoke('calendar-create-event', data),
+  updateCalendarEvent:  (id: number, data: any) => ipcRenderer.invoke('calendar-update-event', id, data),
+  deleteCalendarEvent:  (id: number) => ipcRenderer.invoke('calendar-delete-event', id),
 })

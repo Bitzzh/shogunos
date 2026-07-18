@@ -149,6 +149,12 @@
     const timerClockEl = document.getElementById('timer-clock')
     let timerInterval = null
 
+    // Same scheme as preload.ts's mediaUrl() / main.ts's protocol.handle('shogun-media', ...).
+    // Kept local to this file since live.html has no bundler/import access.
+    function mediaUrl(filePath) {
+      return 'shogun-media://local/' + encodeURIComponent(filePath)
+    }
+
     function stopTimer() {
       if (timerInterval) { clearInterval(timerInterval); timerInterval = null }
     }
@@ -204,7 +210,7 @@
       if (type === 'video') {
         hideAll()
         if (data.filePath) {
-          videoEl.src = 'file://' + data.filePath
+          videoEl.src = mediaUrl(data.filePath)
           videoEl.loop   = !!data.loop
           videoEl.muted  = !!data.muted
           videoEl.play().catch(() => {})
@@ -217,7 +223,7 @@
         hideAll()
         videoEl.pause()
         if (data.filePath) {
-          imageLayer.style.backgroundImage = `url("file://${data.filePath.replace(/\\/g, '/')}")`
+          imageLayer.style.backgroundImage = `url("${mediaUrl(data.filePath)}")`
           imageLayer.style.backgroundSize = data.fitMode === 'fill' ? 'cover' : 'contain'
           imageLayer.classList.add('visible')
         }

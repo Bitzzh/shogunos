@@ -38,6 +38,10 @@ export interface MediaItem {
   id: number; folder_id: number; name: string; file_path: string
   mime_type: string; file_size: number; created_at: string
 }
+export interface CalendarEvent {
+  id: number; title: string; date: string; time: string | null
+  notes: string; color: string; created_at: string
+}
 export interface DisplaySettings {
   [key: string]: any
 }
@@ -46,6 +50,7 @@ interface DB {
   daily_verses: DailyVerse[]; service_queue: ServiceQueueItem[]
   users: User[]; slides: Slide[]
   media_folders: MediaFolder[]; media_items: MediaItem[]
+  calendar_events: CalendarEvent[]
   display_settings: DisplaySettings
   meta: { last_id: number; bible_loaded?: string; songs_loaded?: string; installation_id?: string }
 }
@@ -125,6 +130,7 @@ function load(): DB {
       daily_verses: state.daily_verses || [], service_queue: state.service_queue || [],
       users: state.users || [], slides: state.slides || [],
       media_folders: state.media_folders || [], media_items: state.media_items || [],
+      calendar_events: state.calendar_events || [],
       display_settings: state.display_settings || {},
       meta: {
         ...(state.meta || { last_id: 0 }),
@@ -151,7 +157,7 @@ function load(): DB {
     fs.writeFileSync(statePath, JSON.stringify(state))
     return migrated
   }
-  return finishLoad({ songs:[], song_sections:[], bible_verses:[], daily_verses:[], service_queue:[], users:[], slides:[], media_folders:[], media_items:[], display_settings:{}, meta:{ last_id:0, installation_id: crypto.randomUUID() } })
+  return finishLoad({ songs:[], song_sections:[], bible_verses:[], daily_verses:[], service_queue:[], users:[], slides:[], media_folders:[], media_items:[], calendar_events:[], display_settings:{}, meta:{ last_id:0, installation_id: crypto.randomUUID() } })
 }
 
 function finishLoad(parsed: any): DB {
@@ -159,6 +165,7 @@ function finishLoad(parsed: any): DB {
   if (!parsed.slides) parsed.slides = []
   if (!parsed.media_folders) parsed.media_folders = []
   if (!parsed.media_items)   parsed.media_items   = []
+  if (!parsed.calendar_events) parsed.calendar_events = []
   // Older builds stored media items as {path, size}; the renderer has always
   // read {file_path, file_size}, which is why existing libraries showed
   // "NaN MB" and broken previews. Migrate in place, once, on load.
@@ -655,6 +662,33 @@ export function addMediaItem(folderId: number, name: string, filePath: string, m
 }
 export function deleteMediaItem(id: number) {
   db.media_items = db.media_items.filter(i => i.id !== id); save()
+}
+
+// ── CALENDAR EVENTS ────────────────────────────────────────────────────────
+
+export function getCalendarEvents(): CalendarEvent[] {
+  return [...db.calendar_events].sort((a,b) => {
+    const d = a.date.localeCompare(b.date)
+    if (d !== 0) return d
+    return (a.time || '').localeCompare(b.time || '')
+  })
+}
+export function createCalendarEvent(data: { title:string; date:string; time?:string|null; notes?:string; color?:string }): CalendarEvent {
+  const ev: CalendarEvent = {
+    id: nextId(), title: data.title || 'Untitled Event', date: data.date,
+    time: data.time || null, notes: data.notes || '', color: data.color || '#c22430',
+    created_at: new Date().toISOString(),
+  }
+  db.calendar_events.push(ev); save(); return ev
+}
+export function updateCalendarEvent(id: number, data: Partial<CalendarEvent>): CalendarEvent {
+  const idx = db.calendar_events.findIndex(e => e.id === id)
+  if (idx === -1) throw new Error('Event not found')
+  db.calendar_events[idx] = { ...db.calendar_events[idx], ...data, id }
+  save(); return db.calendar_events[idx]
+}
+export function deleteCalendarEvent(id: number) {
+  db.calendar_events = db.calendar_events.filter(e => e.id !== id); save()
 }
 
 // ── IMPORT / EXPORT ───────────────────────────────────────────────────────
