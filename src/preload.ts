@@ -32,8 +32,13 @@ contextBridge.exposeInMainWorld('shogunos', {
   goLiveTimer:          (data: any) => ipcRenderer.invoke('go-live-media', data),
   closeLive:            () => ipcRenderer.invoke('close-live'),
   moveLiveToDisplay:    (displayId: number) => ipcRenderer.invoke('move-live-to-display', displayId),
-  onUpdateLive:         (cb: (data: any) => void) => ipcRenderer.on('update-live', (_e: any, d: any) => cb(d)),
-  onLiveClosed:         (cb: () => void) => ipcRenderer.on('live-closed', () => cb()),
+  // removeAllListeners here only clears this window's own local listeners
+  // (each BrowserWindow/webContents has an isolated ipcRenderer) — safe to
+  // call even though live.html registers its own onUpdateLive independently.
+  // It just stops a tab like MediaTab from stacking a fresh listener every
+  // time it remounts on tab switches.
+  onUpdateLive:         (cb: (data: any) => void) => { ipcRenderer.removeAllListeners('update-live'); ipcRenderer.on('update-live', (_e: any, d: any) => cb(d)) },
+  onLiveClosed:         (cb: () => void) => { ipcRenderer.removeAllListeners('live-closed'); ipcRenderer.on('live-closed', () => cb()) },
   onDisplaysChanged:    (cb: (displays: any[]) => void) => ipcRenderer.on('displays-changed', (_e: any, d: any) => cb(d)),
   onLiveDisplayChanged: (cb: (info: any) => void) => ipcRenderer.on('live-display-changed', (_e: any, d: any) => cb(d)),
 
@@ -64,6 +69,12 @@ contextBridge.exposeInMainWorld('shogunos', {
   getMediaItems:        (folderId: number) => ipcRenderer.invoke('media-get-items', folderId),
   deleteMediaItem:      (id: number) => ipcRenderer.invoke('media-delete-item', id),
   openMediaDialog:      (folderId: number) => ipcRenderer.invoke('media-open-file-dialog', folderId),
+  startMediaPlaylist:   (data: any) => ipcRenderer.invoke('media-start-playlist', data),
+  stopMediaPlaylist:    () => ipcRenderer.invoke('media-stop-playlist'),
+  playlistNext:         () => ipcRenderer.invoke('media-playlist-next'),
+  playlistPrev:         () => ipcRenderer.invoke('media-playlist-prev'),
+  onMediaPlaylistUpdate:(cb: (data: any) => void) => { ipcRenderer.removeAllListeners('media-playlist-update'); ipcRenderer.on('media-playlist-update', (_e: any, d: any) => cb(d)) },
+  notifyVideoEnded:     () => ipcRenderer.send('video-ended'),
 
   // ── IMPORT / EXPORT ────────────────────────────────────────────────────────
   exportData:          () => ipcRenderer.invoke('export-data'),

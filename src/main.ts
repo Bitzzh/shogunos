@@ -46,6 +46,62 @@ function toMediaUrl(absPath: string): string {
 let mainWindow: BrowserWindow
 let liveWindow: BrowserWindow | null = null
 
+// ── MEDIA PLAYLIST (folder loop) ────────────────────────────────────────
+// Drives "Loop Folder" in the Media tab: instead of looping a single video
+// forever, this cycles through every playable item in a folder — images
+// advance on a timer, videos advance when they finish playing (see the
+// 'video-ended' IPC below, sent from live.html) — wrapping back to the
+// start indefinitely until stopped or overridden by other content going live.
+interface PlaylistItem { id: number; filePath: string; mimeType: string; name: string; fitMode?: string }
+interface Playlist { items: PlaylistItem[]; index: number; folderId: number; imageDurationMs: number; timer: NodeJS.Timeout | null }
+let playlist: Playlist | null = null
+
+function clearPlaylistTimer() {
+  if (playlist?.timer) { clearTimeout(playlist.timer); playlist.timer = null }
+}
+
+function stopPlaylist() {
+  if (!playlist) return
+  clearPlaylistTimer()
+  playlist = null
+  mainWindow?.webContents.send('media-playlist-update', { active: false })
+}
+
+function playPlaylistItem(i: number) {
+  if (!playlist || playlist.items.length === 0) return
+  clearPlaylistTimer()
+  playlist.index = ((i % playlist.items.length) + playlist.items.length) % playlist.items.length
+  const item = playlist.items[playlist.index]
+  const isVideo = item.mimeType.startsWith('video/')
+  const data = isVideo
+    ? { type: 'video', filePath: item.filePath, loop: false, muted: false, title: item.name }
+    : { type: 'image', filePath: item.filePath, fitMode: item.fitMode || 'contain', title: item.name }
+
+  if (!liveWindow) createLiveWindow(undefined, data)
+  else { ensureLiveWindowOnDisplay(undefined); broadcastLive(data) }
+
+  mainWindow?.webContents.send('media-playlist-update', {
+    active: true, folderId: playlist.folderId, index: playlist.index, total: playlist.items.length, itemId: item.id,
+  })
+
+  // Images don't fire a natural "finished" event — advance on a timer.
+  // Videos advance via the 'video-ended' IPC message instead.
+  if (!isVideo) playlist.timer = setTimeout(() => advancePlaylist(), playlist.imageDurationMs)
+}
+
+function advancePlaylist() {
+  if (!playlist) return
+  playPlaylistItem(playlist.index + 1)
+}
+
+// Mirrors whatever's on the live/projector window back to the main window
+// too, so the Media tab can show a live "on air" monitor without needing a
+// second physical display to check what's actually being projected.
+function broadcastLive(data: any) {
+  liveWindow?.webContents.send('update-live', data)
+  mainWindow?.webContents.send('update-live', data)
+}
+
 const createWindow = () => {
   mainWindow = new BrowserWindow({
     width: 1280, height: 800, minWidth: 1100, minHeight: 680,
@@ -157,7 +213,7 @@ const createLiveWindow = (displayId?: number, initialData?: any) => {
   liveWindow.loadFile(liveHtml)
   liveWindow.setBounds({ x, y, width, height })
 
-  const sendInitial = () => { if (initialData) liveWindow?.webContents.send('update-live', initialData) }
+  const sendInitial = () => { if (initialData) broadcastLive(initialData) }
 
   liveWindow.once('ready-to-show', () => {
     // Re-assert bounds here too: on a display that was only just connected,
@@ -183,7 +239,9 @@ const createLiveWindow = (displayId?: number, initialData?: any) => {
 
   liveWindow.on('closed', () => {
     liveWindow = null
+    stopPlaylist()
     mainWindow?.webContents.send('live-closed')
+    mainWindow?.webContents.send('update-live', { type: 'clear' })
   })
 }
 
@@ -259,14 +317,20 @@ app.on('ready', async () => {
   // ── DISPLAY ──────────────────────────────────────────────────────────────
   ipcMain.handle('get-displays', () => mapDisplays())
   ipcMain.handle('go-live', (_e, data: any) => {
+    stopPlaylist() // text/scripture/etc. going live overrides any running folder loop
     if (!liveWindow) {
       createLiveWindow(data.displayId, data)
     } else {
       ensureLiveWindowOnDisplay(data.displayId)
-      liveWindow.webContents.send('update-live', data)
+      broadcastLive(data)
     }
   })
-  ipcMain.handle('close-live', () => { liveWindow?.close(); liveWindow = null })
+  ipcMain.handle('close-live', () => {
+    stopPlaylist()
+    liveWindow?.close()
+    liveWindow = null
+    mainWindow?.webContents.send('update-live', { type: 'clear' })
+  })
   ipcMain.handle('move-live-to-display', (_e, displayId: number) => {
     if (!liveWindow) return
     const d = screen.getAllDisplays().find(x => x.id === displayId)
@@ -344,15 +408,41 @@ app.on('ready', async () => {
     return { success: true, items }
   })
 
-  // Media: go live with video/image
+  // Media: go live with video/image (a single manual pick — not the folder
+  // loop, which goes through media-start-playlist below).
   ipcMain.handle('go-live-media', (_e, data: any) => {
+    stopPlaylist() // manually picking a file overrides any running folder loop
     if (!liveWindow) {
       createLiveWindow(data.displayId, data)
     } else {
       ensureLiveWindowOnDisplay(data.displayId)
-      liveWindow.webContents.send('update-live', data)
+      broadcastLive(data)
+    }
+    // Quelea-style behavior: once an image is put live, remember it — file
+    // path + fit mode — until a different image is chosen. Stored in the
+    // same generic display_settings bag, so it survives app restarts.
+    if (data?.type === 'image' && data.filePath) {
+      saveDisplaySettings({
+        lastLiveImage: { filePath: data.filePath, fitMode: data.fitMode || 'contain', title: data.title || null },
+      })
     }
   })
+
+  // Media: loop (interchange) through every playable item in a folder,
+  // instead of only being able to loop a single video forever.
+  ipcMain.handle('media-start-playlist', (_e, data: { folderId: number; items: PlaylistItem[]; imageDurationMs?: number; displayId?: number }) => {
+    if (!data?.items || data.items.length === 0) return { success: false, error: 'No playable items in this folder' }
+    if (data.displayId !== undefined) ensureLiveWindowOnDisplay(data.displayId)
+    playlist = { items: data.items, index: -1, folderId: data.folderId, imageDurationMs: data.imageDurationMs || 6000, timer: null }
+    playPlaylistItem(0)
+    return { success: true }
+  })
+  ipcMain.handle('media-stop-playlist', () => { stopPlaylist(); return { success: true } })
+  ipcMain.handle('media-playlist-next', () => { if (playlist) advancePlaylist(); return { success: true } })
+  ipcMain.handle('media-playlist-prev', () => { if (playlist) playPlaylistItem(playlist.index - 1); return { success: true } })
+  // Sent by live.html when a non-looping video finishes — advances the
+  // folder loop to its next item. Harmless no-op if no loop is running.
+  ipcMain.on('video-ended', () => { if (playlist) advancePlaylist() })
 
   // ── IMPORT / EXPORT ──────────────────────────────────────────────────────
   ipcMain.handle('export-data',             () => exportDatabase())

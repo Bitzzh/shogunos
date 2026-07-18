@@ -304,6 +304,15 @@
     // setups) — without this, the only way back to the app was killing the
     // process, since the operator's keyboard shortcuts live in the main
     // window and never reach this one.
+    // Lets the main process advance a running folder loop when a video
+    // finishes on its own — a no-op when no loop is active. Only fires for
+    // non-looping videos: a manually-looped single video never "ends".
+    videoEl.addEventListener('ended', () => {
+      if (!videoEl.loop && window.shogunos && typeof window.shogunos.notifyVideoEnded === 'function') {
+        window.shogunos.notifyVideoEnded()
+      }
+    })
+
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape' && window.shogunos && typeof window.shogunos.closeLive === 'function') {
         window.shogunos.closeLive()

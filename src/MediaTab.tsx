@@ -33,6 +33,37 @@ interface Props {
   notify: (msg:string) => void
 }
 
+// Mirrors whatever the live/projector window is currently showing — driven
+// by the same 'update-live' data main.ts sends to the live window itself, so
+// this stays in sync with images, videos, folder-loop playback, or even
+// text/scripture from other tabs, without needing a second monitor to check.
+function LiveMonitor({ data, mediaUrl }: { data:any; mediaUrl:(p:string)=>string }) {
+  const base: React.CSSProperties = { width:'100%', height:'100%', display:'flex', alignItems:'center', justifyContent:'center' }
+  if (!data || !data.type || data.type === 'clear') {
+    return <div style={{ ...base, color:'#555', fontSize:9, letterSpacing:'0.08em' }}>NO SIGNAL</div>
+  }
+  if (data.type === 'blank') {
+    return <div style={{ width:'100%', height:'100%', background:'#000' }} />
+  }
+  if (data.type === 'image' && data.filePath) {
+    return <img src={mediaUrl(data.filePath)} style={{ width:'100%', height:'100%', objectFit: data.fitMode==='fill' ? 'cover' : 'contain' }} />
+  }
+  if (data.type === 'video' && data.filePath) {
+    return <video key={data.filePath} src={mediaUrl(data.filePath)} style={{ width:'100%', height:'100%', objectFit:'contain' }} autoPlay loop={!!data.loop} muted />
+  }
+  if (data.type === 'timer') {
+    return <div style={{ ...base, color:'#fff', fontSize:11 }}>⏱ Timer</div>
+  }
+  // text / scripture / announcement / slide
+  return (
+    <div style={{ width:'100%', height:'100%', background:data.bgColor||'#000', ...base, padding:6, overflow:'hidden' }}>
+      <div style={{ color:data.fontColor||'#fff', fontSize:7, textAlign:'center', lineHeight:1.35, whiteSpace:'pre-line' }}>
+        {(data.lyrics||'').slice(0,140)}
+      </div>
+    </div>
+  )
+}
+
 export default function MediaTab({ goLive, notify }:Props) {
   const [folders, setFolders]         = useState<MediaFolder[]>([])
   const [selected, setSelected]       = useState<MediaFolder|null>(null)
@@ -46,6 +77,22 @@ export default function MediaTab({ goLive, notify }:Props) {
   const [muted, setMuted]             = useState(false)
   const [fitMode, setFitMode]         = useState<'contain'|'fill'>('contain')
   const [confirmDelete, setConfirmDelete] = useState<number|null>(null)
+
+  // Quelea-style "sticky" last-live image — persisted in display_settings by
+  // the main process, so it's remembered across tab switches and app restarts
+  // until a different image is put live.
+  const [lastLiveImage, setLastLiveImage] = useState<{itemId?:number; folderId?:number; filePath:string; fitMode:string; title?:string|null} | null>(null)
+
+  // Live "on air" monitor — mirrors the projector window in real time.
+  const [previewData, setPreviewData]   = useState<any>(null)
+
+  // Folder loop (interchange playback of every image/video in a folder).
+  const [playlistActive, setPlaylistActive]     = useState(false)
+  const [playlistFolderId, setPlaylistFolderId] = useState<number|null>(null)
+  const [playlistItemId, setPlaylistItemId]     = useState<number|null>(null)
+  const [playlistIndex, setPlaylistIndex]       = useState(0)
+  const [playlistTotal, setPlaylistTotal]       = useState(0)
+  const [imageDurationSec, setImageDurationSec] = useState(6)
 
   const api = (window as any).shogunos
 
@@ -61,6 +108,37 @@ export default function MediaTab({ goLive, notify }:Props) {
 
   useEffect(() => { loadFolders() }, [])
   useEffect(() => { if (selected) loadItems(selected.id) }, [selected])
+
+  // Restore the sticky last-live image on mount.
+  useEffect(() => {
+    (async () => {
+      try {
+        const ds = await api.getDisplaySettings?.()
+        if (ds?.lastLiveImage) setLastLiveImage(ds.lastLiveImage)
+      } catch {}
+    })()
+  }, [])
+
+  // Live monitor + folder loop status feeds.
+  useEffect(() => {
+    api.onUpdateLive?.((d:any) => setPreviewData(d))
+    api.onLiveClosed?.(() => setPreviewData(null))
+    api.onMediaPlaylistUpdate?.((d:any) => {
+      setPlaylistActive(!!d.active)
+      setPlaylistFolderId(d.active ? d.folderId : null)
+      setPlaylistItemId(d.active ? d.itemId : null)
+      setPlaylistIndex(d.active ? d.index : 0)
+      setPlaylistTotal(d.active ? d.total : 0)
+    })
+  }, [])
+
+  // If the selected file is the one remembered as last-live, restore the fit
+  // mode it was shown with rather than defaulting back to "contain".
+  useEffect(() => {
+    if (activeItem && lastLiveImage && activeItem.id === lastLiveImage.itemId && lastLiveImage.fitMode) {
+      setFitMode(lastLiveImage.fitMode as 'contain'|'fill')
+    }
+  }, [activeItem, lastLiveImage])
 
   async function createFolder() {
     if (!newName.trim()) return
@@ -100,12 +178,36 @@ export default function MediaTab({ goLive, notify }:Props) {
       api.goLiveMedia({ type:'video', filePath:item.file_path, loop, muted, title:item.name })
     } else if (isImage) {
       api.goLiveMedia({ type:'image', filePath:item.file_path, fitMode, title:item.name })
+      // Main process persists this to display_settings too — mirror it
+      // locally so the "last live" badge updates instantly.
+      setLastLiveImage({ itemId:item.id, folderId:item.folder_id, filePath:item.file_path, fitMode, title:item.name })
     } else if (isAudio) {
       notify('Audio playback coming soon — use with a slide background')
     } else {
       notify('This file type cannot be projected directly')
     }
     notify(`Live: ${item.name}`)
+  }
+
+  async function restoreLastImage() {
+    if (!lastLiveImage) return
+    await api.goLiveMedia({ type:'image', filePath:lastLiveImage.filePath, fitMode:lastLiveImage.fitMode, title:lastLiveImage.title })
+    notify(`Live: ${lastLiveImage.title || 'image'}`)
+  }
+
+  async function loopFolder() {
+    if (!selected) return
+    const playable = items.filter(i => i.mime_type.startsWith('video/') || i.mime_type.startsWith('image/'))
+    if (playable.length === 0) { notify('No images or videos in this folder to loop'); return }
+    const payload = playable.map(i => ({ id:i.id, filePath:i.file_path, mimeType:i.mime_type, name:i.name, fitMode }))
+    const res = await api.startMediaPlaylist({ folderId:selected.id, items:payload, imageDurationMs:imageDurationSec*1000 })
+    if (res?.success) notify(`Looping ${playable.length} item(s) in ${selected.name}`)
+    else notify(res?.error || 'Could not start loop')
+  }
+
+  async function stopLoop() {
+    await api.stopMediaPlaylist()
+    notify('Loop stopped')
   }
 
   const btn = (label:string, onClick:()=>void, variant:'primary'|'ghost'|'danger'='ghost', small=false) => (
@@ -198,9 +300,26 @@ export default function MediaTab({ goLive, notify }:Props) {
           </div>
         ) : (
           <>
-            <div style={{ padding:'10px 12px', borderBottom:`1px solid ${C.b0}`, display:'flex', alignItems:'center', justifyContent:'space-between' }}>
-              <span style={{ fontSize:10, color:C.t3, fontWeight:700, letterSpacing:'0.12em' }}>{selected.name.toUpperCase()} · {items.length}</span>
-              <button onClick={addFiles} style={{ padding:'5px 10px', background:C.accent, border:'none', color:'#fff', fontSize:10, fontWeight:700, borderRadius:6, cursor:'pointer', fontFamily:'inherit' }}>+ Add Files</button>
+            <div style={{ padding:'10px 12px', borderBottom:`1px solid ${C.b0}`, display:'flex', flexDirection:'column', gap:8 }}>
+              <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+                <span style={{ fontSize:10, color:C.t3, fontWeight:700, letterSpacing:'0.12em' }}>{selected.name.toUpperCase()} · {items.length}</span>
+                <button onClick={addFiles} style={{ padding:'5px 10px', background:C.accent, border:'none', color:'#fff', fontSize:10, fontWeight:700, borderRadius:6, cursor:'pointer', fontFamily:'inherit' }}>+ Add Files</button>
+              </div>
+              <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                {playlistActive && playlistFolderId===selected.id ? (
+                  btn(`■ Stop Loop (${playlistIndex+1}/${playlistTotal})`, stopLoop, 'danger', true)
+                ) : (
+                  btn('🔁 Loop Folder', loopFolder, 'ghost', true)
+                )}
+                <div style={{ display:'flex', alignItems:'center', gap:5 }}>
+                  <span style={{ fontSize:9, color:C.t4 }}>secs/image</span>
+                  <input
+                    type="number" min={1} max={120} value={imageDurationSec}
+                    onChange={e=>setImageDurationSec(Math.max(1, Number(e.target.value)||6))}
+                    style={{ width:38, background:C.bg3, border:`1px solid ${C.b2}`, color:C.t1, fontSize:10, borderRadius:5, padding:'3px 4px', outline:'none', fontFamily:'inherit' }}
+                  />
+                </div>
+              </div>
             </div>
             <div style={{ flex:1, overflowY:'auto', padding:'4px 6px' }}>
               {loading && <div style={{ padding:20, textAlign:'center', color:C.t4, fontSize:11 }}>Loading…</div>}
@@ -228,7 +347,11 @@ export default function MediaTab({ goLive, notify }:Props) {
                       <div style={{ fontSize:11, color:C.t1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', display:'flex', alignItems:'center', gap:6 }}>
                         {item.name}
                       </div>
-                      <div style={{ fontSize:9, color:C.t4, marginTop:1 }}>{item.mime_type.split('/')[1]?.toUpperCase()} · {fileSizeLabel(item.file_size)}</div>
+                      <div style={{ fontSize:9, color:C.t4, marginTop:1, display:'flex', alignItems:'center', gap:6 }}>
+                        <span>{item.mime_type.split('/')[1]?.toUpperCase()} · {fileSizeLabel(item.file_size)}</span>
+                        {playlistActive && playlistItemId===item.id && <span style={{ color:C.red, fontWeight:800 }}>▶ PLAYING</span>}
+                        {!playlistActive && lastLiveImage?.itemId===item.id && <span style={{ color:C.gold, fontWeight:800 }}>● LAST LIVE</span>}
+                      </div>
                     </div>
                     <button onClick={e=>{e.stopPropagation();deleteItem(item.id)}} style={{ background:'none',border:'none',color:C.t4,cursor:'pointer',fontSize:14,padding:0,opacity:0.5,lineHeight:1 }}>×</button>
                   </div>
@@ -241,6 +364,35 @@ export default function MediaTab({ goLive, notify }:Props) {
 
       {/* ── DETAIL / CONTROLS ─────────────────────────────────────────── */}
       <div style={{ flex:1, minWidth:380, background:C.bg1, display:'flex', flexDirection:'column', overflow:'hidden' }}>
+
+        {/* On-air monitor — mirrors exactly what the projector is showing */}
+        <div style={{ padding:'14px 24px', borderBottom:`1px solid ${C.b0}`, display:'flex', gap:16, alignItems:'center', flexShrink:0 }}>
+          <div style={{
+            width:140, aspectRatio:'16/9', background:'#000', borderRadius:6, overflow:'hidden', flexShrink:0,
+            border:`1px solid ${previewData && previewData.type && previewData.type!=='clear' ? C.red : C.b1}`,
+          }}>
+            <LiveMonitor data={previewData} mediaUrl={api.mediaUrl} />
+          </div>
+          <div style={{ flex:1, minWidth:0 }}>
+            <div style={{ fontSize:9, color: previewData && previewData.type && previewData.type!=='clear' ? C.red : C.t4, fontWeight:800, letterSpacing:'0.12em' }}>
+              {previewData && previewData.type && previewData.type!=='clear' ? '● ON AIR' : '○ OFF AIR'}
+            </div>
+            <div style={{ fontSize:12, color:C.t2, marginTop:4, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+              {previewData && previewData.type && previewData.type!=='clear'
+                ? (previewData.title || (previewData.type==='blank' ? 'Blank screen' : 'Showing content'))
+                : 'Nothing showing'}
+            </div>
+            {playlistActive && (
+              <div style={{ fontSize:10, color:C.goldL, marginTop:4 }}>Looping folder · item {playlistIndex+1} / {playlistTotal}</div>
+            )}
+            {!playlistActive && !(previewData && previewData.type && previewData.type!=='clear') && lastLiveImage && (
+              <button onClick={restoreLastImage} style={{ marginTop:6, padding:'4px 10px', background:'none', border:`1px solid ${C.b2}`, color:C.goldL, fontSize:10, fontWeight:600, borderRadius:6, cursor:'pointer', fontFamily:'inherit' }}>
+                ↻ Show last image ({lastLiveImage.title || 'untitled'})
+              </button>
+            )}
+          </div>
+        </div>
+
         {!activeItem ? (
           <div style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center', flexDirection:'column', gap:8, color:C.t4 }}>
             <div style={{ fontSize:40, opacity:0.1 }}>▶</div>
