@@ -27,6 +27,10 @@ export interface Slide {
   content: string; notes: string; bg_color: string; bg_image: string | null; font_color: string
   font_size: number; text_align: 'left'|'center'|'right'; order_num: number
   tags: string[]; created_at: string; updated_at: string
+  // Optional decorative icon overlay (offline SVG set, see src/icons.tsx).
+  // icon is a lookup id (e.g. 'cross', 'dove') or null for no icon.
+  icon: string | null; icon_color: string; icon_size: number
+  icon_pos: 'top-left'|'top-center'|'top-right'|'bottom-left'|'bottom-center'|'bottom-right'|'behind'
 }
 interface User {
   id: number; uuid?: string; display_name: string; created_at: string; last_login: string | null
@@ -590,12 +594,15 @@ export function reorderServiceQueue(orderedIds: number[]) {
 
 export function getThemes() {
   return [
-    {id:1, name:'Default', font_size:48, font_color:'#FFFFFF', text_align:'center', bg_color:'#000000'},
-    {id:2, name:'Large',   font_size:60, font_color:'#FFFFFF', text_align:'center', bg_color:'#000000'},
-    {id:3, name:'Crimson', font_size:48, font_color:'#FF9A00', text_align:'center', bg_color:'#1A0303'},
-    {id:4, name:'Sacred',  font_size:48, font_color:'#A78BFA', text_align:'center', bg_color:'#0F0620'},
-    {id:5, name:'Arctic',  font_size:48, font_color:'#7DD3FC', text_align:'center', bg_color:'#020B18'},
-    {id:6, name:'Ember',   font_size:48, font_color:'#FFB800', text_align:'center', bg_color:'#0C0F18'},
+    {id:1, name:'Default', font_size:48, font_color:'#FFFFFF', text_align:'center', bg_color:'#000000', icon:null,     icon_color:'#FFFFFF', icon_pos:'top-center'},
+    {id:2, name:'Large',   font_size:60, font_color:'#FFFFFF', text_align:'center', bg_color:'#000000', icon:null,     icon_color:'#FFFFFF', icon_pos:'top-center'},
+    {id:3, name:'Crimson', font_size:48, font_color:'#FF9A00', text_align:'center', bg_color:'#1A0303', icon:'flame',  icon_color:'#FF9A00', icon_pos:'top-center'},
+    {id:4, name:'Sacred',  font_size:48, font_color:'#A78BFA', text_align:'center', bg_color:'#0F0620', icon:'cross',  icon_color:'#A78BFA', icon_pos:'top-center'},
+    {id:5, name:'Arctic',  font_size:48, font_color:'#7DD3FC', text_align:'center', bg_color:'#020B18', icon:'star',   icon_color:'#7DD3FC', icon_pos:'top-center'},
+    {id:6, name:'Ember',   font_size:48, font_color:'#FFB800', text_align:'center', bg_color:'#0C0F18', icon:null,     icon_color:'#FFB800', icon_pos:'top-center'},
+    {id:7, name:'Dove',    font_size:44, font_color:'#F4ECD8', text_align:'center', bg_color:'#0A1420', icon:'dove',   icon_color:'#F4ECD8', icon_pos:'behind'},
+    {id:8, name:'Hymn',    font_size:44, font_color:'#FDE68A', text_align:'center', bg_color:'#141018', icon:'music',  icon_color:'#FDE68A', icon_pos:'top-center'},
+    {id:9, name:'Welcome', font_size:44, font_color:'#FFFFFF', text_align:'center', bg_color:'#0B1A12', icon:'heart',  icon_color:'#86EFAC', icon_pos:'top-center'},
   ]
 }
 
@@ -605,7 +612,7 @@ export function getSlides() { return db.slides.sort((a,b) => a.order_num - b.ord
 export function getSlide(id: number) { return db.slides.find(s => s.id === id) }
 export function createSlide(data: Partial<Slide>): Slide {
   const maxOrder = db.slides.reduce((m,s) => Math.max(m,s.order_num), 0)
-  const slide: Slide = { id:nextId(), title:data.title||'Untitled', type:data.type||'text', content:data.content||'', notes:data.notes||'', bg_color:data.bg_color||'#000000', bg_image:data.bg_image||null, font_color:data.font_color||'#FFFFFF', font_size:data.font_size||48, text_align:data.text_align||'center', order_num:maxOrder+1, tags:data.tags||[], created_at:new Date().toISOString(), updated_at:new Date().toISOString() }
+  const slide: Slide = { id:nextId(), title:data.title||'Untitled', type:data.type||'text', content:data.content||'', notes:data.notes||'', bg_color:data.bg_color||'#000000', bg_image:data.bg_image||null, font_color:data.font_color||'#FFFFFF', font_size:data.font_size||48, text_align:data.text_align||'center', order_num:maxOrder+1, tags:data.tags||[], created_at:new Date().toISOString(), updated_at:new Date().toISOString(), icon:data.icon||null, icon_color:data.icon_color||'#FFFFFF', icon_size:data.icon_size||64, icon_pos:data.icon_pos||'top-center' }
   db.slides.push(slide); save(); return slide
 }
 export function updateSlide(id: number, data: Partial<Slide>): Slide {
@@ -727,22 +734,6 @@ export function importQSPSongs(songs: { title:string; author:string; language:st
     songsAdded++
   }
   saveLibrary(); return { success:true, counts:{ songs:songsAdded, sections:sectionsAdded }, skipped }
-}
-export function importPPTXSlides(slides: { title:string; content:string; bgImage?: string | null }[]) {
-  let maxOrder = db.slides.reduce((m,s) => Math.max(m,s.order_num), 0)
-  let added = 0
-  for (const s of slides) {
-    maxOrder += 1
-    db.slides.push({
-      id: nextId(), title: s.title || `Slide ${added+1}`, type: 'text', content: s.content,
-      notes: '', bg_color: '#000000', bg_image: s.bgImage || null, font_color: '#FFFFFF', font_size: 48, text_align: 'center',
-      order_num: maxOrder, tags: s.bgImage ? ['pptx-import', 'has-media'] : ['pptx-import'],
-      created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
-    })
-    added++
-  }
-  save()
-  return { success: true, counts: { slides: added } }
 }
 export function getDatabaseStats() {
   return { songs:db.songs.length, custom_songs:db.songs.filter(s=>s.source==='custom').length, hymns:db.songs.filter(s=>s.source==='hymnal'||s.source==='hymnal-cis').length, sda_hymns:db.songs.filter(s=>s.source==='hymnal').length, cis_hymns:db.songs.filter(s=>s.source==='hymnal-cis').length, sections:db.song_sections.length, bible_verses:db.bible_verses.length, bible_translations:getBibleTranslations(), slides:db.slides.length, queue_items:db.service_queue.length, users:db.users.length, db_path:statePath, installation_id:db.meta.installation_id }

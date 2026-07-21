@@ -14,13 +14,11 @@ import {
   flushPendingSaves,
   getCurrentUser, updateDisplayName,
   importQSPSongs,
-  importPPTXSlides,
   getDisplaySettings, saveDisplaySettings,
   getMediaFolders, createMediaFolder, deleteMediaFolder, addMediaItem, deleteMediaItem, getMediaItems,
   getCalendarEvents, createCalendarEvent, updateCalendarEvent, deleteCalendarEvent,
 } from './database'
 import { parseQSP } from './qsp-parser'
-import { parsePPTX } from './pptx-parser'
 import { startRemoteServer, stopRemoteServer, updateRemoteState, getRemoteInfo, RemoteState } from './remote-server'
 
 if (started) { app.quit() }
@@ -345,7 +343,7 @@ app.on('ready', async () => {
       // blob that save() rewrites on nearly every action — so one picked
       // background made every later click (even unrelated ones) rewrite a
       // multi-MB file. Writing it to disk once and storing a file:// path
-      // instead keeps state.json small, the same way PPTX-imported media does.
+      // instead keeps state.json small, the same way imported Media Library files do.
       const dir = path.join(app.getPath('userData'), 'slide-backgrounds')
       fs.mkdirSync(dir, { recursive: true })
       const safeExt = /^\.[a-zA-Z0-9]+$/.test(ext) ? ext : '.png'
@@ -459,49 +457,6 @@ app.on('ready', async () => {
       }
       const result = importQSPSongs(parsed.songs)
       return { parsed: parsed.parsed, ...result, errors: parsed.errors }
-    } catch (e: any) {
-      return { success: false, error: e.message }
-    }
-  })
-  ipcMain.handle('import-pptx',  (_e, base64: string, sourceName?: string) => {
-    try {
-      const buf    = Buffer.from(base64, 'base64')
-      const parsed = parsePPTX(buf)
-      if (!parsed.success || parsed.slides.length === 0) {
-        return { success: false, error: `No slide content found. ${parsed.errors.join(', ')}` }
-      }
-
-      // Any photos/videos embedded in the deck get written out to disk and
-      // registered as ordinary Media Library items — that way they survive
-      // independently of the .pptx file and can be reused (go-live,
-      // slide backgrounds) exactly like anything else in the library.
-      const mediaCount = parsed.slides.reduce((n, s) => n + s.media.length, 0)
-      let mediaFolderId: number | null = null
-      if (mediaCount > 0) {
-        const mediaDir = path.join(app.getPath('userData'), 'imported-media')
-        fs.mkdirSync(mediaDir, { recursive: true })
-        const label = sourceName ? sourceName.replace(/\.pptx$/i, '') : 'Untitled'
-        mediaFolderId = createMediaFolder(`PowerPoint Import — ${label}`).id
-      }
-
-      const slidesForDb = parsed.slides.map((slide, i) => {
-        let bgImage: string | null = null
-        slide.media.forEach((m, j) => {
-          const uniqueName = `pptx-${Date.now()}-${i}-${j}${m.ext}`
-          const filePath = path.join(app.getPath('userData'), 'imported-media', uniqueName)
-          fs.writeFileSync(filePath, m.data)
-          addMediaItem(mediaFolderId!, m.fileName, filePath, m.mimeType, m.data.length)
-          // First photo on the slide becomes its background — mirrors how a
-          // hand-picked bg_image is stored (a shogun-media:// URL ready for CSS/HTML).
-          if (!bgImage && m.kind === 'image') {
-            bgImage = toMediaUrl(filePath)
-          }
-        })
-        return { title: slide.title, content: slide.content, bgImage }
-      })
-
-      const result = importPPTXSlides(slidesForDb)
-      return { parsed: parsed.parsed, total: parsed.total, mediaImported: mediaCount, ...result, errors: parsed.errors }
     } catch (e: any) {
       return { success: false, error: e.message }
     }

@@ -5,11 +5,12 @@ import React, { useState, useEffect, useCallback } from 'react'
 // the shared CSS variables (see index.css) so dark mode applies here too.
 const C = {
   bg0:'var(--bg0)', bg1:'var(--bg1)', bg2:'var(--bg2)', bg3:'var(--bg3)', bg4:'var(--bg4)', bg5:'var(--bg5)',
+  tex0:'var(--tbg0)', tex1:'var(--tbg1)', tex2:'var(--tbg2)', tex3:'var(--tbg3)',
   b0:'var(--b0)', b1:'var(--b1)', b2:'var(--b2)',
   accent:'var(--g2)', accentL:'var(--g3)', accentD:'var(--g1)',
   gold:'var(--gold)', goldL:'var(--goldL)',
   t1:'var(--t1)', t2:'var(--t2)', t3:'var(--t3)', t4:'var(--t4)',
-  red:'var(--live)', green:'var(--safe)',
+  red:'var(--live)', redD:'var(--p1)', green:'var(--safe)',
 }
 
 interface MediaFolder { id:number; name:string; eventDate:string|null; item_count:number; created_at:string }
@@ -229,14 +230,14 @@ export default function MediaTab({ goLive, notify }:Props) {
     <div style={{ flex:1, display:'flex', overflowX:'auto', overflowY:'hidden', minHeight:0 }}>
 
       {/* ── FOLDER PANEL ──────────────────────────────────────────────── */}
-      <div style={{ width:240, background:C.bg1, borderRight:`1px solid ${C.b0}`, display:'flex', flexDirection:'column', flexShrink:0 }}>
+      <div style={{ width:240, background:C.tex1, borderRight:`1px solid ${C.b0}`, display:'flex', flexDirection:'column', flexShrink:0 }}>
         <div style={{ padding:'10px 12px', borderBottom:`1px solid ${C.b0}`, display:'flex', alignItems:'center', justifyContent:'space-between' }}>
           <span style={{ fontSize:10, color:C.t3, fontWeight:700, letterSpacing:'0.12em' }}>EVENT FOLDERS</span>
           <button onClick={()=>setCreating(true)} style={{ background:'none', border:`1px solid ${C.b1}`, color:C.accentL, fontSize:16, width:24, height:24, display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', borderRadius:6, fontFamily:'inherit' }}>+</button>
         </div>
 
         {creating && (
-          <div style={{ padding:'10px 12px', background:C.bg2, borderBottom:`1px solid ${C.b0}` }}>
+          <div style={{ padding:'10px 12px', background:C.tex2, borderBottom:`1px solid ${C.b0}` }}>
             <input
               autoFocus
               value={newName} onChange={e=>setNewName(e.target.value)}
@@ -292,7 +293,7 @@ export default function MediaTab({ goLive, notify }:Props) {
       </div>
 
       {/* ── FILE LIST ─────────────────────────────────────────────────── */}
-      <div style={{ width:280, background:C.bg2, borderRight:`1px solid ${C.b0}`, display:'flex', flexDirection:'column', flexShrink:0 }}>
+      <div style={{ width:280, background:C.tex2, borderRight:`1px solid ${C.b0}`, display:'flex', flexDirection:'column', flexShrink:0 }}>
         {!selected ? (
           <div style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center', flexDirection:'column', gap:8, color:C.t4 }}>
             <div style={{ fontSize:32, opacity:0.15 }}>⊟</div>
@@ -363,7 +364,7 @@ export default function MediaTab({ goLive, notify }:Props) {
       </div>
 
       {/* ── DETAIL / CONTROLS ─────────────────────────────────────────── */}
-      <div style={{ flex:1, minWidth:380, background:C.bg1, display:'flex', flexDirection:'column', overflow:'hidden' }}>
+      <div style={{ flex:1, minWidth:380, background:C.tex1, display:'flex', flexDirection:'column', overflow:'hidden' }}>
 
         {/* On-air monitor — mirrors exactly what the projector is showing */}
         <div style={{ padding:'14px 24px', borderBottom:`1px solid ${C.b0}`, display:'flex', gap:16, alignItems:'center', flexShrink:0 }}>
@@ -417,8 +418,9 @@ export default function MediaTab({ goLive, notify }:Props) {
                   {activeItem.mime_type} · {fileSizeLabel(activeItem.file_size)}
                 </div>
                 <button
+                  className="glass-primary"
                   onClick={()=>liveItem(activeItem)}
-                  style={{ padding:'10px 28px', background:`linear-gradient(135deg,${C.red},#b91c1c)`, border:'none', color:'#fff', fontSize:12, fontWeight:700, borderRadius:8, cursor:'pointer', fontFamily:'inherit', letterSpacing:'0.06em' }}>
+                  style={{ padding:'10px 28px', background:`linear-gradient(135deg,${C.red},${C.redD})`, border:'none', color:'#fff', fontSize:12, fontWeight:700, cursor:'pointer', fontFamily:'inherit', letterSpacing:'0.06em' }}>
                   GO LIVE
                 </button>
               </div>

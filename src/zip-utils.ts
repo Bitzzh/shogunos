@@ -1,9 +1,8 @@
 /**
- * Minimal ZIP reader shared by qsp-parser and pptx-parser.
- * Both .qsp (Quelea song packs) and .pptx (PowerPoint) files are just ZIP
- * archives under the hood, so one hand-rolled reader (using the ZIP central
- * directory + Node's built-in zlib for DEFLATE) covers both without pulling
- * in an external dependency.
+ * Minimal ZIP reader used by qsp-parser (Quelea song pack import).
+ * .qsp (Quelea song pack) files are just ZIP archives under the hood, so
+ * one hand-rolled reader (using the ZIP central directory + Node's built-in
+ * zlib for DEFLATE) covers it without pulling in an external dependency.
  */
 
 export interface ZipEntry { name: string; data: Buffer }

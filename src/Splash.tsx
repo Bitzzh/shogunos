@@ -15,6 +15,12 @@ const C = {
   safe: '#47623f',
 }
 
+// No network access is guaranteed at launch, so this never pulls a webfont —
+// it leans on whichever CJK-capable serif font the OS already ships with
+// (Yu Mincho/MS Mincho on Windows, Hiragino Mincho on macOS, Noto Serif CJK
+// on most Linux distros) before falling back to a plain serif.
+const SERIF_STACK = "'Yu Mincho','Hiragino Mincho ProN','MS Mincho','Noto Serif CJK JP','Inter','Segoe UI',serif"
+
 export default function Splash({ onDone }: Props) {
   const [phase, setPhase]   = useState(0)
   const [user, setUser]     = useState<{ display_name: string } | null>(null)
@@ -112,9 +118,8 @@ export default function Splash({ onDone }: Props) {
   )
 
   return (
-    <div style={{ position: 'fixed', inset: 0, background: C.bg0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'Noto Serif JP','Inter','Segoe UI',serif", overflow: 'hidden', color: C.t1 }}>
+    <div style={{ position: 'fixed', inset: 0, background: C.bg0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: SERIF_STACK, overflow: 'hidden', color: C.t1 }}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@300;400;700&display=swap');
         @keyframes shimmer { 0%{left:-100%} 60%,100%{left:150%} }
         @keyframes drift   { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-14px)} }
         @keyframes spin    { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
@@ -155,12 +160,12 @@ export default function Splash({ onDone }: Props) {
             <circle cx="50" cy="50" r="48" fill="url(#sl1)" stroke="url(#sl2)" strokeWidth="2"/>
             <circle cx="50" cy="50" r="38" fill="none" stroke={`${C.g2}33`} strokeWidth="1"/>
             <circle cx="50" cy="50" r="28" fill="none" stroke={`${C.p2}22`} strokeWidth="1"/>
-            <text x="50" y="67" textAnchor="middle" fontSize="46" fill="url(#sl3)" fontFamily="'Noto Serif JP',serif" fontWeight="700">将</text>
+            <text x="50" y="67" textAnchor="middle" fontSize="46" fill="url(#sl3)" fontFamily={SERIF_STACK} fontWeight="700">将</text>
           </svg>
         </div>
 
         <div style={{ ...trans(phase >= 2, 0.1), marginBottom: 18 }}>
-          <div style={{ fontSize: 52, fontWeight: 800, letterSpacing: '0.01em', lineHeight: 1.05, marginBottom: 10, fontFamily: "'Noto Serif JP',serif" }}>
+          <div style={{ fontSize: 52, fontWeight: 800, letterSpacing: '0.01em', lineHeight: 1.05, marginBottom: 10, fontFamily: SERIF_STACK }}>
             <span style={{ color: C.t1 }}>将軍</span><span style={{ color: C.gold }}>OS</span>
           </div>
           <div style={{ fontSize: 11, color: C.t3, letterSpacing: '0.42em', fontWeight: 500 }}>MULTIMEDIA PRESENTATION SYSTEM</div>

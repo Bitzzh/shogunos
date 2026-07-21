@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import Splash from './Splash'
 import MediaTab from './MediaTab'
 import CalendarTab from './CalendarTab'
+import { ICONS, SlideIcon, iconPositionStyle, ICON_POSITIONS } from './icons'
 
 type Song       = { id: number; title: string; hymn_number: number; source: string; language: string }
 type Section    = { id: number; song_id: number; type: string; order_num: number; content: string }
@@ -52,6 +53,13 @@ interface DisplaySettings {
   // switching this off returns exactly to the operator's normal look.
   highVisibility: boolean
   highVisibilityInvert: boolean // false = black text on white; true = white text on black
+  // Decorative icon overlay, set per-slide from the Slide Designer (never a
+  // persistent global default — left null here so ordinary songs/scripture
+  // never pick one up by accident).
+  icon: string | null
+  iconColor: string
+  iconSize: number
+  iconPos: string
 }
 
 // Shogun palette — modern minimal: paper canvas, ink text, indigo accent, red reserved for LIVE only
@@ -60,6 +68,7 @@ interface DisplaySettings {
 // of the individual C.xxx usages below.
 const C = {
   bg0: 'var(--bg0)', bg1: 'var(--bg1)', bg2: 'var(--bg2)', bg3: 'var(--bg3)', bg4: 'var(--bg4)', bg5: 'var(--bg5)',
+  tex0: 'var(--tbg0)', tex1: 'var(--tbg1)', tex2: 'var(--tbg2)', tex3: 'var(--tbg3)',
   b0: 'var(--b0)', b1: 'var(--b1)', b2: 'var(--b2)',
   p1: 'var(--p1)', p2: 'var(--p2)', p3: 'var(--p3)',
   g1: 'var(--g1)', g2: 'var(--g2)', g3: 'var(--g3)',
@@ -95,6 +104,7 @@ interface Slide {
   bg_color: string; bg_image: string | null; font_color: string; font_size: number
   text_align: SlideAlign; order_num: number; tags: string[]
   created_at: string; updated_at: string
+  icon: string | null; icon_color: string; icon_size: number; icon_pos: string
 }
 
 function SlideCanvas({ slide, small = false }: { slide: Partial<Slide>; small?: boolean }) {
@@ -106,6 +116,9 @@ function SlideCanvas({ slide, small = false }: { slide: Partial<Slide>; small?: 
     <div style={{ width:'100%', height:'100%', background:bg, display:'flex', alignItems:'center', justifyContent:'center', padding:small?6:20, overflow:'hidden', position:'relative',
       backgroundImage:slide.bg_image?`url(${slide.bg_image})`:undefined, backgroundSize:'cover', backgroundPosition:'center' }}>
       {slide.bg_image && <div style={{ position:'absolute', inset:0, background:'rgba(0,0,0,0.38)' }} />}
+      {slide.icon && (
+        <SlideIcon id={slide.icon} color={slide.icon_color||'#fff'} size={small ? Math.max(8, (slide.icon_size||64)*0.14) : (slide.icon_size||64)} style={iconPositionStyle(slide.icon_pos, small)} />
+      )}
       <div style={{ position:'relative', zIndex:1, width:'100%' }}>
         {slide.type==='blank'
           ? <div style={{ fontSize:small?8:14, color:'rgba(255,255,255,0.15)', letterSpacing:'0.3em', textAlign:'center' }}>BLANK</div>
@@ -142,12 +155,29 @@ function SlidesTab({ goLive, addToQueue, notify }: {
   const [saving,setSaving]         = useState(false)
   const [dragId,setDragId]         = useState<number|null>(null)
   const [dragOverId,setDragOverId] = useState<number|null>(null)
+  const [themes,setThemes]         = useState<any[]>([])
+  const [showLibraryPicker,setShowLibraryPicker] = useState(false)
+  const [libFolders,setLibFolders] = useState<any[]>([])
+  const [libItems,setLibItems]     = useState<any[]>([])
   const contentRef                 = useRef<HTMLTextAreaElement>(null)
   const api = (window as any).shogunos
 
   useEffect(()=>{
     api.getSlides().then((d:Slide[])=>{ setSlides(d.sort((a,b)=>a.order_num-b.order_num)); setLoading(false) }).catch(()=>setLoading(false))
+    api.getThemes?.().then((t:any[])=>setThemes(t||[])).catch(()=>{})
   },[])
+
+  async function openLibraryPicker(){
+    setShowLibraryPicker(true)
+    const folders = await api.getMediaFolders()
+    setLibFolders(folders||[])
+    const all = (await Promise.all((folders||[]).map((f:any)=>api.getMediaItems(f.id)))).flat()
+    setLibItems(all.filter((it:any)=>it.mime_type?.startsWith('image/')))
+  }
+  function pickFromLibrary(item:any){
+    set('bg_image', api.mediaUrl(item.file_path))
+    setShowLibraryPicker(false)
+  }
 
   const visible = slides.filter(s=>{
     if(filter!=='all'&&s.type!==filter) return false
@@ -157,7 +187,7 @@ function SlidesTab({ goLive, addToQueue, notify }: {
 
   function startNew(type:SlideType='text'){
     setIsNew(true);setSelected(null)
-    setEditing({title:'',type,content:'',notes:'',bg_color:'#000000',bg_image:null,font_color:'#ffffff',font_size:48,text_align:'center',tags:[]})
+    setEditing({title:'',type,content:'',notes:'',bg_color:'#000000',bg_image:null,font_color:'#ffffff',font_size:48,text_align:'center',tags:[],icon:null,icon_color:'#ffffff',icon_size:64,icon_pos:'top-center'})
     setTimeout(()=>contentRef.current?.focus(),80)
   }
   function startEdit(s:Slide){setIsNew(false);setSelected(s);setEditing({...s})}
@@ -177,7 +207,7 @@ function SlidesTab({ goLive, addToQueue, notify }: {
     if(selected?.id===id){setSelected(null);setEditing(null)};notify('Deleted')
   }
   async function dup(id:number){const c:Slide=await api.duplicateSlide(id);setSlides(s=>[...s,c].sort((a,b)=>a.order_num-b.order_num));notify('Duplicated')}
-  function sendLive(s:Slide){goLive(s.title||s.type,s.content,{bgColor:s.bg_color,bgImage:s.bg_image||undefined,fontColor:s.font_color,fontSize:s.font_size,textAlign:s.text_align});notify(`Sent live`)}
+  function sendLive(s:Slide){goLive(s.title||s.type,s.content,{bgColor:s.bg_color,bgImage:s.bg_image||undefined,fontColor:s.font_color,fontSize:s.font_size,textAlign:s.text_align,icon:s.icon,iconColor:s.icon_color,iconSize:s.icon_size,iconPos:s.icon_pos});notify(`Sent live`)}
 
   function onDragStart(id:number){setDragId(id)}
   function onDragOver(e:React.DragEvent,id:number){e.preventDefault();setDragOverId(id)}
@@ -215,13 +245,13 @@ function SlidesTab({ goLive, addToQueue, notify }: {
   const disp = editing||selected
   const inp: React.CSSProperties = {width:'100%',background:C.bg4,border:`1px solid ${C.b1}`,color:C.t1,padding:'9px 12px',fontSize:12,outline:'none',fontFamily:'inherit',borderRadius:8}
   const lbl: React.CSSProperties = {fontSize:10,color:C.t3,fontWeight:600,marginBottom:6,display:'block',letterSpacing:'0.05em',textTransform:'uppercase' as const}
-  const secHd: React.CSSProperties = {padding:'10px 14px',background:C.bg1,borderBottom:`1px solid ${C.b0}`,flexShrink:0}
+  const secHd: React.CSSProperties = {padding:'10px 14px',background:C.tex1,borderBottom:`1px solid ${C.b0}`,flexShrink:0}
   const secLbl: React.CSSProperties = {fontSize:9,fontWeight:700,letterSpacing:'0.2em',color:C.t4,textTransform:'uppercase' as const}
 
   return (
     <div style={{flex:1,display:'flex',overflow:'hidden',minHeight:0}}>
       {/* Library panel */}
-      <div style={{width:260,background:C.bg2,borderRight:`1px solid ${C.b0}`,display:'flex',flexDirection:'column',flexShrink:0}}>
+      <div style={{width:260,background:C.tex2,borderRight:`1px solid ${C.b0}`,display:'flex',flexDirection:'column',flexShrink:0}}>
         <div style={{...secHd,display:'flex',flexDirection:'column',gap:8}}>
           <div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
             <span style={secLbl}>Slides</span>
@@ -273,7 +303,7 @@ function SlidesTab({ goLive, addToQueue, notify }: {
       </div>
 
       {/* Preview */}
-      <div style={{flex:1,display:'flex',flexDirection:'column',background:C.bg1,minWidth:0}}>
+      <div style={{flex:1,display:'flex',flexDirection:'column',background:C.tex1,minWidth:0}}>
         <div style={{...secHd,display:'flex',alignItems:'center',gap:10}}>
           <span style={secLbl}>Preview</span>
           {disp?.title&&<span style={{fontSize:13,color:C.t2,fontWeight:500}}>{disp.title}</span>}
@@ -285,7 +315,7 @@ function SlidesTab({ goLive, addToQueue, notify }: {
           }
         </div>
         {(selected||isNew)&&(
-          <div style={{padding:'12px 20px',background:C.bg0,borderTop:`1px solid ${C.b0}`,display:'flex',gap:8}}>
+          <div style={{padding:'12px 20px',background:C.tex0,borderTop:`1px solid ${C.b0}`,display:'flex',gap:8}}>
             <button className="shimmer-btn" onClick={()=>selected&&!isNew&&sendLive(selected)} disabled={!selected||isNew} style={{flex:1,padding:'12px 0',background:C.live,border:'none',color:'#fff',fontSize:12,fontWeight:700,letterSpacing:'0.08em',cursor:selected&&!isNew?'pointer':'not-allowed',fontFamily:'inherit',borderRadius:8,opacity:selected&&!isNew?1:0.35}}>GO LIVE</button>
             <button onClick={()=>selected&&!isNew&&addToQueue(selected.title||'Slide','slide')} disabled={!selected||isNew} style={{padding:'12px 18px',background:C.bg4,border:`1px solid ${C.b2}`,color:C.t1,fontSize:11,fontWeight:600,cursor:selected&&!isNew?'pointer':'not-allowed',fontFamily:'inherit',borderRadius:8,opacity:selected&&!isNew?1:0.35}}>+ Queue</button>
           </div>
@@ -293,7 +323,7 @@ function SlidesTab({ goLive, addToQueue, notify }: {
       </div>
 
       {/* Editor */}
-      <div style={{width:280,background:C.bg2,borderLeft:`1px solid ${C.b0}`,display:'flex',flexDirection:'column',flexShrink:0}}>
+      <div style={{width:280,background:C.tex2,borderLeft:`1px solid ${C.b0}`,display:'flex',flexDirection:'column',flexShrink:0}}>
         <div style={{...secHd,display:'flex',alignItems:'center',justifyContent:'space-between'}}>
           <span style={secLbl}>{editing?(isNew?'New Slide':'Editing'):'Properties'}</span>
           {editing&&(
@@ -324,6 +354,17 @@ function SlidesTab({ goLive, addToQueue, notify }: {
                 ))}
               </div>
             </div>
+            <div>
+              <label style={lbl}>Design Template</label>
+              <div style={{display:'flex',gap:6,flexWrap:'wrap' as const}}>
+                {themes.map(th=>(
+                  <div key={th.id} onClick={()=>setEditing(e=>e?{...e,bg_color:th.bg_color,font_color:th.font_color,font_size:th.font_size,text_align:th.text_align,icon:th.icon,icon_color:th.icon_color,icon_pos:th.icon_pos||'top-center'}:e)}
+                    title={th.name} style={{cursor:'pointer',width:38,height:38,borderRadius:7,background:th.bg_color,border:`1px solid ${C.b1}`,display:'flex',alignItems:'center',justifyContent:'center',position:'relative'}}>
+                    {th.icon ? <SlideIcon id={th.icon} color={th.icon_color} size={16}/> : <div style={{width:14,height:3,background:th.font_color,borderRadius:1}}/>}
+                  </div>
+                ))}
+              </div>
+            </div>
             <div><label style={lbl}>Title</label><input style={inp} value={editing.title||''} onChange={e=>set('title',e.target.value)} placeholder="Slide title..."/></div>
             <div><label style={lbl}>Content</label><textarea ref={contentRef} value={editing.content||''} onChange={e=>set('content',e.target.value)} rows={5} placeholder="Type content..." style={{...inp,resize:'vertical',lineHeight:1.55}}/></div>
             <div><label style={lbl}>Presenter Notes</label><textarea value={editing.notes||''} onChange={e=>set('notes',e.target.value)} rows={2} placeholder="Notes..." style={{...inp,resize:'vertical',fontSize:11}}/></div>
@@ -346,7 +387,10 @@ function SlidesTab({ goLive, addToQueue, notify }: {
                   <div style={{width:52,height:36,backgroundImage:`url(${editing.bg_image})`,backgroundSize:'cover',borderRadius:6,border:`1px solid ${C.b2}`}}/>
                   <button onClick={()=>set('bg_image',null)} style={{padding:'6px 10px',background:'none',border:`1px solid ${C.b1}`,color:C.t3,fontSize:11,cursor:'pointer',fontFamily:'inherit',borderRadius:6}}>Remove</button>
                 </div>
-                :<button onClick={pickBgImage} style={{width:'100%',padding:'9px 0',background:'none',border:`1px dashed ${C.b2}`,color:C.t3,fontSize:11,cursor:'pointer',fontFamily:'inherit',borderRadius:8}}>Choose Image...</button>
+                :<div style={{display:'flex',gap:6}}>
+                  <button onClick={pickBgImage} style={{flex:1,padding:'9px 0',background:'none',border:`1px dashed ${C.b2}`,color:C.t3,fontSize:11,cursor:'pointer',fontFamily:'inherit',borderRadius:8}}>Upload...</button>
+                  <button onClick={openLibraryPicker} style={{flex:1,padding:'9px 0',background:'none',border:`1px dashed ${C.b2}`,color:C.t3,fontSize:11,cursor:'pointer',fontFamily:'inherit',borderRadius:8}}>From Library...</button>
+                </div>
               }
             </div>
             <div>
@@ -380,13 +424,54 @@ function SlidesTab({ goLive, addToQueue, notify }: {
                 ))}
               </div>
             </div>
+            <div>
+              <label style={lbl}>Icon</label>
+              <div style={{display:'flex',gap:4,flexWrap:'wrap' as const,marginBottom:8}}>
+                <button onClick={()=>set('icon',null)} title="None" style={{width:30,height:30,borderRadius:6,border:`1px solid ${!editing.icon?C.g2:C.b1}`,background:!editing.icon?`color-mix(in srgb, ${C.g2} 10%, transparent)`:'none',color:C.t3,fontSize:10,cursor:'pointer'}}>—</button>
+                {ICONS.map(ic=>(
+                  <button key={ic.id} onClick={()=>set('icon',ic.id)} title={ic.label} style={{width:30,height:30,borderRadius:6,border:`1px solid ${editing.icon===ic.id?C.g2:C.b1}`,background:editing.icon===ic.id?`color-mix(in srgb, ${C.g2} 10%, transparent)`:'none',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>
+                    <SlideIcon id={ic.id} color={editing.icon===ic.id?C.g2:C.t3} size={16}/>
+                  </button>
+                ))}
+              </div>
+              {editing.icon && <>
+                <div style={{display:'flex',gap:8,alignItems:'center',marginBottom:8}}>
+                  <input type="color" value={editing.icon_color||'#ffffff'} onChange={e=>set('icon_color',e.target.value)} style={{width:36,height:32,border:`1px solid ${C.b2}`,borderRadius:6,background:'none',cursor:'pointer'}}/>
+                  <input style={{...inp,width:90}} value={editing.icon_color||'#ffffff'} onChange={e=>set('icon_color',e.target.value)}/>
+                  <span style={{fontSize:9,color:C.t3,flex:1,textAlign:'right' as const}}>{editing.icon_size||64}px</span>
+                </div>
+                <input type="range" min={24} max={220} value={editing.icon_size||64} onChange={e=>set('icon_size',parseInt(e.target.value))} style={{width:'100%',accentColor:C.p1,marginBottom:8}}/>
+                <div style={{display:'flex',gap:4,flexWrap:'wrap' as const}}>
+                  {ICON_POSITIONS.map(p=>(
+                    <button key={p.id} onClick={()=>set('icon_pos',p.id)} title={p.id} style={{flex:'1 0 40px',padding:'6px 0',fontSize:13,border:`1px solid ${editing.icon_pos===p.id?C.g2:C.b1}`,color:editing.icon_pos===p.id?C.g2:C.t3,background:editing.icon_pos===p.id?`color-mix(in srgb, ${C.g2} 7%, transparent)`:'none',cursor:'pointer',borderRadius:5}}>{p.label}</button>
+                  ))}
+                </div>
+              </>}
+            </div>
             <div style={{display:'flex',gap:6,paddingTop:4}}>
-              <button onClick={save2} disabled={saving} style={{flex:1,padding:'11px 0',background:`linear-gradient(135deg,${C.p1},#5b21b6)`,border:'none',color:'#fff',fontSize:12,fontWeight:700,cursor:'pointer',fontFamily:'inherit',borderRadius:8,opacity:saving?0.6:1}}>{saving?'Saving…':isNew?'Create Slide':'Save Changes'}</button>
+              <button className="glass-primary" onClick={save2} disabled={saving} style={{flex:1,padding:'11px 0',background:`linear-gradient(135deg,${C.p1},${C.g1})`,border:'none',color:'#fff',fontSize:12,fontWeight:700,cursor:'pointer',fontFamily:'inherit',opacity:saving?0.6:1}}>{saving?'Saving…':isNew?'Create Slide':'Save Changes'}</button>
               <button onClick={()=>{setEditing(null);if(isNew)setSelected(null);setIsNew(false)}} style={{padding:'11px 14px',background:'none',border:`1px solid ${C.b1}`,color:C.t3,fontSize:14,cursor:'pointer',borderRadius:8}}>✕</button>
             </div>
           </>}
         </div>
       </div>
+
+      {showLibraryPicker && (
+        <div onClick={()=>setShowLibraryPicker(false)} style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.55)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:100}}>
+          <div onClick={e=>e.stopPropagation()} style={{width:560,maxHeight:'70vh',background:C.tex1,border:`1px solid ${C.b1}`,borderRadius:12,display:'flex',flexDirection:'column',overflow:'hidden'}}>
+            <div style={{...secHd,display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+              <span style={secLbl}>Choose from Media Library</span>
+              <button onClick={()=>setShowLibraryPicker(false)} style={{background:'none',border:'none',color:C.t3,fontSize:16,cursor:'pointer'}}>✕</button>
+            </div>
+            <div style={{flex:1,overflowY:'auto',padding:14,display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:10}}>
+              {libItems.length===0 && <div style={{gridColumn:'1/-1',textAlign:'center',color:C.t3,fontSize:12,padding:30}}>No images in your Media Library yet — add some in the Media tab, or upload directly.</div>}
+              {libItems.map((it:any)=>(
+                <div key={it.id} onClick={()=>pickFromLibrary(it)} style={{cursor:'pointer',aspectRatio:'16/9',borderRadius:8,overflow:'hidden',border:`1px solid ${C.b1}`,backgroundImage:`url(${api.mediaUrl(it.file_path)})`,backgroundSize:'cover',backgroundPosition:'center'}} title={it.name}/>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -428,7 +513,7 @@ function AnnounceTab({ goLive, notify }: { goLive:(t:string,l:string)=>void; not
   return (
     <div style={{flex:1,display:'flex',overflow:'hidden',minHeight:0}}>
       <div style={{flex:1,display:'flex',flexDirection:'column',borderRight:`1px solid ${C.b0}`}}>
-        <div style={{padding:'10px 20px',background:C.bg1,borderBottom:`1px solid ${C.b0}`,flexShrink:0}}>
+        <div style={{padding:'10px 20px',background:C.tex1,borderBottom:`1px solid ${C.b0}`,flexShrink:0}}>
           <span style={{fontSize:9,fontWeight:700,letterSpacing:'0.2em',color:C.t4,textTransform:'uppercase' as const}}>Compose Announcement</span>
         </div>
         <div style={{flex:1,overflowY:'auto',padding:24,display:'flex',flexDirection:'column',gap:18}}>
@@ -486,14 +571,14 @@ function AnnounceTab({ goLive, notify }: { goLive:(t:string,l:string)=>void; not
               </div>
             </div>
           </div>
-          <button onClick={send} style={{padding:'14px 0',background:`linear-gradient(135deg,${C.live},#b91c1c)`,border:'none',color:'#fff',fontSize:13,fontWeight:700,letterSpacing:'0.1em',cursor:'pointer',fontFamily:'inherit',borderRadius:10}}>● SEND LIVE</button>
+          <button className="glass-primary" onClick={send} style={{padding:'14px 0',background:`linear-gradient(135deg,${C.live},${C.p1})`,border:'none',color:'#fff',fontSize:13,fontWeight:700,letterSpacing:'0.1em',cursor:'pointer',fontFamily:'inherit'}}>● SEND LIVE</button>
         </div>
       </div>
       <div style={{width:340,display:'flex',flexDirection:'column',flexShrink:0}}>
-        <div style={{padding:'10px 16px',background:C.bg1,borderBottom:`1px solid ${C.b0}`,flexShrink:0}}>
+        <div style={{padding:'10px 16px',background:C.tex1,borderBottom:`1px solid ${C.b0}`,flexShrink:0}}>
           <span style={{fontSize:9,fontWeight:700,letterSpacing:'0.2em',color:C.t4,textTransform:'uppercase' as const}}>Preview</span>
         </div>
-        <div style={{flex:1,display:'flex',alignItems:'center',justifyContent:'center',padding:20,background:C.bg2}}>
+        <div style={{flex:1,display:'flex',alignItems:'center',justifyContent:'center',padding:20,background:C.tex2}}>
           <div style={{width:'100%',aspectRatio:'16/9',background:bgColor,borderRadius:8,overflow:'hidden',border:`1px solid ${C.b1}`,boxShadow:'0 8px 32px rgba(0,0,0,0.5)',display:'flex',alignItems:'center',justifyContent:'center',padding:16,position:'relative',
             backgroundImage:bgImage?`url(${bgImage})`:undefined,backgroundSize:'cover',backgroundPosition:'center'}}>
             {bgImage&&<div style={{position:'absolute',inset:0,background:'rgba(0,0,0,0.4)'}}/>}
@@ -504,7 +589,7 @@ function AnnounceTab({ goLive, notify }: { goLive:(t:string,l:string)=>void; not
           </div>
         </div>
         <div style={{borderTop:`1px solid ${C.b0}`,flexShrink:0}}>
-          <div style={{padding:'8px 14px',background:C.bg1,borderBottom:`1px solid ${C.b0}`}}>
+          <div style={{padding:'8px 14px',background:C.tex1,borderBottom:`1px solid ${C.b0}`}}>
             <span style={{fontSize:9,fontWeight:700,letterSpacing:'0.15em',color:C.t4,textTransform:'uppercase' as const}}>Recent</span>
           </div>
           <div style={{maxHeight:180,overflowY:'auto'}}>
@@ -643,8 +728,8 @@ function SongsTab({ goLive, addToQueue, notify }: { goLive:(t:string,l:string)=>
   return (
     <div style={{flex:1,display:'flex',overflow:'hidden',minHeight:0}}>
       {/* ── LEFT PANEL ── */}
-      <div style={{width:280,background:C.bg2,borderRight:`1px solid ${C.b0}`,display:'flex',flexDirection:'column',flexShrink:0}}>
-        <div style={{padding:'14px 16px',background:C.bg0,borderBottom:`1px solid ${C.b0}`,flexShrink:0}}>
+      <div style={{width:280,background:C.tex2,borderRight:`1px solid ${C.b0}`,display:'flex',flexDirection:'column',flexShrink:0}}>
+        <div style={{padding:'14px 16px',background:C.tex0,borderBottom:`1px solid ${C.b0}`,flexShrink:0}}>
           <div style={{fontSize:9,fontWeight:700,letterSpacing:'0.2em',color:C.t4,marginBottom:6}}>SONG LIBRARY</div>
           <div style={{display:'flex',alignItems:'center',background:C.bg4,border:`1px solid ${C.b1}`,borderRadius:6,padding:'0 10px',gap:6,marginBottom:10}}>
             <span style={{color:C.t3,fontSize:13}}>⌕</span>
@@ -689,7 +774,7 @@ function SongsTab({ goLive, addToQueue, notify }: { goLive:(t:string,l:string)=>
                 <button onClick={()=>setExpandedLangs(e=>({...e,[lang]:!isOpen}))}
                   style={{...btn,width:'100%',padding:'9px 14px 9px 12px',
                     display:'flex',alignItems:'center',justifyContent:'space-between',
-                    background:C.bg1,borderLeft:`3px solid ${accent}`,
+                    background:C.tex1,borderLeft:`3px solid ${accent}`,
                     borderBottom:`1px solid ${C.b0}`,color:C.t2,textAlign:'left' as const}}>
                   <div style={{display:'flex',alignItems:'center',gap:8}}>
                     <span style={{fontSize:10,fontWeight:700,letterSpacing:'0.12em',color:accent}}>{groupLabel(lang).toUpperCase()}</span>
@@ -703,7 +788,7 @@ function SongsTab({ goLive, addToQueue, notify }: { goLive:(t:string,l:string)=>
                     <div key={song.id} onClick={()=>selectSong(song)}
                       {...dragSource(song.title,'song')}
                       style={{padding:'9px 14px 9px 15px',borderLeft:`3px solid ${active?accent:'transparent'}`,
-                        borderBottom:`1px solid ${C.b0}`,background:active?`${accent}0f`:C.bg2,
+                        borderBottom:`1px solid ${C.b0}`,background:active?`${accent}0f`:C.tex2,
                         cursor:'grab',transition:'all 0.1s'}}
                       onMouseEnter={e=>{if(!active)(e.currentTarget as HTMLElement).style.background=C.bg3}}
                       onMouseLeave={e=>{(e.currentTarget as HTMLElement).style.background=active?`${accent}0f`:C.bg2}}>
@@ -739,7 +824,7 @@ function SongsTab({ goLive, addToQueue, notify }: { goLive:(t:string,l:string)=>
           })}
         </div>
 
-        <div style={{padding:'10px 16px',borderTop:`1px solid ${C.b0}`,background:C.bg0,display:'flex',flexShrink:0}}>
+        <div style={{padding:'10px 16px',borderTop:`1px solid ${C.b0}`,background:C.tex0,display:'flex',flexShrink:0}}>
           {[['SDA',songs.filter(s=>s.source==='hymnal').length,C.g2],
             ['CIS',songs.filter(s=>s.source==='hymnal-cis').length,C.p1],
             ['Custom',songs.filter(s=>s.source==='custom').length,C.p2],
@@ -754,7 +839,7 @@ function SongsTab({ goLive, addToQueue, notify }: { goLive:(t:string,l:string)=>
 
       {/* ── RIGHT: DETAIL ── */}
       {showAddForm ? (
-        <div style={{flex:1,overflowY:'auto',background:C.bg1,padding:'28px 40px'}}>
+        <div style={{flex:1,overflowY:'auto',background:C.tex1,padding:'28px 40px'}}>
           <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:24}}>
             <div>
               <div style={{fontSize:9,fontWeight:700,letterSpacing:'0.2em',color:C.p2,marginBottom:6}}>NEW SONG</div>
@@ -796,7 +881,7 @@ function SongsTab({ goLive, addToQueue, notify }: { goLive:(t:string,l:string)=>
 
           <div style={{display:'flex',flexDirection:'column',gap:10,marginBottom:24}}>
             {newSections.map((sec,i)=>(
-              <div key={i} style={{background:C.bg2,border:`1px solid ${C.b1}`,borderRadius:10,padding:14}}>
+              <div key={i} style={{background:C.tex2,border:`1px solid ${C.b1}`,borderRadius:10,padding:14}}>
                 <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:8}}>
                   <select value={sec.type} onChange={e=>updateNewSection(i,{type:e.target.value})}
                     style={{background:C.bg4,border:`1px solid ${C.b1}`,color:C.p2,padding:'5px 8px',fontSize:10,fontWeight:700,letterSpacing:'0.05em',outline:'none',fontFamily:'inherit',borderRadius:5,textTransform:'uppercase' as const}}>
@@ -814,22 +899,22 @@ function SongsTab({ goLive, addToQueue, notify }: { goLive:(t:string,l:string)=>
             ))}
           </div>
 
-          <button onClick={saveNewSong} disabled={!canSaveNewSong||saving} className="shimmer-btn"
-            style={{padding:'12px 32px',background:canSaveNewSong&&!saving?`linear-gradient(135deg,${C.p1},#5b21b6)`:C.bg4,
+          <button onClick={saveNewSong} disabled={!canSaveNewSong||saving} className="shimmer-btn glass-primary"
+            style={{padding:'12px 32px',background:canSaveNewSong&&!saving?`linear-gradient(135deg,${C.p1},${C.g1})`:C.bg4,
               border:'none',color:canSaveNewSong&&!saving?'#fff':C.t4,fontSize:12,fontWeight:700,
-              cursor:canSaveNewSong&&!saving?'pointer':'not-allowed',fontFamily:'inherit',borderRadius:9,letterSpacing:'0.06em',transition:'all 0.15s'}}>
+              cursor:canSaveNewSong&&!saving?'pointer':'not-allowed',fontFamily:'inherit',letterSpacing:'0.06em',transition:'all 0.15s'}}>
             {saving?'Saving…':'Save Song'}
           </button>
         </div>
       ) : !selected ? (
         <div style={{flex:1,display:'flex',alignItems:'center',justifyContent:'center',
-          flexDirection:'column',gap:10,color:C.t4,background:C.bg1}}>
+          flexDirection:'column',gap:10,color:C.t4,background:C.tex1}}>
           <div style={{fontSize:52,opacity:0.07}}>♪</div>
           <div style={{fontSize:12,letterSpacing:'0.12em',fontWeight:500}}>SELECT A SONG TO BEGIN</div>
         </div>
       ) : (
         <div style={{flex:1,display:'flex',flexDirection:'column',minWidth:0}}>
-          <div style={{padding:'16px 24px',background:C.bg0,borderBottom:`1px solid ${C.b0}`,
+          <div style={{padding:'16px 24px',background:C.tex0,borderBottom:`1px solid ${C.b0}`,
             display:'flex',alignItems:'flex-start',gap:14,flexShrink:0}}>
             <div style={{flex:1,minWidth:0}}>
               <div style={{fontSize:18,fontWeight:600,color:C.t1,overflow:'hidden',
@@ -866,7 +951,7 @@ function SongsTab({ goLive, addToQueue, notify }: { goLive:(t:string,l:string)=>
             )}
           </div>
 
-          <div style={{display:'flex',gap:6,padding:'10px 16px',background:C.bg2,
+          <div style={{display:'flex',gap:6,padding:'10px 16px',background:C.tex2,
             borderBottom:`1px solid ${C.b0}`,flexShrink:0,overflowX:'auto'}}>
             {sections.map((s,i)=>(
               <button key={s.id} onClick={()=>setCur(i)}
@@ -881,7 +966,7 @@ function SongsTab({ goLive, addToQueue, notify }: { goLive:(t:string,l:string)=>
             ))}
           </div>
 
-          <div style={{flex:1,padding:'40px 56px',overflowY:'auto',background:C.bg1,position:'relative'}}>
+          <div style={{flex:1,padding:'40px 56px',overflowY:'auto',background:C.tex1,position:'relative'}}>
             <div style={{position:'absolute',top:0,left:0,right:0,height:1,
               background:`linear-gradient(to right,${C.p1},${C.g1},transparent)`}} />
             {sec&&(
@@ -897,7 +982,7 @@ function SongsTab({ goLive, addToQueue, notify }: { goLive:(t:string,l:string)=>
             )}
           </div>
 
-          <div style={{padding:'12px 20px',background:C.bg0,borderTop:`1px solid ${C.b0}`,
+          <div style={{padding:'12px 20px',background:C.tex0,borderTop:`1px solid ${C.b0}`,
             display:'flex',alignItems:'center',gap:8,flexShrink:0}}>
             <button onClick={()=>cur>0&&setCur(i=>i-1)} disabled={cur===0}
               style={{...btn,padding:'10px 14px',background:'transparent',border:`1px solid ${C.b1}`,
@@ -914,12 +999,12 @@ function SongsTab({ goLive, addToQueue, notify }: { goLive:(t:string,l:string)=>
                 cursor:cur===sections.length-1?'not-allowed':'pointer'}}>
               ›
             </button>
-            <button onClick={()=>sec&&goLive(selected.title,sec.content)} className="shimmer-btn"
+            <button onClick={()=>sec&&goLive(selected.title,sec.content)} className="shimmer-btn glass-primary"
               style={{...btn,padding:'11px 32px',
-                background:`linear-gradient(135deg,${C.live},#b91c1c)`,
+                background:`linear-gradient(135deg,${C.live},${C.p1})`,
                 border:`1px solid color-mix(in srgb, ${C.live} 33%, transparent)`,
-                color:'#fff',fontSize:11,fontWeight:700,borderRadius:6,
-                letterSpacing:'0.08em',boxShadow:`0 4px 16px color-mix(in srgb, ${C.live} 25%, transparent)`}}>
+                color:'#fff',fontSize:11,fontWeight:700,
+                letterSpacing:'0.08em'}}>
               GO LIVE
             </button>
           </div>
@@ -952,7 +1037,7 @@ function RemoteTab() {
   },[])
 
   return (
-    <div style={{flex:1,padding:40,overflowY:'auto',background:C.bg1}}>
+    <div style={{flex:1,padding:40,overflowY:'auto',background:C.tex1}}>
       <div style={{maxWidth:560}}>
         <div style={{fontSize:20,fontWeight:700,color:C.t1,marginBottom:6}}>Remote Control</div>
         <div style={{fontSize:13,color:C.t3,lineHeight:1.6,marginBottom:24}}>
@@ -993,7 +1078,7 @@ function RemoteTab() {
 
 function AboutTab() {
   return (
-    <div style={{flex:1,padding:40,overflowY:'auto',background:C.bg1}}>
+    <div style={{flex:1,padding:40,overflowY:'auto',background:C.tex1}}>
       <div style={{maxWidth:560}}>
         <div style={{display:'flex',alignItems:'center',gap:20,marginBottom:36}}>
           <svg width="64" height="64" viewBox="0 0 100 100">
@@ -1041,12 +1126,11 @@ function AboutTab() {
 function ImportTab({ notify }: { notify:(m:string)=>void }) {
   const [importing,setImporting] = useState(false)
   const [result,setResult]       = useState<{success:boolean;message:string}|null>(null)
-  const [mode,setMode]           = useState<'json'|'qsp'|'pptx'>('json')
+  const [mode,setMode]           = useState<'json'|'qsp'>('json')
   const [dragOver,setDragOver]   = useState(false)
   const [qspLang,setQspLang]     = useState('en')
   const fileRef  = useRef<HTMLInputElement>(null)
   const qspRef   = useRef<HTMLInputElement>(null)
-  const pptxRef  = useRef<HTMLInputElement>(null)
   const api = (window as any).shogunos
 
   const QSP_LANGS: { id:string; label:string }[] = [
@@ -1084,41 +1168,21 @@ function ImportTab({ notify }: { notify:(m:string)=>void }) {
     setImporting(false)
   }
 
-  async function handlePPTX(file:File){
-    if(!file.name.toLowerCase().endsWith('.pptx')){setResult({success:false,message:'Please select a .pptx PowerPoint file'});return}
-    setImporting(true);setResult(null)
-    try{
-      const ab=await file.arrayBuffer()
-      const u8=new Uint8Array(ab)
-      let bin='';for(let i=0;i<u8.length;i++)bin+=String.fromCharCode(u8[i])
-      const b64=btoa(bin)
-      const r=await api.importPPTX(b64,file.name)
-      if(r.success){
-        const skippedCount=(r.total||0)-(r.parsed||0)
-        const mediaNote=r.mediaImported>0?`, ${r.mediaImported} photo${r.mediaImported!==1?'s':''}/video${r.mediaImported!==1?'s':''} imported into Media`:''
-        const msg=`PowerPoint import — ${r.counts.slides} slide${r.counts.slides!==1?'s':''} added${mediaNote}${skippedCount>0?`, ${skippedCount} blank slide${skippedCount!==1?'s':''} skipped`:''}. Find them in Present → Slides.`
-        setResult({success:true,message:msg});notify(`PPTX: ${r.counts.slides} slides imported`)
-      }else setResult({success:false,message:r.error||'PowerPoint import failed'})
-    }catch(e:any){setResult({success:false,message:e.message})}
-    setImporting(false)
-  }
-
   function onDrop(e:React.DragEvent){
     e.preventDefault();setDragOver(false)
     const f=e.dataTransfer.files[0];if(!f)return
     const lower=f.name.toLowerCase()
     if(lower.endsWith('.qsp'))handleQSP(f)
-    else if(lower.endsWith('.pptx'))handlePPTX(f)
     else handleJson(f)
   }
 
   return (
-    <div style={{flex:1,padding:36,overflowY:'auto',background:C.bg1,display:'flex',flexDirection:'column',gap:20,maxWidth:560}}>
+    <div style={{flex:1,padding:36,overflowY:'auto',background:C.tex1,display:'flex',flexDirection:'column',gap:20,maxWidth:560}}>
       <div style={{fontSize:9,fontWeight:700,letterSpacing:'0.2em',color:C.t4,textTransform:'uppercase' as const}}>Import Data</div>
       <div style={{display:'flex',gap:4,background:C.bg3,padding:4,borderRadius:10,border:`1px solid ${C.b1}`}}>
-        {(['json','qsp','pptx'] as const).map(m=>(
+        {(['json','qsp'] as const).map(m=>(
           <button key={m} onClick={()=>{setMode(m);setResult(null)}} style={{flex:1,padding:'9px 0',fontSize:11,fontWeight:600,cursor:'pointer',fontFamily:'inherit',borderRadius:7,background:mode===m?C.bg5:'none',border:`1px solid ${mode===m?C.b2:'transparent'}`,color:mode===m?C.t1:C.t3}}>
-            {m==='json'?'ShogunOS Backup (.json)':m==='qsp'?'Quelea Song Pack (.qsp)':'PowerPoint (.pptx)'}
+            {m==='json'?'ShogunOS Backup (.json)':'Quelea Song Pack (.qsp)'}
           </button>
         ))}
       </div>
@@ -1134,21 +1198,14 @@ function ImportTab({ notify }: { notify:(m:string)=>void }) {
           <div style={{fontSize:10,color:C.t4,marginTop:6,lineHeight:1.5}}>Quelea song packs don't store a language, so pick the one that matches this pack — it'll be used to group these songs in the Hymnal and My Songs views.</div>
         </div>
       )}
-      {mode==='pptx'&&(
-        <div style={{padding:'12px 16px',background:`color-mix(in srgb, ${C.g2} 7%, transparent)`,border:`1px solid color-mix(in srgb, ${C.g2} 27%, transparent)`,borderRadius:10}}>
-          <div style={{fontSize:11,color:C.g2,fontWeight:700,marginBottom:4}}>PowerPoint Import</div>
-          <div style={{fontSize:12,color:C.t3,lineHeight:1.6}}>Each slide becomes a ShogunOS slide, ready to send live from <strong style={{color:C.t2}}>Present → Slides</strong>. The first line of text on each slide becomes its title; everything else becomes the body. Photos and videos embedded in the deck are extracted too — they're added to your <strong style={{color:C.t2}}>Media</strong> library, and a slide's first photo is set as its background automatically. Animations and layout still aren't imported.</div>
-        </div>
-      )}
-      <div onDragOver={e=>{e.preventDefault();setDragOver(true)}} onDragLeave={()=>setDragOver(false)} onDrop={onDrop} onClick={()=>mode==='qsp'?qspRef.current?.click():mode==='pptx'?pptxRef.current?.click():fileRef.current?.click()}
-        style={{border:`2px dashed ${dragOver?C.p1:C.b1}`,background:dragOver?`color-mix(in srgb, ${C.p1} 3%, transparent)`:C.bg2,borderRadius:12,padding:'40px 24px',textAlign:'center',cursor:'pointer',transition:'all 0.15s'}}>
-        <div style={{fontSize:28,marginBottom:10,opacity:0.4}}>{mode==='qsp'?'🎵':mode==='pptx'?'📊':'📂'}</div>
-        <div style={{fontSize:14,color:dragOver?C.p2:C.t2,fontWeight:600,marginBottom:4}}>{importing?'Importing…':mode==='qsp'?'Drop your .qsp file':mode==='pptx'?'Drop your .pptx file':'Drop your backup file'}</div>
+      <div onDragOver={e=>{e.preventDefault();setDragOver(true)}} onDragLeave={()=>setDragOver(false)} onDrop={onDrop} onClick={()=>mode==='qsp'?qspRef.current?.click():fileRef.current?.click()}
+        style={{border:`2px dashed ${dragOver?C.p1:C.b1}`,background:dragOver?`color-mix(in srgb, ${C.p1} 3%, transparent)`:C.tex2,borderRadius:12,padding:'40px 24px',textAlign:'center',cursor:'pointer',transition:'all 0.15s'}}>
+        <div style={{fontSize:28,marginBottom:10,opacity:0.4}}>{mode==='qsp'?'🎵':'📂'}</div>
+        <div style={{fontSize:14,color:dragOver?C.p2:C.t2,fontWeight:600,marginBottom:4}}>{importing?'Importing…':mode==='qsp'?'Drop your .qsp file':'Drop your backup file'}</div>
         <div style={{fontSize:11,color:C.t4}}>or click to browse</div>
       </div>
       <input ref={fileRef} type="file" accept=".json" onChange={e=>{const f=e.target.files?.[0];if(f)handleJson(f);e.target.value=''}} style={{display:'none'}}/>
       <input ref={qspRef} type="file" accept=".qsp" onChange={e=>{const f=e.target.files?.[0];if(f)handleQSP(f);e.target.value=''}} style={{display:'none'}}/>
-      <input ref={pptxRef} type="file" accept=".pptx" onChange={e=>{const f=e.target.files?.[0];if(f)handlePPTX(f);e.target.value=''}} style={{display:'none'}}/>
       {result&&(
         <div style={{padding:'14px 18px',background:result.success?`color-mix(in srgb, ${C.safe} 6%, transparent)`:`color-mix(in srgb, ${C.live} 6%, transparent)`,border:`1px solid ${result.success?C.safe:C.live}44`,borderRadius:10}}>
           <div style={{fontSize:12,color:result.success?C.safe:C.live,fontWeight:600}}>{result.success?'✓ ':'✗ '}{result.message}</div>
@@ -1218,7 +1275,7 @@ function DisplaySettingsTab({ settings, onChange, notify }: { settings:DisplaySe
   }
 
   return (
-    <div style={{flex:1,padding:32,overflowY:'auto',background:C.bg1,display:'flex',flexDirection:'column',gap:20,maxWidth:520}}>
+    <div style={{flex:1,padding:32,overflowY:'auto',background:C.tex1,display:'flex',flexDirection:'column',gap:20,maxWidth:520}}>
       <div style={{fontSize:9,fontWeight:700,letterSpacing:'0.2em',color:C.t4,textTransform:'uppercase' as const}}>Display Settings</div>
       <div style={{fontSize:12,color:C.t3,lineHeight:1.6,padding:'12px 16px',background:C.bg3,borderRadius:10,border:`1px solid ${C.b1}`}}>These settings apply to hymns and Bible verses sent live. Slides use their own individual settings.</div>
 
@@ -1299,6 +1356,7 @@ function DisplaySettingsTab({ settings, onChange, notify }: { settings:DisplaySe
       </div>
       <div>
         <label style={lbl}>Font Family</label>
+        <div style={{fontSize:10.5,color:C.t4,marginBottom:8,lineHeight:1.5}}>These styles are fetched the first time you're online, then cached for offline use. Without that first connection, slides fall back to your system's default font.</div>
         <div style={{display:'flex',flexDirection:'column',gap:4}}>
           {FONTS.map(f=>(
             <div key={f.value} onClick={()=>set('fontFamily',f.value)}
@@ -1366,7 +1424,7 @@ function DisplaySettingsTab({ settings, onChange, notify }: { settings:DisplaySe
           )
         })()}
       </div>
-      <button onClick={handleSave} style={{padding:'12px 0',background:`linear-gradient(135deg,${C.p1},#5b21b6)`,border:'none',color:'#fff',fontSize:12,fontWeight:700,cursor:'pointer',fontFamily:'inherit',borderRadius:8,letterSpacing:'0.05em'}}>Save Settings</button>
+      <button className="glass-primary" onClick={handleSave} style={{padding:'12px 0',background:`linear-gradient(135deg,${C.p1},${C.g1})`,border:'none',color:'#fff',fontSize:12,fontWeight:700,cursor:'pointer',fontFamily:'inherit',letterSpacing:'0.05em'}}>Save Settings</button>
     </div>
   )
 }
@@ -1440,7 +1498,7 @@ export default function App() {
   const [blankScreen,setBlankScreen]     = useState(false)
   const [showShortcuts,setShowShortcuts] = useState(false)
   const [toast,setToast]                 = useState('')
-  const [displaySettings,setDisplaySettings] = useState<DisplaySettings>({bgColor:'#000000',bgImage:null,fontColor:'#ffffff',fontSize:52,textAlign:'center',fontFamily:'Georgia, serif',borderWidth:0,borderColor:'#ffffff',borderStyle:'solid',borderRadius:0,highVisibility:false,highVisibilityInvert:false})
+  const [displaySettings,setDisplaySettings] = useState<DisplaySettings>({bgColor:'#000000',bgImage:null,fontColor:'#ffffff',fontSize:52,textAlign:'center',fontFamily:'Georgia, serif',borderWidth:0,borderColor:'#ffffff',borderStyle:'solid',borderRadius:0,highVisibility:false,highVisibilityInvert:false,icon:null,iconColor:'#ffffff',iconSize:64,iconPos:'top-center'})
   const toastTimer = useRef<any>(null)
   // Bible chapter browser state
   const [hymnLangFilter,setHymnLangFilter] = useState<string>('all')
@@ -1701,7 +1759,7 @@ export default function App() {
   // to the next verse/section while live.
   function liveDisplayFields(overrides?: Partial<DisplaySettings>) {
     const s = { ...displaySettings, ...overrides }
-    return { fontSize:s.fontSize, textAlign:s.textAlign, bgColor:s.bgColor, bgImage:s.bgImage, fontColor:s.fontColor, fontFamily:s.fontFamily, borderWidth:s.borderWidth, borderColor:s.borderColor, borderStyle:s.borderStyle, borderRadius:s.borderRadius, highVisibility:s.highVisibility, highVisibilityInvert:s.highVisibilityInvert }
+    return { fontSize:s.fontSize, textAlign:s.textAlign, bgColor:s.bgColor, bgImage:s.bgImage, fontColor:s.fontColor, fontFamily:s.fontFamily, borderWidth:s.borderWidth, borderColor:s.borderColor, borderStyle:s.borderStyle, borderRadius:s.borderRadius, highVisibility:s.highVisibility, highVisibilityInvert:s.highVisibilityInvert, icon:s.icon, iconColor:s.iconColor, iconSize:s.iconSize, iconPos:s.iconPos }
   }
 
   async function goLive(title:string,lyrics:string,ds?:Partial<DisplaySettings>){
@@ -1898,7 +1956,7 @@ export default function App() {
     if(navGroup==='service'){
       return (
         <div onDragOver={onQueueZoneDragOver} onDragLeave={onQueueZoneDragLeave} onDrop={onQueueZoneDrop}
-          style={{flex:1,padding:32,overflowY:'auto',background:C.bg1,display:'flex',flexDirection:'column',gap:14}}>
+          style={{flex:1,padding:32,overflowY:'auto',background:C.tex1,display:'flex',flexDirection:'column',gap:14}}>
           <div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
             <div style={{fontSize:9,fontWeight:700,letterSpacing:'0.2em',color:C.t4,textTransform:'uppercase' as const}}>Service Queue — {queue.length} items</div>
             {queue.length>0&&<button onClick={clearQueue} style={{padding:'5px 12px',background:'none',border:`1px solid ${C.b1}`,color:C.t3,fontSize:11,cursor:'pointer',fontFamily:'inherit',borderRadius:6}}>Clear All</button>}
@@ -1908,21 +1966,33 @@ export default function App() {
               {queueDragOver?'Drop to add to queue':'Queue is empty — drag a hymn or verse here, or add from Hymnal, Bible or Slides'}
             </div>
           )}
-          {queue.map((item,i)=>(
+          {queue.map((item,i)=>{
+            const typeMeta: Record<string,{icon:string;color:string;label:string}> = {
+              song:  { icon:'music', color:C.g2,  label:'Song'  },
+              verse: { icon:'book',  color:C.p1,  label:'Verse' },
+              slide: { icon:'frame', color:C.gold,label:'Slide' },
+            }
+            const meta = typeMeta[item.type] || { icon:'frame', color:C.t3, label:item.type.toUpperCase() }
+            return (
             <div key={item.id}
               draggable onDragStart={e=>onQueueItemDragStart(e,i)} onDragOver={onQueueItemDragOver} onDrop={e=>onQueueItemDrop(e,i)} onDragEnd={onQueueItemDragEnd}
-              style={{display:'flex',alignItems:'center',gap:14,padding:'14px 18px',background:i===0?C.bg3:C.bg2,borderRadius:10,border:`1px solid ${i===0?C.b2:C.b1}`,cursor:'grab',opacity:draggedQueueIdx===i?0.35:1,transition:'opacity 0.15s'}}>
+              style={{display:'flex',alignItems:'center',gap:14,padding:'14px 18px',background:i===0?C.bg3:C.tex2,borderRadius:10,border:`1px solid ${i===0?C.b2:C.b1}`,cursor:'grab',opacity:draggedQueueIdx===i?0.35:1,transition:'opacity 0.15s, border-color 0.15s, background 0.15s'}}
+              onMouseEnter={e=>{if(i!==0)(e.currentTarget as HTMLElement).style.borderColor=C.b2}}
+              onMouseLeave={e=>{if(i!==0)(e.currentTarget as HTMLElement).style.borderColor=C.b1}}>
               <span style={{color:C.t4,fontSize:13,opacity:0.6,flexShrink:0}}>⠿</span>
               <div style={{width:28,height:28,borderRadius:'50%',background:i===0?C.p1:C.bg4,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
                 <span style={{fontSize:11,color:i===0?'#fff':C.t3,fontWeight:700}}>{i+1}</span>
               </div>
-              <div style={{flex:1}}>
-                <div style={{fontSize:13,color:C.t1,fontWeight:500}}>{item.title}</div>
-                <div style={{fontSize:10,color:C.t4,marginTop:2}}>{item.type.toUpperCase()}</div>
+              <div style={{width:26,height:26,borderRadius:7,background:`color-mix(in srgb, ${meta.color} 14%, transparent)`,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+                <SlideIcon id={meta.icon} color={meta.color} size={14}/>
               </div>
-              <button onClick={()=>removeFromQueue(item.id)} style={{background:'none',border:'none',color:C.t3,cursor:'pointer',fontSize:18,padding:0}}>×</button>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{fontSize:13,color:C.t1,fontWeight:500,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{item.title}</div>
+                <div style={{fontSize:10,color:meta.color,marginTop:2,fontWeight:700,letterSpacing:'0.06em'}}>{meta.label.toUpperCase()}</div>
+              </div>
+              <button onClick={()=>removeFromQueue(item.id)} style={{background:'none',border:'none',color:C.t3,cursor:'pointer',fontSize:18,padding:0,flexShrink:0}}>×</button>
             </div>
-          ))}
+          )})}
         </div>
       )
     }
@@ -1939,10 +2009,10 @@ export default function App() {
       return (
         <div style={{flex:1,display:'flex',overflow:'hidden',minHeight:0}}>
           {/* Left panel: Book list or Chapter list */}
-          <div style={{width:160,background:C.bg2,borderRight:`1px solid ${C.b0}`,display:'flex',flexDirection:'column',flexShrink:0}}>
-            <div style={{padding:'8px',background:C.bg1,borderBottom:`1px solid ${C.b0}`,display:'flex',gap:4}}>
-              <button onClick={()=>setBibleMode('browse')} style={{flex:1,padding:'5px 0',fontSize:9,fontWeight:700,letterSpacing:'0.08em',border:'none',borderRadius:5,cursor:'pointer',background:bibleMode==='browse'?C.p1:'transparent',color:bibleMode==='browse'?'#fff':C.t3,transition:'all 0.15s'}}>BROWSE</button>
-              <button onClick={()=>setBibleMode('search')} style={{flex:1,padding:'5px 0',fontSize:9,fontWeight:700,letterSpacing:'0.08em',border:'none',borderRadius:5,cursor:'pointer',background:bibleMode==='search'?C.p1:'transparent',color:bibleMode==='search'?'#fff':C.t3,transition:'all 0.15s'}}>SEARCH</button>
+          <div style={{width:160,background:C.tex2,borderRight:`1px solid ${C.b0}`,display:'flex',flexDirection:'column',flexShrink:0}}>
+            <div style={{padding:'8px',background:C.tex1,borderBottom:`1px solid ${C.b0}`,display:'flex',gap:4}}>
+              <button className="glass-seg" onClick={()=>setBibleMode('browse')} style={{flex:1,padding:'5px 0',fontSize:9,fontWeight:700,letterSpacing:'0.08em',border:'none',borderRadius:5,cursor:'pointer',background:bibleMode==='browse'?C.p1:'transparent',color:bibleMode==='browse'?'#fff':C.t3,transition:'all 0.15s'}}>BROWSE</button>
+              <button className="glass-seg" onClick={()=>setBibleMode('search')} style={{flex:1,padding:'5px 0',fontSize:9,fontWeight:700,letterSpacing:'0.08em',border:'none',borderRadius:5,cursor:'pointer',background:bibleMode==='search'?C.p1:'transparent',color:bibleMode==='search'?'#fff':C.t3,transition:'all 0.15s'}}>SEARCH</button>
             </div>
             {bibleMode==='browse'&&(
               <div style={{flex:1,overflowY:'auto'}}>
@@ -1977,8 +2047,8 @@ export default function App() {
 
           {/* Middle panel: Chapters (browse mode) or empty (search mode) */}
           {bibleMode==='browse'&&(
-            <div style={{width:130,background:C.bg2,borderRight:`1px solid ${C.b0}`,display:'flex',flexDirection:'column',flexShrink:0}}>
-              <div style={{padding:'8px 10px',background:C.bg1,borderBottom:`1px solid ${C.b0}`}}>
+            <div style={{width:130,background:C.tex2,borderRight:`1px solid ${C.b0}`,display:'flex',flexDirection:'column',flexShrink:0}}>
+              <div style={{padding:'8px 10px',background:C.tex1,borderBottom:`1px solid ${C.b0}`}}>
                 <span style={{fontSize:9,color:C.t4,fontWeight:700,letterSpacing:'0.1em'}}>{selectedBook||'SELECT BOOK'}</span>
               </div>
               <div style={{flex:1,overflowY:'auto',display:'flex',flexWrap:'wrap',alignContent:'flex-start',padding:6,gap:4}}>
@@ -1999,8 +2069,8 @@ export default function App() {
 
           {/* Verse list panel */}
           {bibleMode==='browse'&&(
-            <div style={{width:230,background:C.bg2,borderRight:`1px solid ${C.b0}`,display:'flex',flexDirection:'column',flexShrink:0}}>
-              <div style={{padding:'8px 10px',background:C.bg1,borderBottom:`1px solid ${C.b0}`}}>
+            <div style={{width:230,background:C.tex2,borderRight:`1px solid ${C.b0}`,display:'flex',flexDirection:'column',flexShrink:0}}>
+              <div style={{padding:'8px 10px',background:C.tex1,borderBottom:`1px solid ${C.b0}`}}>
                 <span style={{fontSize:9,color:C.t4,fontWeight:700,letterSpacing:'0.1em'}}>
                   {selectedBook&&selectedChapter?`${selectedBook} ${selectedChapter} · ${chapterVerses.length}v`:'SELECT CHAPTER'}
                 </span>
@@ -2026,12 +2096,12 @@ export default function App() {
           )}
 
           {/* Detail panel */}
-          <div style={{flex:1,padding:32,display:'flex',flexDirection:'column',gap:16,overflowY:'auto',background:C.bg1}}>
+          <div style={{flex:1,padding:32,display:'flex',flexDirection:'column',gap:16,overflowY:'auto',background:C.tex1}}>
             {selectedVerse?<>
               <div style={{fontSize:13,color:C.p2,fontWeight:700}}>{selectedVerse.book} {selectedVerse.chapter}:{selectedVerse.verse} — {selectedVerse.version}</div>
-              <div style={{fontSize:24,lineHeight:1.9,color:C.t1,fontWeight:300,fontStyle:'italic',flex:1}}>"{selectedVerse.text}"</div>
+              <div style={{fontSize:24,lineHeight:1.9,color:C.t1,fontWeight:300,fontStyle:'italic',flex:1,fontFamily:"'Yu Mincho','Hiragino Mincho ProN','MS Mincho','Noto Serif CJK JP',Georgia,serif"}}>"{selectedVerse.text}"</div>
               <div style={{display:'flex',gap:10}}>
-                <button className="shimmer-btn" onClick={()=>goLive(`${selectedVerse.book} ${selectedVerse.chapter}:${selectedVerse.verse}`,selectedVerse.text)} style={{padding:'11px 28px',background:`linear-gradient(135deg,${C.live},#b91c1c)`,border:'none',color:'#fff',fontSize:12,fontWeight:700,cursor:'pointer',fontFamily:'inherit',borderRadius:9}}>GO LIVE</button>
+                <button className="shimmer-btn glass-primary" onClick={()=>goLive(`${selectedVerse.book} ${selectedVerse.chapter}:${selectedVerse.verse}`,selectedVerse.text)} style={{padding:'11px 28px',background:`linear-gradient(135deg,${C.live},${C.p1})`,border:'none',color:'#fff',fontSize:12,fontWeight:700,cursor:'pointer',fontFamily:'inherit'}}>GO LIVE</button>
                 <button onClick={()=>addToQueue(`${selectedVerse.book} ${selectedVerse.chapter}:${selectedVerse.verse}`,'verse')} style={{padding:'11px 18px',background:C.bg4,border:`1px solid ${C.b2}`,color:C.t1,fontSize:11,fontWeight:600,cursor:'pointer',fontFamily:'inherit',borderRadius:9}}>+ Queue</button>
               </div>
             </>:(
@@ -2047,7 +2117,7 @@ export default function App() {
     // Hymnal
     if(selected) return (
       <div style={{flex:1,display:'flex',flexDirection:'column',minWidth:0,overflow:'hidden'}}>
-        <div style={{padding:'12px 24px',background:C.bg0,borderBottom:`1px solid ${C.b0}`,display:'flex',alignItems:'center',gap:14,flexShrink:0}}>
+        <div style={{padding:'12px 24px',background:C.tex0,borderBottom:`1px solid ${C.b0}`,display:'flex',alignItems:'center',gap:14,flexShrink:0}}>
           <button onClick={()=>{setSelected(null);setSections([])}} style={{background:'none',border:`1px solid ${C.b1}`,color:C.t3,padding:'5px 12px',fontSize:11,cursor:'pointer',fontFamily:'inherit',borderRadius:7}}>← Back</button>
           <div style={{flex:1}}>
             <div style={{fontSize:17,fontWeight:700,color:C.t1}}>{selected.title}</div>
@@ -2055,7 +2125,7 @@ export default function App() {
           </div>
           <button onClick={()=>addToQueue(selected.title,'song')} style={{padding:'7px 16px',background:C.bg4,border:`1px solid ${C.b2}`,color:C.t1,fontSize:11,fontWeight:600,cursor:'pointer',fontFamily:'inherit',borderRadius:8}}>+ Queue</button>
         </div>
-        <div style={{display:'flex',gap:8,padding:'12px 20px',background:C.bg2,borderBottom:`1px solid ${C.b0}`,flexShrink:0,overflowX:'auto'}}>
+        <div style={{display:'flex',gap:8,padding:'12px 20px',background:C.tex2,borderBottom:`1px solid ${C.b0}`,flexShrink:0,overflowX:'auto'}}>
           {sections.map((s,i)=>(
             <div key={s.id} onClick={()=>handleSectionClick(i)} style={{width:94,height:60,borderRadius:8,overflow:'hidden',border:`2px solid ${i===currentSection?C.p1:C.b1}`,flexShrink:0,cursor:'pointer',background:'#000',position:'relative',boxShadow:i===currentSection?`0 0 12px color-mix(in srgb, ${C.p1} 27%, transparent)`:'none',transition:'all 0.15s'}}>
               <div style={{position:'absolute',top:3,left:5,fontSize:7,color:i===currentSection?C.p2:C.t4,fontWeight:700,letterSpacing:'0.04em'}}>{s.type.toUpperCase()} {s.type==='verse'?i+1:''}</div>
@@ -2063,17 +2133,17 @@ export default function App() {
             </div>
           ))}
         </div>
-        <div style={{flex:1,padding:'36px 52px',overflowY:'auto',background:C.bg1}}>
+        <div style={{flex:1,padding:'36px 52px',overflowY:'auto',background:C.tex1}}>
           {section&&<>
             <div style={{fontSize:10,color:C.t4,letterSpacing:'0.2em',fontWeight:600,marginBottom:24,textTransform:'uppercase' as const}}>{section.type} {section.type==='verse'?currentSection+1:''}</div>
-            <div style={{fontSize:24,lineHeight:2.1,color:C.t1,fontWeight:300,whiteSpace:'pre-line',letterSpacing:'0.01em'}}>{section.content}</div>
+            <div style={{fontSize:24,lineHeight:2.1,color:C.t1,fontWeight:300,whiteSpace:'pre-line',letterSpacing:'0.01em',fontFamily:"'Yu Mincho','Hiragino Mincho ProN','MS Mincho','Noto Serif CJK JP',Georgia,serif"}}>{section.content}</div>
           </>}
         </div>
-        <div style={{padding:'14px 24px',background:C.bg0,borderTop:`1px solid ${C.b0}`,display:'flex',alignItems:'center',gap:12,flexShrink:0}}>
+        <div style={{padding:'14px 24px',background:C.tex0,borderTop:`1px solid ${C.b0}`,display:'flex',alignItems:'center',gap:12,flexShrink:0}}>
           <button onClick={()=>currentSection>0&&handleSectionClick(currentSection-1)} disabled={currentSection===0} style={{padding:'9px 18px',background:'none',border:`1px solid ${C.b1}`,color:C.t2,cursor:currentSection===0?'not-allowed':'pointer',fontSize:20,borderRadius:8,opacity:currentSection===0?0.3:1}}>‹</button>
           <div style={{fontSize:12,color:C.t3,flex:1,textAlign:'center'}}>{currentSection+1} / {sections.length}</div>
           <button onClick={()=>currentSection<sections.length-1&&handleSectionClick(currentSection+1)} disabled={currentSection===sections.length-1} style={{padding:'9px 18px',background:'none',border:`1px solid ${C.b1}`,color:C.t2,cursor:currentSection===sections.length-1?'not-allowed':'pointer',fontSize:20,borderRadius:8,opacity:currentSection===sections.length-1?0.3:1}}>›</button>
-          <button className="shimmer-btn" onClick={()=>section&&goLive(selected.title,section.content)} style={{padding:'11px 28px',background:`linear-gradient(135deg,${C.live},#b91c1c)`,border:'none',color:'#fff',fontSize:12,fontWeight:700,cursor:'pointer',fontFamily:'inherit',borderRadius:9,letterSpacing:'0.06em'}}>GO LIVE</button>
+          <button className="shimmer-btn glass-primary" onClick={()=>section&&goLive(selected.title,section.content)} style={{padding:'11px 28px',background:`linear-gradient(135deg,${C.live},${C.p1})`,border:'none',color:'#fff',fontSize:12,fontWeight:700,cursor:'pointer',fontFamily:'inherit',letterSpacing:'0.06em'}}>GO LIVE</button>
         </div>
       </div>
     )
@@ -2094,8 +2164,8 @@ export default function App() {
     return (
       <div style={{flex:1,display:'flex',overflow:'hidden',minHeight:0}}>
         {/* Left: grouped song list */}
-        <div style={{width:300,background:C.bg2,borderRight:`1px solid ${C.b0}`,display:'flex',flexDirection:'column',flexShrink:0}}>
-          <div style={{padding:'8px 14px',background:C.bg0,borderBottom:`1px solid ${C.b0}`,flexShrink:0,display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+        <div style={{width:300,background:C.tex2,borderRight:`1px solid ${C.b0}`,display:'flex',flexDirection:'column',flexShrink:0}}>
+          <div style={{padding:'8px 14px',background:C.tex0,borderBottom:`1px solid ${C.b0}`,flexShrink:0,display:'flex',alignItems:'center',justifyContent:'space-between'}}>
             <span style={{fontSize:9,fontWeight:700,letterSpacing:'0.15em',color:C.t4}}>HYMNAL</span>
             <span style={{fontSize:10,color:C.t4}}>{searchFiltered.length} hymns</span>
           </div>
@@ -2115,7 +2185,7 @@ export default function App() {
                     onClick={()=>setExpandedHymnLangs(e=>({...e,[lang]:!isOpen}))}
                     style={{...btn2,width:'100%',padding:'10px 14px 10px 12px',
                       display:'flex',alignItems:'center',justifyContent:'space-between',
-                      background:C.bg1,borderLeft:`3px solid ${accent}`,
+                      background:C.tex1,borderLeft:`3px solid ${accent}`,
                       borderBottom:`1px solid ${C.b0}`,color:C.t2,textAlign:'left' as const}}>
                     <div style={{display:'flex',alignItems:'center',gap:8}}>
                       <span style={{fontSize:11,fontWeight:700,letterSpacing:'0.1em',color:accent}}>{groupLabel(lang).toUpperCase()}</span>
@@ -2129,7 +2199,7 @@ export default function App() {
                       style={{padding:'9px 14px 9px 15px',
                         borderLeft:`3px solid transparent`,
                         borderBottom:`1px solid ${C.b0}`,
-                        background:C.bg2,cursor:'grab',transition:'all 0.1s'}}
+                        background:C.tex2,cursor:'grab',transition:'all 0.1s'}}
                       onMouseEnter={e=>{
                         const el=e.currentTarget as HTMLElement
                         el.style.background=C.bg3
@@ -2158,7 +2228,7 @@ export default function App() {
           </div>
         </div>
         {/* Right: empty state */}
-        <div style={{flex:1,display:'flex',alignItems:'center',justifyContent:'center',flexDirection:'column',gap:10,color:C.t4,background:C.bg1}}>
+        <div style={{flex:1,display:'flex',alignItems:'center',justifyContent:'center',flexDirection:'column',gap:10,color:C.t4,background:C.tex1}}>
           <div style={{fontSize:48,opacity:0.08}}>♪</div>
           <div style={{fontSize:12,letterSpacing:'0.1em',fontWeight:500}}>SELECT A HYMN TO PREVIEW</div>
         </div>
@@ -2180,9 +2250,8 @@ export default function App() {
   }
 
   return (
-    <div style={{display:'flex',flexDirection:'column',height:'100vh',background:C.bg0,fontFamily:"'Inter','Segoe UI',system-ui,sans-serif",overflow:'hidden',color:C.t1,fontSize:13,position:'relative'}}>
+    <div style={{display:'flex',flexDirection:'column',height:'100vh',background:'transparent',fontFamily:"-apple-system,'Segoe UI',system-ui,'Inter',sans-serif",overflow:'hidden',color:C.t1,fontSize:13,position:'relative'}}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@300;400;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap');
         *{box-sizing:border-box}
         ::-webkit-scrollbar{width:8px;height:8px}
         ::-webkit-scrollbar-track{background:transparent}
@@ -2206,24 +2275,27 @@ export default function App() {
       {/* Quiet hairline — a single restrained rule instead of the old ornamental gradient */}
       <div style={{position:'absolute',top:0,left:0,right:0,height:1,background:C.b1,zIndex:100,pointerEvents:'none'}}/>
 
-      {/* ── TOPBAR ─────────────────────────────────────── */}
-      <div style={{height:68,background:C.bg1,borderBottom:`1px solid ${C.b0}`,display:'flex',alignItems:'center',flexShrink:0,zIndex:10,position:'relative'}}>
-        {/* Logo */}
-        <div style={{width:76,height:'100%',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,borderRight:`1px solid ${C.b0}`}}>
-          <svg width="26" height="26" viewBox="0 0 100 100">
-            <defs>
-              <linearGradient id="lg1" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={C.g3}/><stop offset="100%" stopColor={C.g1}/></linearGradient>
-              <linearGradient id="lg2" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stopColor={C.p2}/><stop offset="100%" stopColor={C.g1}/></linearGradient>
-            </defs>
-            <circle cx="50" cy="50" r="46" fill="none" stroke="url(#lg2)" strokeWidth="2.5"/>
-            <text x="50" y="66" textAnchor="middle" fontSize="46" fill="url(#lg1)" fontFamily="'Noto Serif JP',serif" fontWeight="700">将</text>
-          </svg>
+      {/* ── TOPBAR — 3-column grid: [brand] [centered search] [utilities] ── */}
+      <div className="glass-bar" style={{height:68,borderBottom:`1px solid ${C.b0}`,display:'grid',gridTemplateColumns:'auto 1fr auto',alignItems:'center',flexShrink:0,zIndex:10,position:'relative'}}>
+        {/* Brand */}
+        <div style={{display:'flex',alignItems:'center',height:'100%'}}>
+          <div style={{width:76,height:'100%',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,borderRight:`1px solid ${C.b0}`}}>
+            <svg width="26" height="26" viewBox="0 0 100 100">
+              <defs>
+                <linearGradient id="lg1" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={C.g3}/><stop offset="100%" stopColor={C.g1}/></linearGradient>
+                <linearGradient id="lg2" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stopColor={C.p2}/><stop offset="100%" stopColor={C.g1}/></linearGradient>
+              </defs>
+              <circle cx="50" cy="50" r="46" fill="none" stroke="url(#lg2)" strokeWidth="2.5"/>
+              <text x="50" y="66" textAnchor="middle" fontSize="46" fill="url(#lg1)" fontFamily="'Yu Mincho','Hiragino Mincho ProN','MS Mincho','Noto Serif CJK JP',serif" fontWeight="700">将</text>
+            </svg>
+          </div>
+          <div style={{padding:'0 24px',borderRight:`1px solid ${C.b0}`,height:'100%',display:'flex',alignItems:'center',flexShrink:0}}>
+            <span style={{fontFamily:"'Yu Mincho','Hiragino Mincho ProN','MS Mincho','Noto Serif CJK JP',serif",fontSize:14,color:C.t1,letterSpacing:'0.05em'}}>将軍OS</span>
+          </div>
         </div>
-        <div style={{padding:'0 24px',borderRight:`1px solid ${C.b0}`,height:'100%',display:'flex',alignItems:'center',flexShrink:0}}>
-          <span style={{fontFamily:"'Noto Serif JP',serif",fontSize:14,color:C.t1,letterSpacing:'0.05em'}}>将軍OS</span>
-        </div>
-        {/* Search */}
-        <div style={{flex:1,maxWidth:420,display:'flex',alignItems:'center',background:C.bg2,border:`1px solid ${C.b1}`,borderRadius:8,padding:'0 16px',gap:10,margin:'0 28px'}}>
+        {/* Search — centered in the bar regardless of how wide the utilities column ends up */}
+        <div style={{display:'flex',justifyContent:'center',minWidth:0,padding:'0 20px'}}>
+        <div style={{width:'100%',maxWidth:440,display:'flex',alignItems:'center',background:C.tex2,border:`1px solid ${C.b1}`,borderRadius:999,padding:'0 16px',gap:10}}>
           <span style={{color:C.t3,fontSize:14,lineHeight:1}}>⌕</span>
           <input
             value={navGroup==='library'&&libTab==='bible'?bibleQuery:query}
@@ -2241,26 +2313,22 @@ export default function App() {
                 if(selectedChapter){try{const vv=await(window as any).shogunos.getBibleChapterVerses(selectedBook,selectedChapter,v);setChapterVerses(vv)}catch{}}
               }
             }} style={{background:'none',border:'none',color:C.g2,fontSize:12,fontWeight:600,outline:'none',fontFamily:'inherit',cursor:'pointer'}}>
-              {availableVersions.map(v=><option key={v} value={v} style={{background:C.bg2}}>{v}</option>)}
+              {availableVersions.map(v=><option key={v} value={v} style={{background:C.tex2}}>{v}</option>)}
             </select>
           )}
         </div>
-        <div style={{flex:1}}/>
+        </div>
+        {/* Utilities */}
+        <div style={{display:'flex',alignItems:'center',height:'100%',paddingRight:20}}>
         {/* Countdown timer */}
-        <button onClick={()=>setShowTimerModal(true)} title="Countdown Timer"
-          style={{background:'none',border:`1px solid ${C.b1}`,color:C.g2,cursor:'pointer',fontSize:14,width:38,height:38,borderRadius:8,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,marginRight:10}}
-          onMouseEnter={e=>{(e.currentTarget as HTMLElement).style.borderColor=C.g3}}
-          onMouseLeave={e=>{(e.currentTarget as HTMLElement).style.borderColor=C.b1}}>⏱</button>
+        <button className="glass-btn" onClick={()=>setShowTimerModal(true)} title="Countdown Timer"
+          style={{color:C.g2,fontSize:14,width:38,height:38,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,marginRight:10}}>⏱</button>
         {/* Dark mode toggle */}
-        <button onClick={()=>setTheme(t=>t==='dark'?'light':'dark')} title={theme==='dark'?'Switch to light mode':'Switch to dark mode'}
-          style={{background:'none',border:`1px solid ${C.b1}`,color:C.g2,cursor:'pointer',fontSize:14,width:38,height:38,borderRadius:8,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,marginRight:10}}
-          onMouseEnter={e=>{(e.currentTarget as HTMLElement).style.borderColor=C.g3}}
-          onMouseLeave={e=>{(e.currentTarget as HTMLElement).style.borderColor=C.b1}}>{theme==='dark'?'☀':'☾'}</button>
+        <button className="glass-btn" onClick={()=>setTheme(t=>t==='dark'?'light':'dark')} title={theme==='dark'?'Switch to light mode':'Switch to dark mode'}
+          style={{color:C.g2,fontSize:14,width:38,height:38,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,marginRight:10}}>{theme==='dark'?'☀':'☾'}</button>
         {/* Verse of day */}
-        <button onClick={()=>setShowDailyPopup(true)} title="Verse of the Day"
-          style={{background:'none',border:`1px solid ${C.b1}`,color:C.g2,cursor:'pointer',fontSize:13,width:38,height:38,borderRadius:8,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,marginRight:20}}
-          onMouseEnter={e=>{(e.currentTarget as HTMLElement).style.borderColor=C.g3}}
-          onMouseLeave={e=>{(e.currentTarget as HTMLElement).style.borderColor=C.b1}}>✦</button>
+        <button className="glass-btn" onClick={()=>setShowDailyPopup(true)} title="Verse of the Day"
+          style={{color:C.g2,fontSize:13,width:38,height:38,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,marginRight:20}}>✦</button>
         {currentUser&&(
           <div style={{display:'flex',alignItems:'center',gap:10,paddingLeft:20,paddingRight:20,borderLeft:`1px solid ${C.b0}`,height:'100%'}}>
             <div style={{width:5,height:5,borderRadius:'50%',background:C.safe,flexShrink:0}}/>
@@ -2268,38 +2336,40 @@ export default function App() {
           </div>
         )}
         <Clock/>
+        </div>
       </div>
 
-      {/* ── SECTION NAV (horizontal — echoes Quelea's flat top menu, keeps our icon+label identity) ── */}
-      <div style={{height:48,background:C.bg1,borderBottom:`1px solid ${C.b0}`,display:'flex',alignItems:'center',flexShrink:0,padding:'0 20px',gap:2,overflowX:'auto'}}>
-        {NAV.filter(([gid])=>gid!=='service').map(([gid,gLabel])=>{
-          const active=navGroup===gid
-          return (
-            <button key={gid} onClick={()=>setNavGroup(gid as NavGroup)} className="nav-icon"
-              style={{display:'flex',alignItems:'center',gap:8,padding:'9px 16px',background:'none',border:'none',borderBottom:`2px solid ${active?C.g2:'transparent'}`,color:active?C.t1:C.t3,cursor:'pointer',fontSize:12.5,fontWeight:active?600:500,letterSpacing:'0.02em',whiteSpace:'nowrap' as const,transition:'all 0.12s',flexShrink:0,borderRadius:6}}>
-              <span style={{fontSize:13,color:active?C.g2:C.t3}}>{(NAV_ICONS as any)[gid as string]}</span>
-              {gLabel}
-            </button>
-          )
-        })}
+      {/* ── SECTION NAV — floating glass pill segmented control ── */}
+      <div className="glass-bar" style={{height:56,borderBottom:`1px solid ${C.b0}`,display:'flex',alignItems:'center',flexShrink:0,padding:'8px 20px',gap:14,overflowX:'auto'}}>
+        <div className="glass-pill" style={{display:'flex',alignItems:'center',gap:2,padding:4,flexShrink:0}}>
+          {NAV.filter(([gid])=>gid!=='service').map(([gid,gLabel])=>{
+            const active=navGroup===gid
+            return (
+              <button key={gid} onClick={()=>setNavGroup(gid as NavGroup)} className={active?'':'nav-icon'}
+                style={{display:'flex',alignItems:'center',gap:7,padding:'8px 15px',background:active?`linear-gradient(135deg,${C.g2},${C.g1})`:'none',border:'none',borderRadius:999,color:active?'#fff':C.t3,cursor:'pointer',fontSize:12.5,fontWeight:active?600:500,letterSpacing:'0.02em',whiteSpace:'nowrap' as const,transition:'all 0.15s',flexShrink:0,boxShadow:active?'inset 0 1px 0 rgba(255,255,255,0.3)':'none'}}>
+                <span style={{fontSize:13,color:active?'#fff':C.t3}}>{(NAV_ICONS as any)[gid as string]}</span>
+                {gLabel}
+              </button>
+            )
+          })}
+        </div>
         {subItems[navGroup].length>0&&(
-          <>
-            <div style={{width:1,height:20,background:C.b1,margin:'0 10px',flexShrink:0}}/>
+          <div className="glass-pill" style={{display:'flex',alignItems:'center',gap:2,padding:4,flexShrink:0}}>
             {subItems[navGroup].map(sub=>{
               const active=activeSubId===sub.id
               return (
-                <button key={sub.id} className="sub-btn"
+                <button key={sub.id} className={active?'':'sub-btn'}
                   onClick={()=>{
                     if(navGroup==='library'){setLibTab(sub.id as LibTab);if(sub.id!=='bible')setSelectedVerse(null)}
                     if(navGroup==='present')setPresentTab(sub.id as PresentTab)
                     if(navGroup==='settings')setSettingsTab(sub.id as SettingsTab)
                   }}
-                  style={{padding:'7px 14px',background:active?C.bg4:'none',border:`1px solid ${active?C.b2:'transparent'}`,borderRadius:7,color:active?C.g2:C.t3,cursor:'pointer',fontFamily:'inherit',fontSize:11.5,fontWeight:active?600:500,whiteSpace:'nowrap' as const,flexShrink:0,transition:'all 0.1s'}}>
+                  style={{padding:'7px 14px',background:active?C.bg4:'none',border:'none',borderRadius:999,color:active?C.g2:C.t3,cursor:'pointer',fontFamily:'inherit',fontSize:11.5,fontWeight:active?600:500,whiteSpace:'nowrap' as const,flexShrink:0,transition:'all 0.1s'}}>
                   {sub.label}
                 </button>
               )
             })}
-          </>
+          </div>
         )}
       </div>
 
@@ -2308,8 +2378,8 @@ export default function App() {
 
         {/* ── LEFT COLUMN ── */}
         <div ref={leftColRef} style={navGroup==='media'||navGroup==='calendar'
-          ? {flex:1,background:C.bg0,display:'flex',flexDirection:'column',minHeight:0,minWidth:0}
-          : {width:leftWidth,flexShrink:0,background:C.bg0,display:'flex',flexDirection:'column',minHeight:0}}>
+          ? {flex:1,background:C.tex0,display:'flex',flexDirection:'column',minHeight:0,minWidth:0}
+          : {width:leftWidth,flexShrink:0,background:C.tex0,display:'flex',flexDirection:'column',minHeight:0}}>
 
           {/* Order of Service — pinned, collapsible */}
           <div style={{flexShrink:0,display:'flex',flexDirection:'column',maxHeight:queueCollapsed?44:340,overflow:'hidden',borderBottom:`1px solid ${C.b0}`,transition:'max-height 0.15s ease'}}>
@@ -2337,7 +2407,7 @@ export default function App() {
                 {queue.map((item,i)=>(
                   <div key={item.id}
                     draggable onDragStart={e=>onQueueItemDragStart(e,i)} onDragOver={onQueueItemDragOver} onDrop={e=>onQueueItemDrop(e,i)} onDragEnd={onQueueItemDragEnd}
-                    style={{display:'flex',alignItems:'center',gap:12,padding:'11px 14px',marginBottom:6,borderRadius:8,background:i===0?C.bg3:C.bg2,border:`1px solid ${i===0?C.b2:C.b0}`,cursor:'grab',opacity:draggedQueueIdx===i?0.3:1,transition:'opacity 0.12s'}}>
+                    style={{display:'flex',alignItems:'center',gap:12,padding:'11px 14px',marginBottom:6,borderRadius:8,background:i===0?C.bg3:C.tex2,border:`1px solid ${i===0?C.b2:C.b0}`,cursor:'grab',opacity:draggedQueueIdx===i?0.3:1,transition:'opacity 0.12s'}}>
                     <span style={{fontSize:10,color:i===0?C.g2:C.t4,width:16,flexShrink:0,fontVariantNumeric:'tabular-nums',fontWeight:600}}>{i+1}</span>
                     <span style={{fontSize:12,color:C.t1,flex:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{item.title}</span>
                     <button onClick={()=>removeFromQueue(item.id)} style={{background:'none',border:'none',color:C.t4,cursor:'pointer',fontSize:15,padding:0,flexShrink:0,lineHeight:1}}>×</button>
@@ -2371,14 +2441,14 @@ export default function App() {
         </div>
 
         {/* ── CENTRE — PREVIEW (full-height open panel) ── */}
-        <div ref={previewColRef} style={{...(previewWidth!=null?{width:previewWidth,flex:'0 0 auto'}:{flex:1}),display:'flex',flexDirection:'column',minWidth:0,background:C.bg0}}>
+        <div ref={previewColRef} style={{...(previewWidth!=null?{width:previewWidth,flex:'0 0 auto'}:{flex:1}),display:'flex',flexDirection:'column',minWidth:0,background:C.tex0}}>
           <div style={{padding:'12px 20px',borderBottom:`1px solid ${C.b0}`,display:'flex',alignItems:'center',justifyContent:'space-between',flexShrink:0}}>
             <span style={{fontSize:11,color:C.t2,letterSpacing:'0.08em',fontWeight:600,textTransform:'uppercase' as const}}>Preview</span>
             <button onClick={()=>{
               if(section) goLive(selected?.title||'',section.content)
               else if(selectedVerse) goLive(`${selectedVerse.book} ${selectedVerse.chapter}:${selectedVerse.verse}`,selectedVerse.text)
             }} className="shimmer-btn"
-              style={{padding:'7px 20px',background:C.p2,border:`1px solid ${C.p1}`,color:'#fff',fontSize:11.5,fontWeight:700,cursor:'pointer',fontFamily:"'Noto Serif JP','Inter',sans-serif",borderRadius:5,letterSpacing:'0.04em',flexShrink:0,transition:'background 0.15s'}}
+              style={{padding:'7px 20px',background:C.p2,border:`1px solid ${C.p1}`,color:'#fff',fontSize:11.5,fontWeight:700,cursor:'pointer',fontFamily:"'Yu Mincho','Hiragino Mincho ProN','MS Mincho','Noto Serif CJK JP','Inter',sans-serif",borderRadius:5,letterSpacing:'0.04em',flexShrink:0,transition:'background 0.15s'}}
               onMouseEnter={e=>{(e.currentTarget as HTMLElement).style.background=C.p1}}
               onMouseLeave={e=>{(e.currentTarget as HTMLElement).style.background=C.p2}}>
               Go Live
@@ -2388,11 +2458,11 @@ export default function App() {
             onDragOver={onPreviewDragOver} onDragLeave={onPreviewDragLeave} onDrop={onPreviewDrop}
             style={{flex:1,background:'#0a0606',overflow:'hidden',border:`1px solid ${previewDragOver?C.g2:'transparent'}`,display:'flex',alignItems:'center',justifyContent:'center',transition:'all 0.15s',boxShadow:previewDragOver?`inset 0 0 24px color-mix(in srgb, ${C.g2} 13%, transparent)`:'none',margin:10,borderRadius:6}}>
             {section
-              ?<div style={{fontSize:15,color:C.t2,lineHeight:1.8,padding:32,textAlign:'center',fontStyle:'italic',fontFamily:"'Noto Serif JP',Georgia,serif"}}>{section.content.substring(0,200)}…</div>
+              ?<div style={{fontSize:15,color:C.t2,lineHeight:1.8,padding:32,textAlign:'center',fontStyle:'italic',fontFamily:"'Yu Mincho','Hiragino Mincho ProN','MS Mincho','Noto Serif CJK JP',Georgia,serif"}}>{section.content.substring(0,200)}…</div>
               :selectedVerse
               ?<div style={{padding:32,textAlign:'center'}}>
                 <div style={{fontSize:11,color:C.p2,fontWeight:700,letterSpacing:'0.08em',marginBottom:10}}>{selectedVerse.book} {selectedVerse.chapter}:{selectedVerse.verse} · {selectedVerse.version}</div>
-                <div style={{fontSize:15,color:C.t2,lineHeight:1.8,fontStyle:'italic',fontFamily:"'Noto Serif JP',Georgia,serif"}}>{selectedVerse.text.substring(0,200)}…</div>
+                <div style={{fontSize:15,color:C.t2,lineHeight:1.8,fontStyle:'italic',fontFamily:"'Yu Mincho','Hiragino Mincho ProN','MS Mincho','Noto Serif CJK JP',Georgia,serif"}}>{selectedVerse.text.substring(0,200)}…</div>
               </div>
               :<div style={{fontSize:12,color:previewDragOver?C.g2:C.t4}}>{previewDragOver?'Drop to preview':'Nothing selected'}</div>
             }
@@ -2408,7 +2478,7 @@ export default function App() {
         </div>
 
         {/* ── RIGHT — LIVE (full-height open panel) ── */}
-        <div style={{flex:1,display:'flex',flexDirection:'column',minWidth:0,background:C.bg0}}>
+        <div style={{flex:1,display:'flex',flexDirection:'column',minWidth:0,background:C.tex0}}>
           <div style={{padding:'12px 20px',borderBottom:`1px solid ${C.b0}`,display:'flex',alignItems:'center',justifyContent:'space-between',flexShrink:0}}>
             <span style={{fontSize:11,color:C.t2,letterSpacing:'0.08em',fontWeight:600,textTransform:'uppercase' as const}}>Live</span>
             <div style={{display:'flex',alignItems:'center',gap:6}}>
@@ -2422,7 +2492,7 @@ export default function App() {
             {liveDragOver
               ?<div style={{fontSize:13,color:C.live,fontWeight:600}}>Drop to go live</div>
               :live
-                ?<div style={{fontSize:15,color:'#fff',padding:32,textAlign:'center',lineHeight:1.7,fontFamily:"'Noto Serif JP',Georgia,serif"}}>{live}</div>
+                ?<div style={{fontSize:15,color:'#fff',padding:32,textAlign:'center',lineHeight:1.7,fontFamily:"'Yu Mincho','Hiragino Mincho ProN','MS Mincho','Noto Serif CJK JP',Georgia,serif"}}>{live}</div>
                 :<div style={{fontSize:12,color:C.t4}}>Not presenting</div>
             }
           </div>
@@ -2432,7 +2502,7 @@ export default function App() {
       </div>
 
       {/* ── FOOTER CONTROL BAR ── */}
-      <div style={{height:56,background:C.bg1,borderTop:`1px solid ${C.b0}`,display:'flex',alignItems:'center',gap:14,padding:'0 20px',flexShrink:0}}>
+      <div style={{height:56,background:C.tex1,borderTop:`1px solid ${C.b0}`,display:'flex',alignItems:'center',gap:14,padding:'0 20px',flexShrink:0}}>
         <button onClick={handleBlank}
           style={{padding:'8px 16px',background:blankScreen?C.bg4:'none',border:`1px solid ${blankScreen?C.b2:C.b1}`,color:blankScreen?C.t1:C.t3,fontSize:12,cursor:'pointer',fontFamily:'inherit',borderRadius:5,transition:'all 0.15s',flexShrink:0}}>
           {blankScreen?'● Blank':'Blank'}
@@ -2449,7 +2519,7 @@ export default function App() {
         <div style={{flex:1}}/>
 
         <select value={selectedDisplay} onChange={e=>setSelectedDisplay(Number(e.target.value))}
-          style={{background:C.bg2,border:`1px solid ${C.b1}`,color:C.t2,padding:'8px 12px',fontSize:11,outline:'none',fontFamily:'inherit',borderRadius:5,flexShrink:0}}>
+          style={{background:C.tex2,border:`1px solid ${C.b1}`,color:C.t2,padding:'8px 12px',fontSize:11,outline:'none',fontFamily:'inherit',borderRadius:5,flexShrink:0}}>
           {displays.map(d=><option key={d.id} value={d.id}>{d.label}{d.isPrimary?' (Primary)':''}</option>)}
         </select>
       </div>
@@ -2459,7 +2529,7 @@ export default function App() {
         <div onClick={()=>setShowShortcuts(false)}
           style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.75)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:9999,backdropFilter:'blur(6px)'}}>
           <div onClick={e=>e.stopPropagation()}
-            style={{background:C.bg2,border:`1px solid ${C.b2}`,borderRadius:8,padding:36,maxWidth:420,width:'90%',position:'relative',boxShadow:'0 40px 80px rgba(0,0,0,0.9)'}}>
+            style={{background:C.tex2,border:`1px solid ${C.b2}`,borderRadius:8,padding:36,maxWidth:420,width:'90%',position:'relative',boxShadow:'0 40px 80px rgba(0,0,0,0.9)'}}>
             <button onClick={()=>setShowShortcuts(false)}
               style={{position:'absolute',top:14,right:16,background:'none',border:'none',color:C.t3,cursor:'pointer',fontSize:18,lineHeight:1,padding:4}}>×</button>
             <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:20}}>
@@ -2491,7 +2561,7 @@ export default function App() {
         <div onClick={()=>setShowTimerModal(false)}
           style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.8)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:9999,backdropFilter:'blur(8px)'}}>
           <div onClick={e=>e.stopPropagation()}
-            style={{background:C.bg2,border:`1px solid ${C.b2}`,borderRadius:8,padding:40,maxWidth:420,width:'90%',position:'relative',boxShadow:`0 40px 80px rgba(0,0,0,0.9)`}}>
+            style={{background:C.tex2,border:`1px solid ${C.b2}`,borderRadius:8,padding:40,maxWidth:420,width:'90%',position:'relative',boxShadow:`0 40px 80px rgba(0,0,0,0.9)`}}>
             <div style={{position:'absolute',top:0,left:40,right:40,height:1,background:`linear-gradient(to right,transparent,${C.g2},transparent)`}}/>
             <button onClick={()=>setShowTimerModal(false)}
               style={{position:'absolute',top:14,right:16,background:'none',border:'none',color:C.t3,cursor:'pointer',fontSize:18,lineHeight:1,padding:4}}>×</button>
@@ -2527,12 +2597,12 @@ export default function App() {
         <div onClick={()=>setShowDailyPopup(false)}
           style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.8)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:9999,backdropFilter:'blur(8px)'}}>
           <div onClick={e=>e.stopPropagation()}
-            style={{background:C.bg2,border:`1px solid ${C.b2}`,borderRadius:8,padding:40,maxWidth:540,width:'90%',position:'relative',boxShadow:`0 40px 80px rgba(0,0,0,0.9)`}}>
+            style={{background:C.tex2,border:`1px solid ${C.b2}`,borderRadius:8,padding:40,maxWidth:540,width:'90%',position:'relative',boxShadow:`0 40px 80px rgba(0,0,0,0.9)`}}>
             <div style={{position:'absolute',top:0,left:40,right:40,height:1,background:`linear-gradient(to right,transparent,${C.g2},transparent)`}}/>
             <button onClick={()=>setShowDailyPopup(false)}
               style={{position:'absolute',top:14,right:16,background:'none',border:'none',color:C.t3,cursor:'pointer',fontSize:18,lineHeight:1,padding:4}}>×</button>
             <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:24}}>
-              <span style={{fontSize:22,color:C.g2,fontFamily:"'Noto Serif JP',serif"}}>✦</span>
+              <span style={{fontSize:22,color:C.g2,fontFamily:"'Yu Mincho','Hiragino Mincho ProN','MS Mincho','Noto Serif CJK JP',serif"}}>✦</span>
               <div>
                 <div style={{fontSize:10,color:C.g2,fontWeight:600,letterSpacing:'0.12em',textTransform:'uppercase' as const,marginBottom:2}}>Verse of the Day</div>
                 <div style={{fontSize:11,color:C.t3}}>{new Date().toLocaleDateString('en-ZW',{weekday:'long',year:'numeric',month:'long',day:'numeric'})}</div>
@@ -2541,7 +2611,7 @@ export default function App() {
             {dailyVerse?(
               <>
                 <div style={{fontSize:11,color:C.g2,marginBottom:12}}>{dailyVerse.book} {dailyVerse.chapter}:{dailyVerse.verse} — {dailyVerse.version}</div>
-                <div style={{fontSize:20,lineHeight:1.9,color:C.t1,fontStyle:'italic',fontWeight:300,fontFamily:"'Noto Serif JP',Georgia,serif",marginBottom:20}}>"{dailyVerse.text}"</div>
+                <div style={{fontSize:20,lineHeight:1.9,color:C.t1,fontStyle:'italic',fontWeight:300,fontFamily:"'Yu Mincho','Hiragino Mincho ProN','MS Mincho','Noto Serif CJK JP',Georgia,serif",marginBottom:20}}>"{dailyVerse.text}"</div>
                 <div style={{padding:'12px 16px',background:C.bg3,borderRadius:5,border:`1px solid ${C.b1}`,marginBottom:24,fontSize:12,color:C.t3,lineHeight:1.7,fontStyle:'italic'}}>
                   May this word guide your service today. You are doing good work.
                 </div>
