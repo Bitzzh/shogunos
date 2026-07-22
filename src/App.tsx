@@ -375,7 +375,7 @@ function SlidesTab({ goLive, addToQueue, notify }: {
                 <input style={{...inp,width:90}} value={editing.bg_color||'#000'} onChange={e=>set('bg_color',e.target.value)}/>
               </div>
               <div style={{display:'flex',gap:4,flexWrap:'wrap'}}>
-                {['#000000','#0a0814','#140a0a','#0a0a14','#060609','#111111'].map(col=>(
+                {['#000000','#0a0814','#140a0a','#0a0a14','#060609','#111111','#1a0a2e','#0a1a2e'].map(col=>(
                   <div key={col} onClick={()=>set('bg_color',col)} style={{width:24,height:24,background:col,border:`1px solid ${editing.bg_color===col?C.g2:C.b2}`,borderRadius:4,cursor:'pointer'}}/>
                 ))}
               </div>
@@ -400,7 +400,7 @@ function SlidesTab({ goLive, addToQueue, notify }: {
                 <input style={{...inp,width:90}} value={editing.font_color||'#fff'} onChange={e=>set('font_color',e.target.value)}/>
               </div>
               <div style={{display:'flex',gap:4,flexWrap:'wrap'}}>
-                {['#ffffff','#f8f4e8','#f59e0b','#a78bfa','#7dd3fc','#86efac','#f87171'].map(col=>(
+                {['#ffffff','#f8f4e8','#f59e0b','#a78bfa','#7dd3fc','#86efac','#f87171','#ff2e63','#6fe8ff','#b967ff'].map(col=>(
                   <div key={col} onClick={()=>set('font_color',col)} style={{width:24,height:24,background:col,border:`1px solid ${editing.font_color===col?C.g2:C.b2}`,borderRadius:4,cursor:'pointer'}}/>
                 ))}
               </div>
@@ -510,6 +510,17 @@ function AnnounceTab({ goLive, notify }: { goLive:(t:string,l:string)=>void; not
   const inp: React.CSSProperties = {width:'100%',background:C.bg4,border:`1px solid ${C.b1}`,color:C.t1,padding:'9px 12px',fontSize:12,outline:'none',fontFamily:'inherit',borderRadius:8}
   const lbl: React.CSSProperties = {fontSize:10,color:C.t3,fontWeight:600,marginBottom:6,display:'block',letterSpacing:'0.05em',textTransform:'uppercase' as const}
 
+  // Neon Tokyo one-click looks — sets bg+text together so an operator can
+  // reach for a whole signage style instead of picking two colors by hand.
+  const NEON_PRESETS = [
+    {label:'Shibuya Pink',  bg:'#0a0612', fg:'#ff2e63'},
+    {label:'Cyber Cyan',    bg:'#060b14', fg:'#6fe8ff'},
+    {label:'Vaporwave',     bg:'#12081f', fg:'#ff8fe0'},
+    {label:'Akiba Yellow',  bg:'#0c0a04', fg:'#ffd23f'},
+    {label:'Neon Noir',     bg:'#000000', fg:'#ffffff'},
+    {label:'Midori Glow',   bg:'#04120a', fg:'#39ff8f'},
+  ]
+
   return (
     <div style={{flex:1,display:'flex',overflow:'hidden',minHeight:0}}>
       <div style={{flex:1,display:'flex',flexDirection:'column',borderRight:`1px solid ${C.b0}`}}>
@@ -545,6 +556,19 @@ function AnnounceTab({ goLive, notify }: { goLive:(t:string,l:string)=>void; not
                 <input type="color" value={fgColor} onChange={e=>setFgColor(e.target.value)} style={{width:36,height:32,border:`1px solid ${C.b2}`,borderRadius:6,background:'none',cursor:'pointer'}}/>
                 <input style={{...inp,width:90}} value={fgColor} onChange={e=>setFgColor(e.target.value)}/>
               </div>
+            </div>
+          </div>
+          <div>
+            <label style={lbl}>Neon Presets</label>
+            <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
+              {NEON_PRESETS.map(p=>(
+                <button key={p.label} onClick={()=>{setBgColor(p.bg);setFgColor(p.fg)}}
+                  title={p.label}
+                  style={{display:'flex',alignItems:'center',gap:6,padding:'6px 10px 6px 6px',background:p.bg,border:`1px solid ${bgColor===p.bg&&fgColor===p.fg?p.fg:C.b1}`,color:p.fg,fontSize:10,fontWeight:700,cursor:'pointer',fontFamily:'inherit',borderRadius:7,letterSpacing:'0.02em'}}>
+                  <span style={{width:14,height:14,borderRadius:4,background:p.fg,boxShadow:`0 0 8px ${p.fg}`,flexShrink:0}}/>
+                  {p.label}
+                </button>
+              ))}
             </div>
           </div>
           <div>
@@ -1279,13 +1303,13 @@ function DisplaySettingsTab({ settings, onChange, notify }: { settings:DisplaySe
       <div style={{fontSize:9,fontWeight:700,letterSpacing:'0.2em',color:C.t4,textTransform:'uppercase' as const}}>Display Settings</div>
       <div style={{fontSize:12,color:C.t3,lineHeight:1.6,padding:'12px 16px',background:C.bg3,borderRadius:10,border:`1px solid ${C.b1}`}}>These settings apply to hymns and Bible verses sent live. Slides use their own individual settings.</div>
 
-      <div style={{padding:'16px',background:settings.highVisibility?'color-mix(in srgb, #f59e0b 10%, transparent)':C.bg3,border:`1px solid ${settings.highVisibility?'#f59e0b':C.b1}`,borderRadius:10,display:'flex',flexDirection:'column',gap:12}}>
+      <div style={{padding:'16px',background:settings.highVisibility?`color-mix(in srgb, ${C.warn} 10%, transparent)`:C.bg3,border:`1px solid ${settings.highVisibility?C.warn:C.b1}`,borderRadius:10,display:'flex',flexDirection:'column',gap:12}}>
         <div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
           <div>
             <div style={{fontSize:12,fontWeight:700,color:C.t1}}>☀ Sunlight Mode</div>
             <div style={{fontSize:10,color:C.t3,marginTop:2,maxWidth:340,lineHeight:1.5}}>Maximizes contrast for rooms fighting daylight glare on the projector — a bright, high-contrast, bold-weight look with no background image. This can't add brightness a projector doesn't have, but it's the closest software gets to fighting a washed-out screen.</div>
           </div>
-          <div onClick={()=>set('highVisibility',!settings.highVisibility)} style={{width:44,height:24,borderRadius:12,background:settings.highVisibility?'#f59e0b':C.b2,position:'relative',cursor:'pointer',flexShrink:0,transition:'background 0.15s'}}>
+          <div onClick={()=>set('highVisibility',!settings.highVisibility)} style={{width:44,height:24,borderRadius:12,background:settings.highVisibility?C.warn:C.b2,position:'relative',cursor:'pointer',flexShrink:0,transition:'background 0.15s'}}>
             <div style={{width:18,height:18,borderRadius:'50%',background:'#fff',position:'absolute',top:3,left:settings.highVisibility?23:3,transition:'left 0.15s'}}/>
           </div>
         </div>
@@ -1293,8 +1317,8 @@ function DisplaySettingsTab({ settings, onChange, notify }: { settings:DisplaySe
           <div>
             <label style={lbl}>Polarity</label>
             <div style={{display:'flex',gap:4}}>
-              <button onClick={()=>set('highVisibilityInvert',false)} style={{flex:1,padding:'8px 0',fontSize:10,fontWeight:700,border:`1px solid ${!settings.highVisibilityInvert?'#f59e0b':C.b1}`,color:!settings.highVisibilityInvert?'#f59e0b':C.t3,background:!settings.highVisibilityInvert?'color-mix(in srgb, #f59e0b 10%, transparent)':'none',cursor:'pointer',fontFamily:'inherit',borderRadius:6}}>Black on White</button>
-              <button onClick={()=>set('highVisibilityInvert',true)} style={{flex:1,padding:'8px 0',fontSize:10,fontWeight:700,border:`1px solid ${settings.highVisibilityInvert?'#f59e0b':C.b1}`,color:settings.highVisibilityInvert?'#f59e0b':C.t3,background:settings.highVisibilityInvert?'color-mix(in srgb, #f59e0b 10%, transparent)':'none',cursor:'pointer',fontFamily:'inherit',borderRadius:6}}>White on Black</button>
+              <button onClick={()=>set('highVisibilityInvert',false)} style={{flex:1,padding:'8px 0',fontSize:10,fontWeight:700,border:`1px solid ${!settings.highVisibilityInvert?C.warn:C.b1}`,color:!settings.highVisibilityInvert?C.warn:C.t3,background:!settings.highVisibilityInvert?`color-mix(in srgb, ${C.warn} 10%, transparent)`:'none',cursor:'pointer',fontFamily:'inherit',borderRadius:6}}>Black on White</button>
+              <button onClick={()=>set('highVisibilityInvert',true)} style={{flex:1,padding:'8px 0',fontSize:10,fontWeight:700,border:`1px solid ${settings.highVisibilityInvert?C.warn:C.b1}`,color:settings.highVisibilityInvert?C.warn:C.t3,background:settings.highVisibilityInvert?`color-mix(in srgb, ${C.warn} 10%, transparent)`:'none',cursor:'pointer',fontFamily:'inherit',borderRadius:6}}>White on Black</button>
             </div>
             <div style={{fontSize:9,color:C.t4,marginTop:6,lineHeight:1.5}}>Black-on-white usually reads best in bright rooms — a projector's "black" is never fully dark, so a light background hides that better than a dark one.</div>
           </div>
@@ -1307,7 +1331,7 @@ function DisplaySettingsTab({ settings, onChange, notify }: { settings:DisplaySe
           <input style={{...inp,width:110}} value={settings.bgColor} onChange={e=>set('bgColor',e.target.value)}/>
         </div>
         <div style={{display:'flex',gap:4}}>
-          {['#000000','#0a0814','#140a0a','#0a0a14','#060609','#111111'].map(c=>(
+          {['#000000','#0a0814','#140a0a','#0a0a14','#060609','#111111','#1a0a2e','#0a1a2e'].map(c=>(
             <div key={c} onClick={()=>set('bgColor',c)} style={{width:28,height:28,background:c,border:`1px solid ${settings.bgColor===c?C.g2:C.b2}`,borderRadius:5,cursor:'pointer'}}/>
           ))}
         </div>
@@ -1349,7 +1373,7 @@ function DisplaySettingsTab({ settings, onChange, notify }: { settings:DisplaySe
           <input style={{...inp,width:110}} value={settings.fontColor} onChange={e=>set('fontColor',e.target.value)}/>
         </div>
         <div style={{display:'flex',gap:4}}>
-          {['#ffffff','#f8f4e8','#f59e0b','#a78bfa','#7dd3fc','#86efac'].map(c=>(
+          {['#ffffff','#f8f4e8','#f59e0b','#a78bfa','#7dd3fc','#86efac','#ff2e63','#6fe8ff','#b967ff'].map(c=>(
             <div key={c} onClick={()=>set('fontColor',c)} style={{width:28,height:28,background:c,border:`1px solid ${settings.fontColor===c?C.g2:C.b2}`,borderRadius:5,cursor:'pointer'}}/>
           ))}
         </div>
@@ -1580,7 +1604,7 @@ export default function App() {
     try{ const v=localStorage.getItem('shogun_preview_width'); return v?parseInt(v):null }catch{return null}
   })
   const [theme,setTheme] = useState<'light'|'dark'>(()=>{
-    try{ return (localStorage.getItem('shogun_theme') as 'light'|'dark') || 'light' }catch{ return 'light' }
+    try{ return (localStorage.getItem('shogun_theme') as 'light'|'dark') || 'dark' }catch{ return 'dark' }
   })
   useEffect(()=>{
     document.documentElement.setAttribute('data-theme',theme)

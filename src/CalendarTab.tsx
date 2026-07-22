@@ -17,7 +17,7 @@ export interface CalendarEvent {
   notes: string; color: string; created_at: string
 }
 
-const SWATCHES = ['#c22430','#145a9e','#47623f','#b3941f','#8f1620','#6e5115','#374a86','#a3242e']
+const SWATCHES = ['#ff2e63','#12b8ec','#39ff8f','#b967ff','#1a3f96','#ffd23f','#6fe8ff','#d61a5c']
 const WEEKDAYS = ['SUN','MON','TUE','WED','THU','FRI','SAT']
 
 function fmtDate(iso: string) {

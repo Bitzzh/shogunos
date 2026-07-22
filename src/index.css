@@ -1,65 +1,74 @@
 :root {
-  /* Washi paper — warm cream, layered light to lighter */
-  --bg0: #f6f2e7; --bg1: #fffdf8; --bg2: #faf6ee; --bg3: #efe9db; --bg4: #e5ddc9; --bg5: #d8cdb3;
-  /* Ink-tinted hairlines */
-  --b0: #e6ddc8; --b1: #d6c9ab; --b2: #bfae87;
-  /* Lingfield crest red — LIVE / action states only, never decorative
-     (sampled from the badge's banner flags, #e42430, deepened for UI contrast) */
-  --p1: #8f1620; --p2: #c22430; --p3: #dc4650;
-  /* Lingfield crest blue — authority / selected states
-     (sampled from the badge's navy + sky blue, #183084 / #24a8d8) */
-  --g1: #142c66; --g2: #145a9e; --g3: #23a6d8;
-  /* Sumi ink — warm text scale */
-  --t1: #1b1a17; --t2: #4a463d; --t3: #8b8072; --t4: #b3a690;
-  /* Status — Lingfield's trim gold doubles as highlight/warn (sampled #eee61e, deepened for legibility) */
-  --live: #c22430; --safe: #47623f; --warn: #b3941f;
-  --gold: #b3941f; --goldL: #d4b62f;
-  /* Seigaiha (青海波) — traditional overlapping-wave motif, used as a quiet
-     woven backdrop on the app's larger panel surfaces. Kept off small,
-     frequent elements (cards/rows/badges) — at that scale it read as noise
-     rather than a pattern. `fixed` anchors every panel to the same
-     viewport-relative tile phase, so adjacent panels' patterns line up
-     instead of each restarting from its own corner and creating seams. */
-  --texture: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='70'%3E%3Cg fill='none' stroke='%23142c66' stroke-opacity='0.055' stroke-width='2'%3E%3Ccircle cx='0' cy='70' r='17.5'/%3E%3Ccircle cx='0' cy='70' r='35'/%3E%3Ccircle cx='0' cy='70' r='52.5'/%3E%3Ccircle cx='0' cy='70' r='70'/%3E%3Ccircle cx='70' cy='70' r='17.5'/%3E%3Ccircle cx='70' cy='70' r='35'/%3E%3Ccircle cx='70' cy='70' r='52.5'/%3E%3Ccircle cx='70' cy='70' r='70'/%3E%3Ccircle cx='140' cy='70' r='17.5'/%3E%3Ccircle cx='140' cy='70' r='35'/%3E%3Ccircle cx='140' cy='70' r='52.5'/%3E%3Ccircle cx='140' cy='70' r='70'/%3E%3C/g%3E%3C/svg%3E") fixed;
-  /* Composite backgrounds — the wave pattern layered directly over each
-     panel shade. Components paint with these (C.tex0..C.tex3 in JS) on
-     their actual visible surfaces, not a hidden canvas layer. --bg0..--bg5
-     stay pure colors since color-mix()/gradients elsewhere depend on that. */
+  /* ── Modern Day Tokyo — daylight pass ───────────────────────────────────
+     Overcast Shibuya concrete: cool greys/blues with neon signage still
+     legible at street level. Same role names as before so every C.xxx
+     usage across the app repaints automatically — nothing downstream
+     needs to change. Three distinct neon hues carry the whole system:
+     magenta-red (live/action), cyan-blue (authority/selected), violet
+     (accent/highlight) — plus green/amber for plain status meaning. */
+  --bg0: #eef0f6; --bg1: #ffffff; --bg2: #f7f8fc; --bg3: #e8eaf3; --bg4: #dadde9; --bg5: #c3c7db;
+  --b0: #e1e3ef; --b1: #cfd2e6; --b2: #aeb2cc;
+  /* Neon signage red/magenta — LIVE / action states only, never decorative */
+  --p1: #c81250; --p2: #ff2e63; --p3: #ff6b9d;
+  /* Neon signage cyan-blue — authority / selected states */
+  --g1: #0d3b8c; --g2: #0091c8; --g3: #00b8e4;
+  /* Ink text scale, cool-tinted */
+  --t1: #171531; --t2: #423c5c; --t3: #726b96; --t4: #9a93bd;
+  --live: #e8134f; --safe: #169c5a; --warn: #c9860f;
+  /* Neon violet — the third signage hue, reserved for accent/highlight
+     (verse-of-day, "today" markers, brand-mark accent) so it reads as its
+     own thing rather than a duller copy of the live red */
+  --gold: #9333ea; --goldL: #b967ff;
+  /* Neon grid — quiet street-grid + lit-window motif on the app's larger
+     panel surfaces, standing in for the skyline of windows/signage you'd
+     see looking down a Tokyo avenue at night. Two window sizes in the two
+     accent hues read as near/far lit windows rather than a repeating dot.
+     `fixed` keeps every panel's tile phase aligned so adjoining panels
+     don't create seams. */
+  --texture: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='72' height='72'%3E%3Cpath d='M0 .5H72M0 36.5H72M.5 0V72M36.5 0V72' fill='none' stroke='%230d3b8c' stroke-opacity='0.045' stroke-width='1'/%3E%3Cg%3E%3Crect x='-2' y='-2' width='4' height='4' fill='%23ff2e63' fill-opacity='0.05'/%3E%3Crect x='34' y='-2' width='4' height='4' fill='%2300b8e4' fill-opacity='0.05'/%3E%3Crect x='70' y='-2' width='4' height='4' fill='%23ff2e63' fill-opacity='0.05'/%3E%3Crect x='-2' y='34' width='4' height='4' fill='%2300b8e4' fill-opacity='0.05'/%3E%3Crect x='34' y='34' width='3' height='3' fill='%239333ea' fill-opacity='0.06'/%3E%3Crect x='70' y='34' width='4' height='4' fill='%2300b8e4' fill-opacity='0.05'/%3E%3Crect x='-2' y='70' width='4' height='4' fill='%23ff2e63' fill-opacity='0.05'/%3E%3Crect x='34' y='70' width='4' height='4' fill='%2300b8e4' fill-opacity='0.05'/%3E%3Crect x='70' y='70' width='4' height='4' fill='%23ff2e63' fill-opacity='0.05'/%3E%3C/g%3E%3C/svg%3E") fixed;
   --tbg0: var(--texture), var(--bg0);
   --tbg1: var(--texture), var(--bg1);
   --tbg2: var(--texture), var(--bg2);
   --tbg3: var(--texture), var(--bg3);
-  /* Glass — translucent surface + top specular highlight, tuned per theme */
+  /* Glass — translucent surface + top specular highlight */
   --glass-bg: color-mix(in srgb, var(--bg1) 62%, transparent);
   --glass-bg-strong: color-mix(in srgb, var(--bg1) 78%, transparent);
   --glass-border: color-mix(in srgb, #ffffff 55%, var(--b2) 45%);
-  --glass-highlight: rgba(255,255,255,0.5);
-  --glass-shadow: 0 6px 20px rgba(40,30,10,0.12), 0 1px 2px rgba(40,30,10,0.08);
+  --glass-highlight: rgba(255,255,255,0.55);
+  --glass-shadow: 0 6px 20px rgba(20,10,40,0.10), 0 1px 2px rgba(20,10,40,0.08);
+  /* Neon glow accents — used on hover/active states for buttons + CTAs */
+  --glow-p: rgba(255,46,99,0.30);
+  --glow-g: rgba(0,184,228,0.26);
 }
 
 [data-theme='dark'] {
-  /* Sumi ink paper — dark charcoal, layered dark to darker (mirrors the light scale) */
-  --bg0: #171613; --bg1: #201f1b; --bg2: #1c1b18; --bg3: #2a2822; --bg4: #34322a; --bg5: #454136;
-  --b0: #2a2822; --b1: #3a3730; --b2: #514c3f;
-  /* Crest red — a touch brighter so it still reads as "live" against a dark ground */
-  --p1: #c22430; --p2: #dc4650; --p3: #ea6870;
-  /* Crest blue — lifted for contrast on dark backgrounds */
-  --g1: #145a9e; --g2: #2f86c4; --g3: #5cc4ea;
+  /* ── Modern Day Tokyo — night pass ───────────────────────────────────────
+     Shinjuku/Shibuya after dark: near-black violet ground, hot neon
+     magenta + electric cyan signage, the city's main light sources. */
+  --bg0: #08060f; --bg1: #100c1e; --bg2: #130f22; --bg3: #1b1531; --bg4: #241c3f; --bg5: #342951;
+  --b0: #241c3f; --b1: #372a55; --b2: #4e3b73;
+  /* Neon red/magenta — brighter so it still reads as "live" against black */
+  --p1: #d61a5c; --p2: #ff2e63; --p3: #ff85ae;
+  /* Neon cyan-blue — lifted for glow against dark ground */
+  --g1: #1a3f96; --g2: #12b8ec; --g3: #6fe8ff;
   /* Text scale inverted: lightest first */
-  --t1: #f3efe4; --t2: #cfc8b4; --t3: #9a927c; --t4: #6b6455;
-  --live: #dc4650; --safe: #6a9160; --warn: #d4b62f;
-  --gold: #d4b62f; --goldL: #e6cf5f;
-  /* Same wave motif, sky-blue on charcoal, same fixed-attachment/opacity logic */
-  --texture: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='70'%3E%3Cg fill='none' stroke='%2323a6d8' stroke-opacity='0.045' stroke-width='2'%3E%3Ccircle cx='0' cy='70' r='17.5'/%3E%3Ccircle cx='0' cy='70' r='35'/%3E%3Ccircle cx='0' cy='70' r='52.5'/%3E%3Ccircle cx='0' cy='70' r='70'/%3E%3Ccircle cx='70' cy='70' r='17.5'/%3E%3Ccircle cx='70' cy='70' r='35'/%3E%3Ccircle cx='70' cy='70' r='52.5'/%3E%3Ccircle cx='70' cy='70' r='70'/%3E%3Ccircle cx='140' cy='70' r='17.5'/%3E%3Ccircle cx='140' cy='70' r='35'/%3E%3Ccircle cx='140' cy='70' r='52.5'/%3E%3Ccircle cx='140' cy='70' r='70'/%3E%3C/g%3E%3C/svg%3E") fixed;
+  --t1: #f5f1ff; --t2: #cec3ea; --t3: #9186b8; --t4: #5e5380;
+  --live: #ff2e63; --safe: #39ff8f; --warn: #ffd23f;
+  /* Neon violet — third signage hue, glow-lifted for dark ground */
+  --gold: #b967ff; --goldL: #d9a6ff;
+  /* Same grid + lit-window motif, cyan lines / tri-color windows on near-black */
+  --texture: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='72' height='72'%3E%3Cpath d='M0 .5H72M0 36.5H72M.5 0V72M36.5 0V72' fill='none' stroke='%236fe8ff' stroke-opacity='0.04' stroke-width='1'/%3E%3Cg%3E%3Crect x='-2' y='-2' width='4' height='4' fill='%23ff2e63' fill-opacity='0.07'/%3E%3Crect x='34' y='-2' width='4' height='4' fill='%236fe8ff' fill-opacity='0.06'/%3E%3Crect x='70' y='-2' width='4' height='4' fill='%23ff2e63' fill-opacity='0.07'/%3E%3Crect x='-2' y='34' width='4' height='4' fill='%236fe8ff' fill-opacity='0.06'/%3E%3Crect x='34' y='34' width='3' height='3' fill='%23b967ff' fill-opacity='0.08'/%3E%3Crect x='70' y='34' width='4' height='4' fill='%236fe8ff' fill-opacity='0.06'/%3E%3Crect x='-2' y='70' width='4' height='4' fill='%23ff2e63' fill-opacity='0.07'/%3E%3Crect x='34' y='70' width='4' height='4' fill='%236fe8ff' fill-opacity='0.06'/%3E%3Crect x='70' y='70' width='4' height='4' fill='%23ff2e63' fill-opacity='0.07'/%3E%3C/g%3E%3C/svg%3E") fixed;
   --tbg0: var(--texture), var(--bg0);
   --tbg1: var(--texture), var(--bg1);
   --tbg2: var(--texture), var(--bg2);
   --tbg3: var(--texture), var(--bg3);
   --glass-bg: color-mix(in srgb, var(--bg1) 58%, transparent);
   --glass-bg-strong: color-mix(in srgb, var(--bg1) 76%, transparent);
-  --glass-border: color-mix(in srgb, #ffffff 14%, var(--b2) 86%);
-  --glass-highlight: rgba(255,255,255,0.09);
-  --glass-shadow: 0 6px 24px rgba(0,0,0,0.45), 0 1px 2px rgba(0,0,0,0.3);
+  --glass-border: color-mix(in srgb, #ffffff 12%, var(--b2) 88%);
+  --glass-highlight: rgba(255,255,255,0.08);
+  --glass-shadow: 0 6px 24px rgba(0,0,0,0.55), 0 1px 2px rgba(0,0,0,0.35);
+  --glow-p: rgba(255,46,99,0.45);
+  --glow-g: rgba(18,184,236,0.4);
 }
 
 * {
@@ -78,7 +87,7 @@ body {
 ::-webkit-scrollbar { width: 8px; height: 8px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--b2); border-radius: 5px; }
-::-webkit-scrollbar-thumb:hover { background: var(--t3); }
+::-webkit-scrollbar-thumb:hover { background: var(--g3); }
 
 select option { background: var(--bg1); color: var(--t1); }
 input::placeholder, textarea::placeholder { color: var(--t4); }
@@ -88,6 +97,18 @@ button { font-family: inherit; }
 @keyframes shimmer { 0%{left:-100%} 60%,100%{left:150%} }
 @keyframes spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
 @keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-10px)} }
+/* Neon sign flicker — a couple of quick stutters then settle, like a tube
+   sign catching current. Used sparingly (brand mark, LIVE state) since it
+   reads as "broken" rather than "atmospheric" if left running everywhere. */
+@keyframes neon-flicker {
+  0%, 100% { opacity: 1; }
+  92% { opacity: 1; }
+  93% { opacity: 0.4; }
+  94% { opacity: 1; }
+  96% { opacity: 0.6; }
+  97% { opacity: 1; }
+}
+.neon-flicker { animation: neon-flicker 5s ease-in-out infinite; }
 
 /* ── Liquid glass — frosted surfaces & buttons ──────────────────────────────
    A shared visual language for anything that "floats" above the app's
@@ -113,18 +134,19 @@ button { font-family: inherit; }
   border-radius: 10px;
   cursor: pointer;
 }
-.glass-btn:hover  { transform: translateY(-1px); box-shadow: inset 0 1px 0 var(--glass-highlight), 0 8px 22px rgba(20,44,102,0.16), 0 2px 4px rgba(20,44,102,0.1); }
+.glass-btn:hover  { transform: translateY(-1px); border-color: var(--g3); box-shadow: inset 0 1px 0 var(--glass-highlight), 0 0 0 1px var(--glow-g), 0 8px 22px var(--glow-g), 0 2px 4px rgba(0,0,0,0.15); }
 .glass-btn:active { transform: translateY(0); }
 
 /* Solid accent CTAs (GO LIVE, Save, Create…) keep full-strength color for
    legibility, but still pick up the glass family's specular top edge,
-   elevation, and hover lift so the whole button language feels of a piece. */
+   elevation, and hover lift so the whole button language feels of a piece.
+   The neon glow bloom on hover is the signature "Tokyo at night" touch. */
 .glass-primary {
   border-radius: 9px;
   cursor: pointer;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.35), 0 4px 14px rgba(20,10,5,0.22);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.35), 0 4px 14px rgba(8,4,16,0.28), 0 0 0 rgba(255,46,99,0);
 }
-.glass-primary:hover  { transform: translateY(-1px); filter: brightness(1.05); box-shadow: inset 0 1px 0 rgba(255,255,255,0.4), 0 8px 20px rgba(20,10,5,0.28); }
+.glass-primary:hover  { transform: translateY(-1px); filter: brightness(1.08) saturate(1.1); box-shadow: inset 0 1px 0 rgba(255,255,255,0.4), 0 8px 22px rgba(8,4,16,0.32), 0 0 22px var(--glow-p); }
 .glass-primary:active { transform: translateY(0); filter: brightness(0.98); }
 
 /* Full-width chrome bars (topbar, section nav) — blur + tint only; they
