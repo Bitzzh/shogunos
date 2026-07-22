@@ -68,7 +68,7 @@ interface DisplaySettings {
 // of the individual C.xxx usages below.
 const C = {
   bg0: 'var(--bg0)', bg1: 'var(--bg1)', bg2: 'var(--bg2)', bg3: 'var(--bg3)', bg4: 'var(--bg4)', bg5: 'var(--bg5)',
-  tex0: 'var(--tbg0)', tex1: 'var(--tbg1)', tex2: 'var(--tbg2)', tex3: 'var(--tbg3)',
+  tex0: 'var(--tbg0)', tex1: 'var(--tbg1)', tex2: 'var(--tbg2)', tex3: 'var(--tbg3)', tex4: 'var(--tbg4)',
   b0: 'var(--b0)', b1: 'var(--b1)', b2: 'var(--b2)',
   p1: 'var(--p1)', p2: 'var(--p2)', p3: 'var(--p3)',
   g1: 'var(--g1)', g2: 'var(--g2)', g3: 'var(--g3)',
@@ -243,7 +243,7 @@ function SlidesTab({ goLive, addToQueue, notify }: {
   }
 
   const disp = editing||selected
-  const inp: React.CSSProperties = {width:'100%',background:C.bg4,border:`1px solid ${C.b1}`,color:C.t1,padding:'9px 12px',fontSize:12,outline:'none',fontFamily:'inherit',borderRadius:8}
+  const inp: React.CSSProperties = {width:'100%',background:C.tex4,border:`1px solid ${C.b1}`,color:C.t1,padding:'9px 12px',fontSize:12,outline:'none',fontFamily:'inherit',borderRadius:8}
   const lbl: React.CSSProperties = {fontSize:10,color:C.t3,fontWeight:600,marginBottom:6,display:'block',letterSpacing:'0.05em',textTransform:'uppercase' as const}
   const secHd: React.CSSProperties = {padding:'10px 14px',background:C.tex1,borderBottom:`1px solid ${C.b0}`,flexShrink:0}
   const secLbl: React.CSSProperties = {fontSize:9,fontWeight:700,letterSpacing:'0.2em',color:C.t4,textTransform:'uppercase' as const}
@@ -257,7 +257,7 @@ function SlidesTab({ goLive, addToQueue, notify }: {
             <span style={secLbl}>Slides</span>
             <span style={{fontSize:10,color:C.t4}}>{slides.length}</span>
           </div>
-          <div style={{display:'flex',alignItems:'center',background:C.bg4,border:`1px solid ${C.b1}`,borderRadius:8,padding:'0 10px',gap:6}}>
+          <div style={{display:'flex',alignItems:'center',background:C.tex4,border:`1px solid ${C.b1}`,borderRadius:8,padding:'0 10px',gap:6}}>
             <span style={{color:C.t3,fontSize:14}}>⌕</span>
             <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search..." style={{flex:1,background:'none',border:'none',color:C.t1,fontSize:12,outline:'none',padding:'7px 0',fontFamily:'inherit'}} />
           </div>
@@ -317,7 +317,7 @@ function SlidesTab({ goLive, addToQueue, notify }: {
         {(selected||isNew)&&(
           <div style={{padding:'12px 20px',background:C.tex0,borderTop:`1px solid ${C.b0}`,display:'flex',gap:8}}>
             <button className="shimmer-btn" onClick={()=>selected&&!isNew&&sendLive(selected)} disabled={!selected||isNew} style={{flex:1,padding:'12px 0',background:C.live,border:'none',color:'#fff',fontSize:12,fontWeight:700,letterSpacing:'0.08em',cursor:selected&&!isNew?'pointer':'not-allowed',fontFamily:'inherit',borderRadius:8,opacity:selected&&!isNew?1:0.35}}>GO LIVE</button>
-            <button onClick={()=>selected&&!isNew&&addToQueue(selected.title||'Slide','slide')} disabled={!selected||isNew} style={{padding:'12px 18px',background:C.bg4,border:`1px solid ${C.b2}`,color:C.t1,fontSize:11,fontWeight:600,cursor:selected&&!isNew?'pointer':'not-allowed',fontFamily:'inherit',borderRadius:8,opacity:selected&&!isNew?1:0.35}}>+ Queue</button>
+            <button onClick={()=>selected&&!isNew&&addToQueue(selected.title||'Slide','slide')} disabled={!selected||isNew} style={{padding:'12px 18px',background:C.tex4,border:`1px solid ${C.b2}`,color:C.t1,fontSize:11,fontWeight:600,cursor:selected&&!isNew?'pointer':'not-allowed',fontFamily:'inherit',borderRadius:8,opacity:selected&&!isNew?1:0.35}}>+ Queue</button>
           </div>
         )}
       </div>
@@ -507,7 +507,7 @@ function AnnounceTab({ goLive, notify }: { goLive:(t:string,l:string)=>void; not
     inp.click()
   }
 
-  const inp: React.CSSProperties = {width:'100%',background:C.bg4,border:`1px solid ${C.b1}`,color:C.t1,padding:'9px 12px',fontSize:12,outline:'none',fontFamily:'inherit',borderRadius:8}
+  const inp: React.CSSProperties = {width:'100%',background:C.tex4,border:`1px solid ${C.b1}`,color:C.t1,padding:'9px 12px',fontSize:12,outline:'none',fontFamily:'inherit',borderRadius:8}
   const lbl: React.CSSProperties = {fontSize:10,color:C.t3,fontWeight:600,marginBottom:6,display:'block',letterSpacing:'0.05em',textTransform:'uppercase' as const}
 
   // Neon Tokyo one-click looks — sets bg+text together so an operator can
@@ -533,7 +533,7 @@ function AnnounceTab({ goLive, notify }: { goLive:(t:string,l:string)=>void; not
             <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
               {TEMPLATES.map(t=>(
                 <button key={t.label} onClick={()=>{setText(t.text);setTitle(t.label)}}
-                  style={{padding:'6px 12px',background:C.bg4,border:`1px solid ${C.b1}`,color:C.t2,fontSize:11,cursor:'pointer',fontFamily:'inherit',borderRadius:7}}
+                  style={{padding:'6px 12px',background:C.tex4,border:`1px solid ${C.b1}`,color:C.t2,fontSize:11,cursor:'pointer',fontFamily:'inherit',borderRadius:7}}
                   onMouseEnter={e=>{(e.currentTarget as HTMLElement).style.borderColor=C.p1;(e.currentTarget as HTMLElement).style.color=C.p2}}
                   onMouseLeave={e=>{(e.currentTarget as HTMLElement).style.borderColor=C.b1;(e.currentTarget as HTMLElement).style.color=C.t2}}
                 >{t.label}</button>
@@ -755,7 +755,7 @@ function SongsTab({ goLive, addToQueue, notify }: { goLive:(t:string,l:string)=>
       <div style={{width:280,background:C.tex2,borderRight:`1px solid ${C.b0}`,display:'flex',flexDirection:'column',flexShrink:0}}>
         <div style={{padding:'14px 16px',background:C.tex0,borderBottom:`1px solid ${C.b0}`,flexShrink:0}}>
           <div style={{fontSize:9,fontWeight:700,letterSpacing:'0.2em',color:C.t4,marginBottom:6}}>SONG LIBRARY</div>
-          <div style={{display:'flex',alignItems:'center',background:C.bg4,border:`1px solid ${C.b1}`,borderRadius:6,padding:'0 10px',gap:6,marginBottom:10}}>
+          <div style={{display:'flex',alignItems:'center',background:C.tex4,border:`1px solid ${C.b1}`,borderRadius:6,padding:'0 10px',gap:6,marginBottom:10}}>
             <span style={{color:C.t3,fontSize:13}}>⌕</span>
             <input value={search} onChange={e=>setSearch(e.target.value)}
               placeholder="Search songs or hymn #…"
@@ -802,7 +802,7 @@ function SongsTab({ goLive, addToQueue, notify }: { goLive:(t:string,l:string)=>
                     borderBottom:`1px solid ${C.b0}`,color:C.t2,textAlign:'left' as const}}>
                   <div style={{display:'flex',alignItems:'center',gap:8}}>
                     <span style={{fontSize:10,fontWeight:700,letterSpacing:'0.12em',color:accent}}>{groupLabel(lang).toUpperCase()}</span>
-                    <span style={{fontSize:9,color:C.t4,background:C.bg3,padding:'1px 6px',borderRadius:10,border:`1px solid ${C.b1}`}}>{group.length}</span>
+                    <span style={{fontSize:9,color:C.t4,background:C.tex3,padding:'1px 6px',borderRadius:10,border:`1px solid ${C.b1}`}}>{group.length}</span>
                   </div>
                   <span style={{fontSize:9,color:C.t4}}>{isOpen?'▾':'▸'}</span>
                 </button>
@@ -879,17 +879,17 @@ function SongsTab({ goLive, addToQueue, notify }: { goLive:(t:string,l:string)=>
             <div style={{flex:1}}>
               <label style={{fontSize:10,color:C.t3,fontWeight:600,letterSpacing:'0.06em',display:'block',marginBottom:6}}>TITLE</label>
               <input value={newTitle} onChange={e=>setNewTitle(e.target.value)} placeholder="e.g. Amazing Grace" autoFocus
-                style={{width:'100%',background:C.bg3,border:`1px solid ${C.b1}`,color:C.t1,padding:'10px 12px',fontSize:13,outline:'none',fontFamily:'inherit',borderRadius:8}}/>
+                style={{width:'100%',background:C.tex3,border:`1px solid ${C.b1}`,color:C.t1,padding:'10px 12px',fontSize:13,outline:'none',fontFamily:'inherit',borderRadius:8}}/>
             </div>
             <div style={{width:110}}>
               <label style={{fontSize:10,color:C.t3,fontWeight:600,letterSpacing:'0.06em',display:'block',marginBottom:6}}>HYMN #</label>
               <input value={newHymnNum} onChange={e=>setNewHymnNum(e.target.value.replace(/[^0-9]/g,''))} placeholder="Optional"
-                style={{width:'100%',background:C.bg3,border:`1px solid ${C.b1}`,color:C.t1,padding:'10px 12px',fontSize:13,outline:'none',fontFamily:'inherit',borderRadius:8}}/>
+                style={{width:'100%',background:C.tex3,border:`1px solid ${C.b1}`,color:C.t1,padding:'10px 12px',fontSize:13,outline:'none',fontFamily:'inherit',borderRadius:8}}/>
             </div>
             <div style={{width:170}}>
               <label style={{fontSize:10,color:C.t3,fontWeight:600,letterSpacing:'0.06em',display:'block',marginBottom:6}}>LANGUAGE</label>
               <select value={newLang} onChange={e=>setNewLang(e.target.value)}
-                style={{width:'100%',background:C.bg3,border:`1px solid ${C.b1}`,color:C.t1,padding:'10px 12px',fontSize:13,outline:'none',fontFamily:'inherit',borderRadius:8}}>
+                style={{width:'100%',background:C.tex3,border:`1px solid ${C.b1}`,color:C.t1,padding:'10px 12px',fontSize:13,outline:'none',fontFamily:'inherit',borderRadius:8}}>
                 {LANG_ORDER.map(l=><option key={l} value={l}>{langLabel(l)}</option>)}
               </select>
             </div>
@@ -908,7 +908,7 @@ function SongsTab({ goLive, addToQueue, notify }: { goLive:(t:string,l:string)=>
               <div key={i} style={{background:C.tex2,border:`1px solid ${C.b1}`,borderRadius:10,padding:14}}>
                 <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:8}}>
                   <select value={sec.type} onChange={e=>updateNewSection(i,{type:e.target.value})}
-                    style={{background:C.bg4,border:`1px solid ${C.b1}`,color:C.p2,padding:'5px 8px',fontSize:10,fontWeight:700,letterSpacing:'0.05em',outline:'none',fontFamily:'inherit',borderRadius:5,textTransform:'uppercase' as const}}>
+                    style={{background:C.tex4,border:`1px solid ${C.b1}`,color:C.p2,padding:'5px 8px',fontSize:10,fontWeight:700,letterSpacing:'0.05em',outline:'none',fontFamily:'inherit',borderRadius:5,textTransform:'uppercase' as const}}>
                     {['verse','chorus','bridge','intro','outro'].map(t=><option key={t} value={t}>{t.toUpperCase()}</option>)}
                   </select>
                   <div style={{flex:1}}/>
@@ -918,7 +918,7 @@ function SongsTab({ goLive, addToQueue, notify }: { goLive:(t:string,l:string)=>
                 </div>
                 <textarea value={sec.content} onChange={e=>updateNewSection(i,{content:e.target.value})}
                   placeholder="Lyrics for this section…" rows={4}
-                  style={{width:'100%',background:C.bg3,border:`1px solid ${C.b1}`,color:C.t1,padding:'10px 12px',fontSize:13,outline:'none',fontFamily:'inherit',borderRadius:7,resize:'vertical' as const,lineHeight:1.6}}/>
+                  style={{width:'100%',background:C.tex3,border:`1px solid ${C.b1}`,color:C.t1,padding:'10px 12px',fontSize:13,outline:'none',fontFamily:'inherit',borderRadius:7,resize:'vertical' as const,lineHeight:1.6}}/>
               </div>
             ))}
           </div>
@@ -1071,21 +1071,21 @@ function RemoteTab() {
         {loading && <div style={{fontSize:12,color:C.t3}}>Starting remote server…</div>}
 
         {!loading && (!info || info.port==null) && (
-          <div style={{background:C.bg3,borderRadius:12,padding:'16px 18px',border:`1px solid ${C.b1}`,fontSize:12,color:C.t2}}>
+          <div style={{background:C.tex3,borderRadius:12,padding:'16px 18px',border:`1px solid ${C.b1}`,fontSize:12,color:C.t2}}>
             Remote control isn't available right now — its network port couldn't be opened (something else on this computer may be using it). Everything else in ShogunOS is unaffected; try restarting the app if you need the remote.
           </div>
         )}
 
         {info && info.port!=null && (
           <>
-            <div style={{background:C.bg3,borderRadius:12,padding:'20px 22px',border:`1px solid ${C.b1}`,marginBottom:16}}>
+            <div style={{background:C.tex3,borderRadius:12,padding:'20px 22px',border:`1px solid ${C.b1}`,marginBottom:16}}>
               <div style={{fontSize:9,color:C.t4,fontWeight:700,letterSpacing:'0.15em',marginBottom:10,textTransform:'uppercase' as const}}>1. On your phone, connect to</div>
               {info.urls.length===0 && <div style={{fontSize:13,color:C.t3}}>No network connection detected — connect this computer to Wi-Fi first.</div>}
               {info.urls.map(u=>(
                 <div key={u} style={{fontSize:18,fontWeight:700,color:C.g2,fontFamily:'monospace',marginBottom:4}}>{u}</div>
               ))}
             </div>
-            <div style={{background:C.bg3,borderRadius:12,padding:'20px 22px',border:`1px solid ${C.b1}`,marginBottom:16}}>
+            <div style={{background:C.tex3,borderRadius:12,padding:'20px 22px',border:`1px solid ${C.b1}`,marginBottom:16}}>
               <div style={{fontSize:9,color:C.t4,fontWeight:700,letterSpacing:'0.15em',marginBottom:10,textTransform:'uppercase' as const}}>2. Enter this PIN</div>
               <div style={{fontSize:32,fontWeight:900,letterSpacing:'0.3em',color:C.p2,fontFamily:'monospace'}}>{info.pin}</div>
               <div style={{fontSize:11,color:C.t3,marginTop:8}}>A new PIN is generated every time ShogunOS starts, so only someone who can see this screen can connect.</div>
@@ -1132,13 +1132,13 @@ function AboutTab() {
             ['Built with','Claude AI (Anthropic)'],
             ['License','Private — All rights reserved'],
           ].map(([k,v])=>(
-            <div key={k} style={{background:C.bg3,borderRadius:10,padding:'14px 16px',border:`1px solid ${C.b1}`}}>
+            <div key={k} style={{background:C.tex3,borderRadius:10,padding:'14px 16px',border:`1px solid ${C.b1}`}}>
               <div style={{fontSize:9,color:C.t4,fontWeight:700,letterSpacing:'0.15em',marginBottom:5,textTransform:'uppercase' as const}}>{k}</div>
               <div style={{fontSize:12,color:C.t1,fontWeight:500}}>{v}</div>
             </div>
           ))}
         </div>
-        <div style={{background:C.bg3,borderRadius:12,padding:'18px 20px',border:`1px solid ${C.b1}`}}>
+        <div style={{background:C.tex3,borderRadius:12,padding:'18px 20px',border:`1px solid ${C.b1}`}}>
           <div style={{fontSize:10,color:C.t4,fontWeight:700,letterSpacing:'0.15em',marginBottom:8,textTransform:'uppercase' as const}}>About</div>
           <div style={{fontSize:13,color:C.t2,lineHeight:1.75}}>ShogunOS is a professional multimedia presentation system built for church services, schools and events. Designed and developed by Ngaatendwe Manjeya as a former student of Lingfield Advent High School, this application combines the precision of professional broadcast tools with the simplicity needed for real-world worship environments.</div>
         </div>
@@ -1203,7 +1203,7 @@ function ImportTab({ notify }: { notify:(m:string)=>void }) {
   return (
     <div style={{flex:1,padding:36,overflowY:'auto',background:C.tex1,display:'flex',flexDirection:'column',gap:20,maxWidth:560}}>
       <div style={{fontSize:9,fontWeight:700,letterSpacing:'0.2em',color:C.t4,textTransform:'uppercase' as const}}>Import Data</div>
-      <div style={{display:'flex',gap:4,background:C.bg3,padding:4,borderRadius:10,border:`1px solid ${C.b1}`}}>
+      <div style={{display:'flex',gap:4,background:C.tex3,padding:4,borderRadius:10,border:`1px solid ${C.b1}`}}>
         {(['json','qsp'] as const).map(m=>(
           <button key={m} onClick={()=>{setMode(m);setResult(null)}} style={{flex:1,padding:'9px 0',fontSize:11,fontWeight:600,cursor:'pointer',fontFamily:'inherit',borderRadius:7,background:mode===m?C.bg5:'none',border:`1px solid ${mode===m?C.b2:'transparent'}`,color:mode===m?C.t1:C.t3}}>
             {m==='json'?'ShogunOS Backup (.json)':'Quelea Song Pack (.qsp)'}
@@ -1216,7 +1216,7 @@ function ImportTab({ notify }: { notify:(m:string)=>void }) {
           <div style={{fontSize:12,color:C.t3,lineHeight:1.6,marginBottom:12}}>In Quelea, go to <strong style={{color:C.t2}}>Database → Export → Song Pack (.qsp)</strong>, then drop the file below.</div>
           <label style={{fontSize:10,color:C.t3,fontWeight:600,letterSpacing:'0.05em',textTransform:'uppercase' as const,display:'block',marginBottom:6}}>Tag all songs in this pack as</label>
           <select value={qspLang} onChange={e=>setQspLang(e.target.value)}
-            style={{width:'100%',background:C.bg4,border:`1px solid ${C.b1}`,color:C.t1,padding:'9px 12px',fontSize:12,outline:'none',fontFamily:'inherit',borderRadius:8}}>
+            style={{width:'100%',background:C.tex4,border:`1px solid ${C.b1}`,color:C.t1,padding:'9px 12px',fontSize:12,outline:'none',fontFamily:'inherit',borderRadius:8}}>
             {QSP_LANGS.map(l=><option key={l.id} value={l.id}>{l.label}</option>)}
           </select>
           <div style={{fontSize:10,color:C.t4,marginTop:6,lineHeight:1.5}}>Quelea song packs don't store a language, so pick the one that matches this pack — it'll be used to group these songs in the Hymnal and My Songs views.</div>
@@ -1242,7 +1242,7 @@ function ImportTab({ notify }: { notify:(m:string)=>void }) {
 function DisplaySettingsTab({ settings, onChange, notify }: { settings:DisplaySettings; onChange:(s:DisplaySettings)=>void; notify:(m:string)=>void }) {
   function set(k:keyof DisplaySettings,v:any){onChange({...settings,[k]:v})}
   const lbl: React.CSSProperties = {fontSize:10,color:C.t3,fontWeight:600,marginBottom:6,display:'block',letterSpacing:'0.05em',textTransform:'uppercase' as const}
-  const inp: React.CSSProperties = {width:'100%',background:C.bg4,border:`1px solid ${C.b1}`,color:C.t1,padding:'9px 12px',fontSize:12,outline:'none',fontFamily:'inherit',borderRadius:8}
+  const inp: React.CSSProperties = {width:'100%',background:C.tex4,border:`1px solid ${C.b1}`,color:C.t1,padding:'9px 12px',fontSize:12,outline:'none',fontFamily:'inherit',borderRadius:8}
 
   const FONTS = [
     // Serif — classic worship feel
@@ -1301,7 +1301,7 @@ function DisplaySettingsTab({ settings, onChange, notify }: { settings:DisplaySe
   return (
     <div style={{flex:1,padding:32,overflowY:'auto',background:C.tex1,display:'flex',flexDirection:'column',gap:20,maxWidth:520}}>
       <div style={{fontSize:9,fontWeight:700,letterSpacing:'0.2em',color:C.t4,textTransform:'uppercase' as const}}>Display Settings</div>
-      <div style={{fontSize:12,color:C.t3,lineHeight:1.6,padding:'12px 16px',background:C.bg3,borderRadius:10,border:`1px solid ${C.b1}`}}>These settings apply to hymns and Bible verses sent live. Slides use their own individual settings.</div>
+      <div style={{fontSize:12,color:C.t3,lineHeight:1.6,padding:'12px 16px',background:C.tex3,borderRadius:10,border:`1px solid ${C.b1}`}}>These settings apply to hymns and Bible verses sent live. Slides use their own individual settings.</div>
 
       <div style={{padding:'16px',background:settings.highVisibility?`color-mix(in srgb, ${C.warn} 10%, transparent)`:C.bg3,border:`1px solid ${settings.highVisibility?C.warn:C.b1}`,borderRadius:10,display:'flex',flexDirection:'column',gap:12}}>
         <div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
@@ -2126,7 +2126,7 @@ export default function App() {
               <div style={{fontSize:24,lineHeight:1.9,color:C.t1,fontWeight:300,fontStyle:'italic',flex:1,fontFamily:"'Yu Mincho','Hiragino Mincho ProN','MS Mincho','Noto Serif CJK JP',Georgia,serif"}}>"{selectedVerse.text}"</div>
               <div style={{display:'flex',gap:10}}>
                 <button className="shimmer-btn glass-primary" onClick={()=>goLive(`${selectedVerse.book} ${selectedVerse.chapter}:${selectedVerse.verse}`,selectedVerse.text)} style={{padding:'11px 28px',background:`linear-gradient(135deg,${C.live},${C.p1})`,border:'none',color:'#fff',fontSize:12,fontWeight:700,cursor:'pointer',fontFamily:'inherit'}}>GO LIVE</button>
-                <button onClick={()=>addToQueue(`${selectedVerse.book} ${selectedVerse.chapter}:${selectedVerse.verse}`,'verse')} style={{padding:'11px 18px',background:C.bg4,border:`1px solid ${C.b2}`,color:C.t1,fontSize:11,fontWeight:600,cursor:'pointer',fontFamily:'inherit',borderRadius:9}}>+ Queue</button>
+                <button onClick={()=>addToQueue(`${selectedVerse.book} ${selectedVerse.chapter}:${selectedVerse.verse}`,'verse')} style={{padding:'11px 18px',background:C.tex4,border:`1px solid ${C.b2}`,color:C.t1,fontSize:11,fontWeight:600,cursor:'pointer',fontFamily:'inherit',borderRadius:9}}>+ Queue</button>
               </div>
             </>:(
               <div style={{flex:1,display:'flex',alignItems:'center',justifyContent:'center',flexDirection:'column',gap:10,color:C.t4}}>
@@ -2147,7 +2147,7 @@ export default function App() {
             <div style={{fontSize:17,fontWeight:700,color:C.t1}}>{selected.title}</div>
             <div style={{fontSize:11,color:C.t4,marginTop:2}}>{selected.hymn_number?`Hymn #${selected.hymn_number}`:'Custom'} · {sections.length} sections</div>
           </div>
-          <button onClick={()=>addToQueue(selected.title,'song')} style={{padding:'7px 16px',background:C.bg4,border:`1px solid ${C.b2}`,color:C.t1,fontSize:11,fontWeight:600,cursor:'pointer',fontFamily:'inherit',borderRadius:8}}>+ Queue</button>
+          <button onClick={()=>addToQueue(selected.title,'song')} style={{padding:'7px 16px',background:C.tex4,border:`1px solid ${C.b2}`,color:C.t1,fontSize:11,fontWeight:600,cursor:'pointer',fontFamily:'inherit',borderRadius:8}}>+ Queue</button>
         </div>
         <div style={{display:'flex',gap:8,padding:'12px 20px',background:C.tex2,borderBottom:`1px solid ${C.b0}`,flexShrink:0,overflowX:'auto'}}>
           {sections.map((s,i)=>(
@@ -2213,7 +2213,7 @@ export default function App() {
                       borderBottom:`1px solid ${C.b0}`,color:C.t2,textAlign:'left' as const}}>
                     <div style={{display:'flex',alignItems:'center',gap:8}}>
                       <span style={{fontSize:11,fontWeight:700,letterSpacing:'0.1em',color:accent}}>{groupLabel(lang).toUpperCase()}</span>
-                      <span style={{fontSize:9,color:C.t4,background:C.bg3,padding:'1px 7px',borderRadius:10,border:`1px solid ${C.b1}`}}>{group.length}</span>
+                      <span style={{fontSize:9,color:C.t4,background:C.tex3,padding:'1px 7px',borderRadius:10,border:`1px solid ${C.b1}`}}>{group.length}</span>
                     </div>
                     <span style={{fontSize:9,color:C.t4}}>{isOpen?'▾':'▸'}</span>
                   </button>
@@ -2444,7 +2444,7 @@ export default function App() {
           {/* Library / group content — always-visible bottom pane, like Quelea's Songs/Bibles/Images */}
           <div style={{flex:1,display:'flex',flexDirection:'column',minHeight:0,overflow:'hidden'}}>
             {toast&&(
-              <div className="toast-anim" style={{padding:'6px 14px',background:C.bg3,borderBottom:`1px solid ${C.b0}`,fontSize:11,color:C.t2,flexShrink:0,display:'flex',alignItems:'center',gap:6}}>
+              <div className="toast-anim" style={{padding:'6px 14px',background:C.tex3,borderBottom:`1px solid ${C.b0}`,fontSize:11,color:C.t2,flexShrink:0,display:'flex',alignItems:'center',gap:6}}>
                 <div style={{width:4,height:4,borderRadius:'50%',background:C.g2,flexShrink:0}}/>
                 {toast}
               </div>
@@ -2571,7 +2571,7 @@ export default function App() {
               ].map(([key,desc])=>(
                 <div key={key} style={{display:'flex',alignItems:'center',justifyContent:'space-between',fontSize:12.5}}>
                   <span style={{color:C.t2}}>{desc}</span>
-                  <span style={{padding:'3px 10px',background:C.bg3,border:`1px solid ${C.b1}`,borderRadius:5,color:C.t1,fontSize:11,fontWeight:600,fontFamily:'ui-monospace,monospace'}}>{key}</span>
+                  <span style={{padding:'3px 10px',background:C.tex3,border:`1px solid ${C.b1}`,borderRadius:5,color:C.t1,fontSize:11,fontWeight:600,fontFamily:'ui-monospace,monospace'}}>{key}</span>
                 </div>
               ))}
             </div>
@@ -2595,7 +2595,7 @@ export default function App() {
             </div>
             <div style={{fontSize:11,color:C.t3,marginBottom:6,fontWeight:600,letterSpacing:'0.05em',textTransform:'uppercase' as const}}>Label</div>
             <input value={timerLabel} onChange={e=>setTimerLabel(e.target.value)} placeholder="e.g. Service starts in"
-              style={{width:'100%',padding:'10px 12px',background:C.bg3,border:`1px solid ${C.b1}`,borderRadius:5,color:C.t1,fontSize:13,fontFamily:'inherit',marginBottom:18}}/>
+              style={{width:'100%',padding:'10px 12px',background:C.tex3,border:`1px solid ${C.b1}`,borderRadius:5,color:C.t1,fontSize:13,fontFamily:'inherit',marginBottom:18}}/>
             <div style={{fontSize:11,color:C.t3,marginBottom:6,fontWeight:600,letterSpacing:'0.05em',textTransform:'uppercase' as const}}>Duration (minutes)</div>
             <div style={{display:'flex',gap:8,marginBottom:24}}>
               {[1,5,10,15,30].map(m=>(
@@ -2605,7 +2605,7 @@ export default function App() {
                     border:`1px solid ${timerMinutes===m?C.g2:C.b1}`}}>{m}</button>
               ))}
               <input type="number" min={1} value={timerMinutes} onChange={e=>setTimerMinutes(Math.max(1,Number(e.target.value)||1))}
-                style={{width:60,padding:'9px 6px',background:C.bg3,border:`1px solid ${C.b1}`,borderRadius:5,color:C.t1,fontSize:13,fontFamily:'inherit',textAlign:'center'}}/>
+                style={{width:60,padding:'9px 6px',background:C.tex3,border:`1px solid ${C.b1}`,borderRadius:5,color:C.t1,fontSize:13,fontFamily:'inherit',textAlign:'center'}}/>
             </div>
             <div style={{display:'flex',gap:8}}>
               <button onClick={startCountdown}
@@ -2636,7 +2636,7 @@ export default function App() {
               <>
                 <div style={{fontSize:11,color:C.g2,marginBottom:12}}>{dailyVerse.book} {dailyVerse.chapter}:{dailyVerse.verse} — {dailyVerse.version}</div>
                 <div style={{fontSize:20,lineHeight:1.9,color:C.t1,fontStyle:'italic',fontWeight:300,fontFamily:"'Yu Mincho','Hiragino Mincho ProN','MS Mincho','Noto Serif CJK JP',Georgia,serif",marginBottom:20}}>"{dailyVerse.text}"</div>
-                <div style={{padding:'12px 16px',background:C.bg3,borderRadius:5,border:`1px solid ${C.b1}`,marginBottom:24,fontSize:12,color:C.t3,lineHeight:1.7,fontStyle:'italic'}}>
+                <div style={{padding:'12px 16px',background:C.tex3,borderRadius:5,border:`1px solid ${C.b1}`,marginBottom:24,fontSize:12,color:C.t3,lineHeight:1.7,fontStyle:'italic'}}>
                   May this word guide your service today. You are doing good work.
                 </div>
                 <div style={{display:'flex',gap:8}}>

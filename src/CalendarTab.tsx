@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react'
 // variables (see index.css) so dark mode applies here too.
 const C = {
   bg0:'var(--bg0)', bg1:'var(--bg1)', bg2:'var(--bg2)', bg3:'var(--bg3)', bg4:'var(--bg4)', bg5:'var(--bg5)',
-  tex0:'var(--tbg0)', tex1:'var(--tbg1)', tex2:'var(--tbg2)', tex3:'var(--tbg3)',
+  tex0:'var(--tbg0)', tex1:'var(--tbg1)', tex2:'var(--tbg2)', tex3:'var(--tbg3)', tex4:'var(--tbg4)',
   b0:'var(--b0)', b1:'var(--b1)', b2:'var(--b2)',
   accent:'var(--g2)', accentL:'var(--g3)', accentD:'var(--g1)',
   gold:'var(--gold)', goldL:'var(--goldL)',
@@ -279,7 +279,7 @@ export default function CalendarTab({ notify }: Props) {
                   <div style={{ fontSize:15, fontWeight:700, color:C.t1, fontFamily:'Georgia, serif' }}>{fmtDateShort(selectedDate)}</div>
                 </div>
                 <div style={{ display:'flex', gap:8 }}>
-                  <button onClick={()=>openNew(selectedDate)} style={{ padding:'7px 14px', background:C.bg3, border:`1px solid ${C.b1}`, color:C.t1, fontSize:11, fontWeight:600, cursor:'pointer', borderRadius:7, fontFamily:'inherit' }}>+ Add Here</button>
+                  <button onClick={()=>openNew(selectedDate)} style={{ padding:'7px 14px', background:C.tex3, border:`1px solid ${C.b1}`, color:C.t1, fontSize:11, fontWeight:600, cursor:'pointer', borderRadius:7, fontFamily:'inherit' }}>+ Add Here</button>
                   <button onClick={()=>setSelectedDate(null)} style={{ padding:'7px 14px', background:'none', border:`1px solid ${C.b1}`, color:C.t3, fontSize:11, cursor:'pointer', borderRadius:7, fontFamily:'inherit' }}>Show All ×</button>
                 </div>
               </div>

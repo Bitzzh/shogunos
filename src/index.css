@@ -19,17 +19,19 @@
      (verse-of-day, "today" markers, brand-mark accent) so it reads as its
      own thing rather than a duller copy of the live red */
   --gold: #9333ea; --goldL: #b967ff;
-  /* Neon grid — quiet street-grid + lit-window motif on the app's larger
-     panel surfaces, standing in for the skyline of windows/signage you'd
-     see looking down a Tokyo avenue at night. Two window sizes in the two
-     accent hues read as near/far lit windows rather than a repeating dot.
-     `fixed` keeps every panel's tile phase aligned so adjoining panels
-     don't create seams. */
-  --texture: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='72' height='72'%3E%3Cpath d='M0 .5H72M0 36.5H72M.5 0V72M36.5 0V72' fill='none' stroke='%230d3b8c' stroke-opacity='0.045' stroke-width='1'/%3E%3Cg%3E%3Crect x='-2' y='-2' width='4' height='4' fill='%23ff2e63' fill-opacity='0.05'/%3E%3Crect x='34' y='-2' width='4' height='4' fill='%2300b8e4' fill-opacity='0.05'/%3E%3Crect x='70' y='-2' width='4' height='4' fill='%23ff2e63' fill-opacity='0.05'/%3E%3Crect x='-2' y='34' width='4' height='4' fill='%2300b8e4' fill-opacity='0.05'/%3E%3Crect x='34' y='34' width='3' height='3' fill='%239333ea' fill-opacity='0.06'/%3E%3Crect x='70' y='34' width='4' height='4' fill='%2300b8e4' fill-opacity='0.05'/%3E%3Crect x='-2' y='70' width='4' height='4' fill='%23ff2e63' fill-opacity='0.05'/%3E%3Crect x='34' y='70' width='4' height='4' fill='%2300b8e4' fill-opacity='0.05'/%3E%3Crect x='70' y='70' width='4' height='4' fill='%23ff2e63' fill-opacity='0.05'/%3E%3C/g%3E%3C/svg%3E") fixed;
+  /* Seigaiha (青海波 — "blue ocean wave") — the classic Japanese rolling-scale
+     motif, drawn as tiled concentric arcs, layered with a fine asanoha
+     (hemp-leaf) lattice for a woven-washi undertone. Reads as Japanese
+     texture at a glance instead of a generic grid, while still carrying
+     the neon signage hues so it belongs to this app's palette. `fixed`
+     keeps every panel's tile phase aligned so adjoining panels don't
+     create seams — this is what fills the "big blank box" surfaces. */
+  --texture: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='60'%3E%3Cg fill='none' stroke='%230d3b8c' stroke-width='1'%3E%3Cg stroke-opacity='0.05'%3E%3Cpath d='M-30 60A30 30 0 0 1 30 60'/%3E%3Cpath d='M-21 60A21 21 0 0 1 21 60'/%3E%3Cpath d='M-12 60A12 12 0 0 1 12 60'/%3E%3Cpath d='M30 60A30 30 0 0 1 90 60'/%3E%3Cpath d='M39 60A21 21 0 0 1 81 60'/%3E%3Cpath d='M48 60A12 12 0 0 1 72 60'/%3E%3Cpath d='M90 60A30 30 0 0 1 150 60'/%3E%3Cpath d='M99 60A21 21 0 0 1 141 60'/%3E%3Cpath d='M108 60A12 12 0 0 1 132 60'/%3E%3C/g%3E%3Cg stroke-opacity='0.035'%3E%3Cpath d='M-30 0A30 30 0 0 1 30 0'/%3E%3Cpath d='M-21 0A21 21 0 0 1 21 0'/%3E%3Cpath d='M-12 0A12 12 0 0 1 12 0'/%3E%3Cpath d='M30 0A30 30 0 0 1 90 0'/%3E%3Cpath d='M39 0A21 21 0 0 1 81 0'/%3E%3Cpath d='M48 0A12 12 0 0 1 72 0'/%3E%3Cpath d='M90 0A30 30 0 0 1 150 0'/%3E%3Cpath d='M99 0A21 21 0 0 1 141 0'/%3E%3Cpath d='M108 0A12 12 0 0 1 132 0'/%3E%3C/g%3E%3C/g%3E%3Cg stroke='%23ff2e63' stroke-opacity='0.045' stroke-width='1'%3E%3Cpath d='M0 0L17.3 10M17.3 10L17.3 30M17.3 30L0 40M0 40L-17.3 30M-17.3 30L-17.3 10M-17.3 10L0 0'/%3E%3Cpath d='M60 0L77.3 10M77.3 10L77.3 30M77.3 30L60 40M60 40L42.7 30M42.7 30L42.7 10M42.7 10L60 0'/%3E%3Cpath d='M120 0L137.3 10M137.3 10L137.3 30M137.3 30L120 40M120 40L102.7 30M102.7 30L102.7 10M102.7 10L120 0'/%3E%3Cpath d='M0 40L17.3 50M0 40L-17.3 50'/%3E%3Cpath d='M60 40L77.3 50M60 40L42.7 50'/%3E%3C/g%3E%3C/svg%3E") fixed;
   --tbg0: var(--texture), var(--bg0);
   --tbg1: var(--texture), var(--bg1);
   --tbg2: var(--texture), var(--bg2);
   --tbg3: var(--texture), var(--bg3);
+  --tbg4: var(--texture), var(--bg4);
   /* Glass — translucent surface + top specular highlight */
   --glass-bg: color-mix(in srgb, var(--bg1) 62%, transparent);
   --glass-bg-strong: color-mix(in srgb, var(--bg1) 78%, transparent);
@@ -56,12 +58,14 @@
   --live: #ff2e63; --safe: #39ff8f; --warn: #ffd23f;
   /* Neon violet — third signage hue, glow-lifted for dark ground */
   --gold: #b967ff; --goldL: #d9a6ff;
-  /* Same grid + lit-window motif, cyan lines / tri-color windows on near-black */
-  --texture: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='72' height='72'%3E%3Cpath d='M0 .5H72M0 36.5H72M.5 0V72M36.5 0V72' fill='none' stroke='%236fe8ff' stroke-opacity='0.04' stroke-width='1'/%3E%3Cg%3E%3Crect x='-2' y='-2' width='4' height='4' fill='%23ff2e63' fill-opacity='0.07'/%3E%3Crect x='34' y='-2' width='4' height='4' fill='%236fe8ff' fill-opacity='0.06'/%3E%3Crect x='70' y='-2' width='4' height='4' fill='%23ff2e63' fill-opacity='0.07'/%3E%3Crect x='-2' y='34' width='4' height='4' fill='%236fe8ff' fill-opacity='0.06'/%3E%3Crect x='34' y='34' width='3' height='3' fill='%23b967ff' fill-opacity='0.08'/%3E%3Crect x='70' y='34' width='4' height='4' fill='%236fe8ff' fill-opacity='0.06'/%3E%3Crect x='-2' y='70' width='4' height='4' fill='%23ff2e63' fill-opacity='0.07'/%3E%3Crect x='34' y='70' width='4' height='4' fill='%236fe8ff' fill-opacity='0.06'/%3E%3Crect x='70' y='70' width='4' height='4' fill='%23ff2e63' fill-opacity='0.07'/%3E%3C/g%3E%3C/svg%3E") fixed;
+  /* Same seigaiha wave + asanoha lattice motif, cyan wave lines / magenta
+     lattice on near-black so it reads as lit tracery rather than print. */
+  --texture: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='60'%3E%3Cg fill='none' stroke='%236fe8ff' stroke-width='1'%3E%3Cg stroke-opacity='0.07'%3E%3Cpath d='M-30 60A30 30 0 0 1 30 60'/%3E%3Cpath d='M-21 60A21 21 0 0 1 21 60'/%3E%3Cpath d='M-12 60A12 12 0 0 1 12 60'/%3E%3Cpath d='M30 60A30 30 0 0 1 90 60'/%3E%3Cpath d='M39 60A21 21 0 0 1 81 60'/%3E%3Cpath d='M48 60A12 12 0 0 1 72 60'/%3E%3Cpath d='M90 60A30 30 0 0 1 150 60'/%3E%3Cpath d='M99 60A21 21 0 0 1 141 60'/%3E%3Cpath d='M108 60A12 12 0 0 1 132 60'/%3E%3C/g%3E%3Cg stroke-opacity='0.05'%3E%3Cpath d='M-30 0A30 30 0 0 1 30 0'/%3E%3Cpath d='M-21 0A21 21 0 0 1 21 0'/%3E%3Cpath d='M-12 0A12 12 0 0 1 12 0'/%3E%3Cpath d='M30 0A30 30 0 0 1 90 0'/%3E%3Cpath d='M39 0A21 21 0 0 1 81 0'/%3E%3Cpath d='M48 0A12 12 0 0 1 72 0'/%3E%3Cpath d='M90 0A30 30 0 0 1 150 0'/%3E%3Cpath d='M99 0A21 21 0 0 1 141 0'/%3E%3Cpath d='M108 0A12 12 0 0 1 132 0'/%3E%3C/g%3E%3C/g%3E%3Cg stroke='%23ff2e63' stroke-opacity='0.06' stroke-width='1'%3E%3Cpath d='M0 0L17.3 10M17.3 10L17.3 30M17.3 30L0 40M0 40L-17.3 30M-17.3 30L-17.3 10M-17.3 10L0 0'/%3E%3Cpath d='M60 0L77.3 10M77.3 10L77.3 30M77.3 30L60 40M60 40L42.7 30M42.7 30L42.7 10M42.7 10L60 0'/%3E%3Cpath d='M120 0L137.3 10M137.3 10L137.3 30M137.3 30L120 40M120 40L102.7 30M102.7 30L102.7 10M102.7 10L120 0'/%3E%3Cpath d='M0 40L17.3 50M0 40L-17.3 50'/%3E%3Cpath d='M60 40L77.3 50M60 40L42.7 50'/%3E%3C/g%3E%3C/svg%3E") fixed;
   --tbg0: var(--texture), var(--bg0);
   --tbg1: var(--texture), var(--bg1);
   --tbg2: var(--texture), var(--bg2);
   --tbg3: var(--texture), var(--bg3);
+  --tbg4: var(--texture), var(--bg4);
   --glass-bg: color-mix(in srgb, var(--bg1) 58%, transparent);
   --glass-bg-strong: color-mix(in srgb, var(--bg1) 76%, transparent);
   --glass-border: color-mix(in srgb, #ffffff 12%, var(--b2) 88%);
