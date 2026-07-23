@@ -19,7 +19,7 @@ import {
   getCalendarEvents, createCalendarEvent, updateCalendarEvent, deleteCalendarEvent,
 } from './database'
 import { parseQSP } from './qsp-parser'
-import { startRemoteServer, stopRemoteServer, updateRemoteState, getRemoteInfo, RemoteState } from './remote-server'
+import { startRemoteServer, stopRemoteServer, updateRemoteState, getRemoteInfo, kickDevice, RemoteState } from './remote-server'
 
 if (started) { app.quit() }
 
@@ -473,6 +473,10 @@ app.on('ready', async () => {
   // polls instantly without round-tripping into the renderer per request.
   ipcMain.on('remote-state-update', (_e, s: RemoteState) => updateRemoteState(s))
   ipcMain.handle('get-remote-info', () => getRemoteInfo())
+  // getRemoteInfo() already includes the connected-devices list, so the
+  // Settings→Remote screen can show/refresh it with no extra round trip —
+  // this handler only needs to cover the disconnect action itself.
+  ipcMain.handle('kick-remote-device', (_e, token: string) => { kickDevice(token); return true })
 
   // ── CALENDAR ─────────────────────────────────────────────────────────────
   ipcMain.handle('calendar-get-events',    () => getCalendarEvents())
@@ -481,7 +485,7 @@ app.on('ready', async () => {
   ipcMain.handle('calendar-delete-event',  (_e, id: number) => { deleteCalendarEvent(id); return { success: true } })
 
   createWindow()
-  startRemoteServer(() => mainWindow)
+  startRemoteServer(() => mainWindow, () => liveWindow || undefined)
 
   // Watch for display changes and notify renderer with the SAME shape
   // get-displays returns (label/isPrimary included), not the raw Electron

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
+import QRCode from 'qrcode'
 import Splash from './Splash'
 import MediaTab from './MediaTab'
 import CalendarTab from './CalendarTab'
@@ -1038,10 +1039,28 @@ function SongsTab({ goLive, addToQueue, notify }: { goLive:(t:string,l:string)=>
   )
 }
 
-function RemoteTab() {
-  const [info,setInfo]   = useState<{port:number|null;pin:string;urls:string[]}|null>(null)
-  const [loading,setLoading] = useState(true)
+type RemoteDevice = { token:string; label:string; lastSeen:number }
+type RemoteInfo   = { port:number|null; pin:string; urls:string[]; devices:RemoteDevice[] }
 
+function relativeTime(ms:number):string{
+  const secs = Math.max(0, Math.round((Date.now()-ms)/1000))
+  if(secs<10) return 'just now'
+  if(secs<60) return `${secs}s ago`
+  const mins = Math.round(secs/60)
+  if(mins<60) return `${mins}m ago`
+  const hrs = Math.round(mins/60)
+  return `${hrs}h ago`
+}
+
+function RemoteTab() {
+  const [info,setInfo]     = useState<RemoteInfo|null>(null)
+  const [loading,setLoading] = useState(true)
+  const [qrSvg,setQrSvg]    = useState<string>('')
+  const [kicking,setKicking] = useState<string|null>(null)
+
+  // Keep polling (not just a one-shot load) so a freshly-connected phone
+  // shows up in "Connected Devices" without the operator having to reopen
+  // this tab, and so a device that times out drops off the list on its own.
   useEffect(()=>{
     let cancelled = false
     async function load(attempt=0){
@@ -1057,12 +1076,36 @@ function RemoteTab() {
       } finally{ if(!cancelled) setLoading(false) }
     }
     load()
-    return ()=>{ cancelled = true }
+    const iv = setInterval(load, 3000)
+    return ()=>{ cancelled = true; clearInterval(iv) }
   },[])
+
+  // The remote page already knows how to auto-connect from a `?pin=` query
+  // param (see REMOTE_HTML in remote-server.ts), so the QR just needs to
+  // encode that same URL — scanning it is then equivalent to typing in the
+  // IP and PIN by hand, just without the typing.
+  useEffect(()=>{
+    const url = info?.urls?.[0]
+    if(!url || !info?.pin){ setQrSvg(''); return }
+    let cancelled = false
+    QRCode.toString(`${url}/?pin=${info.pin}`, { type:'svg', margin:1, width:176, color:{ dark:'#100c1e', light:'#ffffff' } })
+      .then(svg=>{ if(!cancelled) setQrSvg(svg) })
+      .catch(()=>{ if(!cancelled) setQrSvg('') })
+    return ()=>{ cancelled = true }
+  },[info?.urls?.[0], info?.pin])
+
+  async function disconnectDevice(token:string){
+    setKicking(token)
+    try{
+      await (window as any).shogunos.kickRemoteDevice(token)
+      const i = await (window as any).shogunos.getRemoteInfo()
+      setInfo(i)
+    } finally{ setKicking(null) }
+  }
 
   return (
     <div style={{flex:1,padding:40,overflowY:'auto',background:C.tex1}}>
-      <div style={{maxWidth:560}}>
+      <div style={{maxWidth:640}}>
         <div style={{fontSize:20,fontWeight:700,color:C.t1,marginBottom:6}}>Remote Control</div>
         <div style={{fontSize:13,color:C.t3,lineHeight:1.6,marginBottom:24}}>
           Drive the live screen from a phone or tablet on the same Wi-Fi network — advance slides, blank the screen, or send a queued item live, without touching this computer.
@@ -1078,20 +1121,53 @@ function RemoteTab() {
 
         {info && info.port!=null && (
           <>
-            <div style={{background:C.tex3,borderRadius:12,padding:'20px 22px',border:`1px solid ${C.b1}`,marginBottom:16}}>
-              <div style={{fontSize:9,color:C.t4,fontWeight:700,letterSpacing:'0.15em',marginBottom:10,textTransform:'uppercase' as const}}>1. On your phone, connect to</div>
-              {info.urls.length===0 && <div style={{fontSize:13,color:C.t3}}>No network connection detected — connect this computer to Wi-Fi first.</div>}
-              {info.urls.map(u=>(
-                <div key={u} style={{fontSize:18,fontWeight:700,color:C.g2,fontFamily:'monospace',marginBottom:4}}>{u}</div>
+            <div style={{display:'flex',gap:16,marginBottom:16,flexWrap:'wrap'}}>
+              <div style={{background:C.tex3,borderRadius:12,padding:18,border:`1px solid ${C.b1}`,display:'flex',alignItems:'center',justifyContent:'center',width:176+36,height:176+36,flexShrink:0}}>
+                {qrSvg
+                  ? <div style={{width:176,height:176,borderRadius:6,overflow:'hidden'}} dangerouslySetInnerHTML={{__html:qrSvg}}/>
+                  : <div style={{fontSize:11,color:C.t4,textAlign:'center',width:176}}>QR unavailable — connect this computer to Wi-Fi first</div>}
+              </div>
+
+              <div style={{flex:1,minWidth:220,display:'flex',flexDirection:'column',gap:12}}>
+                <div style={{background:C.tex3,borderRadius:12,padding:'14px 18px',border:`1px solid ${C.b1}`}}>
+                  <div style={{fontSize:9,color:C.t4,fontWeight:700,letterSpacing:'0.15em',marginBottom:8,textTransform:'uppercase' as const}}>Scan, or connect manually to</div>
+                  {info.urls.length===0 && <div style={{fontSize:13,color:C.t3}}>No network connection detected.</div>}
+                  {info.urls.map(u=>(
+                    <div key={u} style={{fontSize:16,fontWeight:700,color:C.g2,fontFamily:'monospace',marginBottom:2}}>{u}</div>
+                  ))}
+                </div>
+                <div style={{background:C.tex3,borderRadius:12,padding:'14px 18px',border:`1px solid ${C.b1}`}}>
+                  <div style={{fontSize:9,color:C.t4,fontWeight:700,letterSpacing:'0.15em',marginBottom:8,textTransform:'uppercase' as const}}>PIN (only needed for manual entry)</div>
+                  <div style={{fontSize:28,fontWeight:900,letterSpacing:'0.3em',color:C.p2,fontFamily:'monospace'}}>{info.pin}</div>
+                </div>
+              </div>
+            </div>
+
+            <div style={{fontSize:11,color:C.t4,lineHeight:1.6,marginBottom:24}}>
+              Works over your local Wi-Fi only — no internet or account needed. Both devices must be on the same network. A new PIN is generated every time ShogunOS starts.
+            </div>
+
+            <div style={{background:C.tex3,borderRadius:12,padding:'18px 20px',border:`1px solid ${C.b1}`}}>
+              <div style={{fontSize:9,color:C.t4,fontWeight:700,letterSpacing:'0.15em',marginBottom:12,textTransform:'uppercase' as const}}>
+                Connected Devices {info.devices.length>0 && `(${info.devices.length})`}
+              </div>
+              {info.devices.length===0 && (
+                <div style={{fontSize:12,color:C.t3}}>No devices connected yet — scan the QR code above from a phone to connect one.</div>
+              )}
+              {info.devices.map(d=>(
+                <div key={d.token} style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'10px 0',borderTop:`1px solid ${C.b1}`}}>
+                  <div>
+                    <div style={{fontSize:13,color:C.t1,fontWeight:600}}>{d.label}</div>
+                    <div style={{fontSize:11,color:C.t4}}>Active {relativeTime(d.lastSeen)}</div>
+                  </div>
+                  <button
+                    onClick={()=>disconnectDevice(d.token)}
+                    disabled={kicking===d.token}
+                    style={{background:'transparent',border:`1px solid ${C.live}`,color:C.live,fontSize:11,fontWeight:700,letterSpacing:'0.05em',padding:'6px 12px',borderRadius:8,cursor:kicking===d.token?'default':'pointer',opacity:kicking===d.token?0.5:1}}>
+                    {kicking===d.token ? 'Disconnecting…' : 'Disconnect'}
+                  </button>
+                </div>
               ))}
-            </div>
-            <div style={{background:C.tex3,borderRadius:12,padding:'20px 22px',border:`1px solid ${C.b1}`,marginBottom:16}}>
-              <div style={{fontSize:9,color:C.t4,fontWeight:700,letterSpacing:'0.15em',marginBottom:10,textTransform:'uppercase' as const}}>2. Enter this PIN</div>
-              <div style={{fontSize:32,fontWeight:900,letterSpacing:'0.3em',color:C.p2,fontFamily:'monospace'}}>{info.pin}</div>
-              <div style={{fontSize:11,color:C.t3,marginTop:8}}>A new PIN is generated every time ShogunOS starts, so only someone who can see this screen can connect.</div>
-            </div>
-            <div style={{fontSize:11,color:C.t4,lineHeight:1.6}}>
-              Works over your local Wi-Fi only — no internet or account needed. Both devices must be on the same network.
             </div>
           </>
         )}
@@ -1701,21 +1777,56 @@ export default function App() {
       currentSection, totalSections: sections.length,
       sectionPreview: (sections[currentSection]?.content || selectedVerse?.text || '').slice(0,240),
       queue,
+      // The text preview box on the remote page falls back to this (colors +
+      // font) whenever a real screenshot isn't available yet — e.g. right
+      // after connecting, or if capturing the live window ever fails.
+      style: { bgColor: displaySettings.bgColor, fontColor: displaySettings.fontColor, fontSize: displaySettings.fontSize, textAlign: displaySettings.textAlign, fontFamily: displaySettings.fontFamily },
     })
-  },[showSplash,live,blankScreen,currentSection,sections,selectedVerse,queue])
+  },[showSplash,live,blankScreen,currentSection,sections,selectedVerse,queue,displaySettings])
 
   // ── REMOTE CONTROL: receive commands ────────────────────────────────────
   // Mirrors the keyboard shortcuts above (Space/Arrows/B/Escape) so a phone
-  // behaves exactly like an operator standing at the booth.
+  // behaves exactly like an operator standing at the booth. Previously this
+  // only wired up next/prev/blank/clear/queue-go — the remote page could
+  // already *send* song-live/media-live/announce/queue-remove/queue-move
+  // (see remote-server.ts), but nothing here was listening for them, so
+  // opening a hymn, sending an announcement, or reordering the queue from a
+  // phone silently did nothing. All of those are handled now, plus the new
+  // verse-live/queue-add actions for Scripture control and add-to-queue.
   useEffect(()=>{
-    (window as any).shogunos.onRemoteCommand(async ({action,id}:{action:string;id?:string})=>{
+    (window as any).shogunos.onRemoteCommand(async (data:any)=>{
+      const {action,id,dir,text}=data
       if(action==='next'&&sections.length) handleSectionClick(Math.min(currentSection+1,sections.length-1))
       else if(action==='prev'&&sections.length) handleSectionClick(Math.max(currentSection-1,0))
       else if(action==='blank') handleBlank()
       else if(action==='clear') handleClear()
       else if(action==='queue-go'&&id) goLiveFromQueueItem(id)
+      else if(action==='queue-remove'&&id) removeFromQueue(id)
+      else if(action==='queue-add'&&data.title) addToQueue(data.title,data.itemType||'song')
+      else if(action==='queue-move'&&id&&dir){
+        const idx=queue.findIndex(q=>q.id===id)
+        const swapWith=dir==='up'?idx-1:idx+1
+        if(idx===-1||swapWith<0||swapWith>=queue.length) return
+        const next=[...queue]
+        ;[next[idx],next[swapWith]]=[next[swapWith],next[idx]]
+        reorderQueueItems(next)
+      }
+      else if(action==='announce'&&text) goLive('Announcement',text)
+      else if(action==='song-live'){
+        const song:Song={id:data.songId,title:data.title,hymn_number:0,source:'hymnal',language:''}
+        setSelected(song);setSections(data.sections||[]);setCurrentSection(data.index||0)
+        goLive(data.title,data.sections?.[data.index]?.content||'')
+      }
+      else if(action==='media-live'){
+        setLive(data.title);setBlankScreen(false)
+        await (window as any).shogunos.goLiveMedia({type:data.mediaType,filePath:data.filePath,title:data.title,loop:false,muted:false,fitMode:'contain'})
+      }
+      else if(action==='verse-live'){
+        setSelectedVerse({id:0,book:data.book,chapter:data.chapter,verse:data.verseNum,text:data.text,version:data.version||bibleVersion} as BibleVerse)
+        goLive(`${data.book} ${data.chapter}:${data.verseNum}`,data.text)
+      }
     })
-  },[sections,currentSection,queue])
+  },[sections,currentSection,queue,bibleVersion])
 
   async function goLiveFromQueueItem(id:string){
     const item = queue.find(q=>q.id===id)

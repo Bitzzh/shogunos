@@ -92,6 +92,7 @@ contextBridge.exposeInMainWorld('shogunos', {
   getRemoteInfo:      () => ipcRenderer.invoke('get-remote-info'),
   pushRemoteState:    (state: any) => ipcRenderer.send('remote-state-update', state),
   onRemoteCommand:    (cb: (data: { action: string; id?: string }) => void) => ipcRenderer.on('remote-command', (_e: any, d: any) => cb(d)),
+  kickRemoteDevice:   (token: string) => ipcRenderer.invoke('kick-remote-device', token),
 
   // ── CALENDAR ───────────────────────────────────────────────────────────────
   getCalendarEvents:    () => ipcRenderer.invoke('calendar-get-events'),
