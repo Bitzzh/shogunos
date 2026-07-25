@@ -1,78 +1,65 @@
 :root {
-  /* ── Modern Day Tokyo — daylight pass ───────────────────────────────────
-     Overcast Shibuya concrete: cool greys/blues with neon signage still
-     legible at street level. Same role names as before so every C.xxx
-     usage across the app repaints automatically — nothing downstream
-     needs to change. Three distinct neon hues carry the whole system:
-     magenta-red (live/action), cyan-blue (authority/selected), violet
-     (accent/highlight) — plus green/amber for plain status meaning. */
-  --bg0: #eef0f6; --bg1: #ffffff; --bg2: #f7f8fc; --bg3: #e8eaf3; --bg4: #dadde9; --bg5: #c3c7db;
-  --b0: #e1e3ef; --b1: #cfd2e6; --b2: #aeb2cc;
-  /* Neon signage red/magenta — LIVE / action states only, never decorative */
-  --p1: #c81250; --p2: #ff2e63; --p3: #ff6b9d;
-  /* Neon signage cyan-blue — authority / selected states */
-  --g1: #0d3b8c; --g2: #0091c8; --g3: #00b8e4;
-  /* Ink text scale, cool-tinted */
-  --t1: #171531; --t2: #423c5c; --t3: #726b96; --t4: #9a93bd;
-  --live: #e8134f; --safe: #169c5a; --warn: #c9860f;
-  /* Neon violet — the third signage hue, reserved for accent/highlight
-     (verse-of-day, "today" markers, brand-mark accent) so it reads as its
-     own thing rather than a duller copy of the live red */
-  --gold: #9333ea; --goldL: #b967ff;
-  /* Seigaiha (青海波 — "blue ocean wave") — the classic Japanese rolling-scale
-     motif, drawn as tiled concentric arcs, layered with a fine asanoha
-     (hemp-leaf) lattice for a woven-washi undertone. Reads as Japanese
-     texture at a glance instead of a generic grid, while still carrying
-     the neon signage hues so it belongs to this app's palette. `fixed`
-     keeps every panel's tile phase aligned so adjoining panels don't
-     create seams — this is what fills the "big blank box" surfaces. */
-  --texture: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='60'%3E%3Cg fill='none' stroke='%230d3b8c' stroke-width='1'%3E%3Cg stroke-opacity='0.05'%3E%3Cpath d='M-30 60A30 30 0 0 1 30 60'/%3E%3Cpath d='M-21 60A21 21 0 0 1 21 60'/%3E%3Cpath d='M-12 60A12 12 0 0 1 12 60'/%3E%3Cpath d='M30 60A30 30 0 0 1 90 60'/%3E%3Cpath d='M39 60A21 21 0 0 1 81 60'/%3E%3Cpath d='M48 60A12 12 0 0 1 72 60'/%3E%3Cpath d='M90 60A30 30 0 0 1 150 60'/%3E%3Cpath d='M99 60A21 21 0 0 1 141 60'/%3E%3Cpath d='M108 60A12 12 0 0 1 132 60'/%3E%3C/g%3E%3Cg stroke-opacity='0.035'%3E%3Cpath d='M-30 0A30 30 0 0 1 30 0'/%3E%3Cpath d='M-21 0A21 21 0 0 1 21 0'/%3E%3Cpath d='M-12 0A12 12 0 0 1 12 0'/%3E%3Cpath d='M30 0A30 30 0 0 1 90 0'/%3E%3Cpath d='M39 0A21 21 0 0 1 81 0'/%3E%3Cpath d='M48 0A12 12 0 0 1 72 0'/%3E%3Cpath d='M90 0A30 30 0 0 1 150 0'/%3E%3Cpath d='M99 0A21 21 0 0 1 141 0'/%3E%3Cpath d='M108 0A12 12 0 0 1 132 0'/%3E%3C/g%3E%3C/g%3E%3Cg stroke='%23ff2e63' stroke-opacity='0.045' stroke-width='1'%3E%3Cpath d='M0 0L17.3 10M17.3 10L17.3 30M17.3 30L0 40M0 40L-17.3 30M-17.3 30L-17.3 10M-17.3 10L0 0'/%3E%3Cpath d='M60 0L77.3 10M77.3 10L77.3 30M77.3 30L60 40M60 40L42.7 30M42.7 30L42.7 10M42.7 10L60 0'/%3E%3Cpath d='M120 0L137.3 10M137.3 10L137.3 30M137.3 30L120 40M120 40L102.7 30M102.7 30L102.7 10M102.7 10L120 0'/%3E%3Cpath d='M0 40L17.3 50M0 40L-17.3 50'/%3E%3Cpath d='M60 40L77.3 50M60 40L42.7 50'/%3E%3C/g%3E%3C/svg%3E") fixed;
+  /* Washi paper — warm cream, layered light to lighter */
+  --bg0: #f6f2e7; --bg1: #fffdf8; --bg2: #faf6ee; --bg3: #efe9db; --bg4: #e5ddc9; --bg5: #d8cdb3;
+  /* Ink-tinted hairlines */
+  --b0: #e6ddc8; --b1: #d6c9ab; --b2: #bfae87;
+  /* Lingfield crest red — LIVE / action states only, never decorative
+     (sampled from the badge's banner flags, #e42430, deepened for UI contrast) */
+  --p1: #8f1620; --p2: #c22430; --p3: #dc4650;
+  /* Lingfield crest blue — authority / selected states
+     (sampled from the badge's navy + sky blue, #183084 / #24a8d8) */
+  --g1: #142c66; --g2: #145a9e; --g3: #23a6d8;
+  /* Sumi ink — warm text scale */
+  --t1: #1b1a17; --t2: #4a463d; --t3: #8b8072; --t4: #b3a690;
+  /* Status — Lingfield's trim gold doubles as highlight/warn (sampled #eee61e, deepened for legibility) */
+  --live: #c22430; --safe: #47623f; --warn: #b3941f;
+  --gold: #b3941f; --goldL: #d4b62f;
+  /* Seigaiha (青海波) — traditional overlapping-wave motif, used as a quiet
+     woven backdrop on the app's larger panel surfaces. Kept off small,
+     frequent elements (cards/rows/badges) — at that scale it read as noise
+     rather than a pattern. `fixed` anchors every panel to the same
+     viewport-relative tile phase, so adjacent panels' patterns line up
+     instead of each restarting from its own corner and creating seams. */
+  --texture: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='70'%3E%3Cg fill='none' stroke='%23142c66' stroke-opacity='0.055' stroke-width='2'%3E%3Ccircle cx='0' cy='70' r='17.5'/%3E%3Ccircle cx='0' cy='70' r='35'/%3E%3Ccircle cx='0' cy='70' r='52.5'/%3E%3Ccircle cx='0' cy='70' r='70'/%3E%3Ccircle cx='70' cy='70' r='17.5'/%3E%3Ccircle cx='70' cy='70' r='35'/%3E%3Ccircle cx='70' cy='70' r='52.5'/%3E%3Ccircle cx='70' cy='70' r='70'/%3E%3Ccircle cx='140' cy='70' r='17.5'/%3E%3Ccircle cx='140' cy='70' r='35'/%3E%3Ccircle cx='140' cy='70' r='52.5'/%3E%3Ccircle cx='140' cy='70' r='70'/%3E%3C/g%3E%3C/svg%3E") fixed;
+  /* Composite backgrounds — the wave pattern layered directly over each
+     panel shade. Components paint with these (C.tex0..C.tex3 in JS) on
+     their actual visible surfaces, not a hidden canvas layer. --bg0..--bg5
+     stay pure colors since color-mix()/gradients elsewhere depend on that. */
   --tbg0: var(--texture), var(--bg0);
   --tbg1: var(--texture), var(--bg1);
   --tbg2: var(--texture), var(--bg2);
   --tbg3: var(--texture), var(--bg3);
-  --tbg4: var(--texture), var(--bg4);
-  /* Glass — translucent surface + top specular highlight */
+  /* Glass — translucent surface + top specular highlight, tuned per theme */
   --glass-bg: color-mix(in srgb, var(--bg1) 62%, transparent);
   --glass-bg-strong: color-mix(in srgb, var(--bg1) 78%, transparent);
   --glass-border: color-mix(in srgb, #ffffff 55%, var(--b2) 45%);
-  --glass-highlight: rgba(255,255,255,0.55);
-  --glass-shadow: 0 6px 20px rgba(20,10,40,0.10), 0 1px 2px rgba(20,10,40,0.08);
-  /* Neon glow accents — used on hover/active states for buttons + CTAs */
-  --glow-p: rgba(255,46,99,0.30);
-  --glow-g: rgba(0,184,228,0.26);
+  --glass-highlight: rgba(255,255,255,0.5);
+  --glass-shadow: 0 6px 20px rgba(40,30,10,0.12), 0 1px 2px rgba(40,30,10,0.08);
 }
 
 [data-theme='dark'] {
-  /* ── Modern Day Tokyo — night pass ───────────────────────────────────────
-     Shinjuku/Shibuya after dark: near-black violet ground, hot neon
-     magenta + electric cyan signage, the city's main light sources. */
-  --bg0: #08060f; --bg1: #100c1e; --bg2: #130f22; --bg3: #1b1531; --bg4: #241c3f; --bg5: #342951;
-  --b0: #241c3f; --b1: #372a55; --b2: #4e3b73;
-  /* Neon red/magenta — brighter so it still reads as "live" against black */
-  --p1: #d61a5c; --p2: #ff2e63; --p3: #ff85ae;
-  /* Neon cyan-blue — lifted for glow against dark ground */
-  --g1: #1a3f96; --g2: #12b8ec; --g3: #6fe8ff;
+  /* Sumi ink paper — dark charcoal, layered dark to darker (mirrors the light scale) */
+  --bg0: #171613; --bg1: #201f1b; --bg2: #1c1b18; --bg3: #2a2822; --bg4: #34322a; --bg5: #454136;
+  --b0: #2a2822; --b1: #3a3730; --b2: #514c3f;
+  /* Crest red — a touch brighter so it still reads as "live" against a dark ground */
+  --p1: #c22430; --p2: #dc4650; --p3: #ea6870;
+  /* Crest blue — lifted for contrast on dark backgrounds */
+  --g1: #145a9e; --g2: #2f86c4; --g3: #5cc4ea;
   /* Text scale inverted: lightest first */
-  --t1: #f5f1ff; --t2: #cec3ea; --t3: #9186b8; --t4: #5e5380;
-  --live: #ff2e63; --safe: #39ff8f; --warn: #ffd23f;
-  /* Neon violet — third signage hue, glow-lifted for dark ground */
-  --gold: #b967ff; --goldL: #d9a6ff;
-  /* Same seigaiha wave + asanoha lattice motif, cyan wave lines / magenta
-     lattice on near-black so it reads as lit tracery rather than print. */
-  --texture: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='60'%3E%3Cg fill='none' stroke='%236fe8ff' stroke-width='1'%3E%3Cg stroke-opacity='0.07'%3E%3Cpath d='M-30 60A30 30 0 0 1 30 60'/%3E%3Cpath d='M-21 60A21 21 0 0 1 21 60'/%3E%3Cpath d='M-12 60A12 12 0 0 1 12 60'/%3E%3Cpath d='M30 60A30 30 0 0 1 90 60'/%3E%3Cpath d='M39 60A21 21 0 0 1 81 60'/%3E%3Cpath d='M48 60A12 12 0 0 1 72 60'/%3E%3Cpath d='M90 60A30 30 0 0 1 150 60'/%3E%3Cpath d='M99 60A21 21 0 0 1 141 60'/%3E%3Cpath d='M108 60A12 12 0 0 1 132 60'/%3E%3C/g%3E%3Cg stroke-opacity='0.05'%3E%3Cpath d='M-30 0A30 30 0 0 1 30 0'/%3E%3Cpath d='M-21 0A21 21 0 0 1 21 0'/%3E%3Cpath d='M-12 0A12 12 0 0 1 12 0'/%3E%3Cpath d='M30 0A30 30 0 0 1 90 0'/%3E%3Cpath d='M39 0A21 21 0 0 1 81 0'/%3E%3Cpath d='M48 0A12 12 0 0 1 72 0'/%3E%3Cpath d='M90 0A30 30 0 0 1 150 0'/%3E%3Cpath d='M99 0A21 21 0 0 1 141 0'/%3E%3Cpath d='M108 0A12 12 0 0 1 132 0'/%3E%3C/g%3E%3C/g%3E%3Cg stroke='%23ff2e63' stroke-opacity='0.06' stroke-width='1'%3E%3Cpath d='M0 0L17.3 10M17.3 10L17.3 30M17.3 30L0 40M0 40L-17.3 30M-17.3 30L-17.3 10M-17.3 10L0 0'/%3E%3Cpath d='M60 0L77.3 10M77.3 10L77.3 30M77.3 30L60 40M60 40L42.7 30M42.7 30L42.7 10M42.7 10L60 0'/%3E%3Cpath d='M120 0L137.3 10M137.3 10L137.3 30M137.3 30L120 40M120 40L102.7 30M102.7 30L102.7 10M102.7 10L120 0'/%3E%3Cpath d='M0 40L17.3 50M0 40L-17.3 50'/%3E%3Cpath d='M60 40L77.3 50M60 40L42.7 50'/%3E%3C/g%3E%3C/svg%3E") fixed;
+  --t1: #f3efe4; --t2: #cfc8b4; --t3: #9a927c; --t4: #6b6455;
+  --live: #dc4650; --safe: #6a9160; --warn: #d4b62f;
+  --gold: #d4b62f; --goldL: #e6cf5f;
+  /* Same wave motif, sky-blue on charcoal, same fixed-attachment/opacity logic */
+  --texture: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='70'%3E%3Cg fill='none' stroke='%2323a6d8' stroke-opacity='0.045' stroke-width='2'%3E%3Ccircle cx='0' cy='70' r='17.5'/%3E%3Ccircle cx='0' cy='70' r='35'/%3E%3Ccircle cx='0' cy='70' r='52.5'/%3E%3Ccircle cx='0' cy='70' r='70'/%3E%3Ccircle cx='70' cy='70' r='17.5'/%3E%3Ccircle cx='70' cy='70' r='35'/%3E%3Ccircle cx='70' cy='70' r='52.5'/%3E%3Ccircle cx='70' cy='70' r='70'/%3E%3Ccircle cx='140' cy='70' r='17.5'/%3E%3Ccircle cx='140' cy='70' r='35'/%3E%3Ccircle cx='140' cy='70' r='52.5'/%3E%3Ccircle cx='140' cy='70' r='70'/%3E%3C/g%3E%3C/svg%3E") fixed;
   --tbg0: var(--texture), var(--bg0);
   --tbg1: var(--texture), var(--bg1);
   --tbg2: var(--texture), var(--bg2);
   --tbg3: var(--texture), var(--bg3);
-  --tbg4: var(--texture), var(--bg4);
   --glass-bg: color-mix(in srgb, var(--bg1) 58%, transparent);
   --glass-bg-strong: color-mix(in srgb, var(--bg1) 76%, transparent);
-  --glass-border: color-mix(in srgb, #ffffff 12%, var(--b2) 88%);
-  --glass-highlight: rgba(255,255,255,0.08);
-  --glass-shadow: 0 6px 24px rgba(0,0,0,0.55), 0 1px 2px rgba(0,0,0,0.35);
-  --glow-p: rgba(255,46,99,0.45);
-  --glow-g: rgba(18,184,236,0.4);
+  --glass-border: color-mix(in srgb, #ffffff 14%, var(--b2) 86%);
+  --glass-highlight: rgba(255,255,255,0.09);
+  --glass-shadow: 0 6px 24px rgba(0,0,0,0.45), 0 1px 2px rgba(0,0,0,0.3);
 }
 
 * {
@@ -91,7 +78,7 @@ body {
 ::-webkit-scrollbar { width: 8px; height: 8px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--b2); border-radius: 5px; }
-::-webkit-scrollbar-thumb:hover { background: var(--g3); }
+::-webkit-scrollbar-thumb:hover { background: var(--t3); }
 
 select option { background: var(--bg1); color: var(--t1); }
 input::placeholder, textarea::placeholder { color: var(--t4); }
@@ -101,18 +88,6 @@ button { font-family: inherit; }
 @keyframes shimmer { 0%{left:-100%} 60%,100%{left:150%} }
 @keyframes spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
 @keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-10px)} }
-/* Neon sign flicker — a couple of quick stutters then settle, like a tube
-   sign catching current. Used sparingly (brand mark, LIVE state) since it
-   reads as "broken" rather than "atmospheric" if left running everywhere. */
-@keyframes neon-flicker {
-  0%, 100% { opacity: 1; }
-  92% { opacity: 1; }
-  93% { opacity: 0.4; }
-  94% { opacity: 1; }
-  96% { opacity: 0.6; }
-  97% { opacity: 1; }
-}
-.neon-flicker { animation: neon-flicker 5s ease-in-out infinite; }
 
 /* ── Liquid glass — frosted surfaces & buttons ──────────────────────────────
    A shared visual language for anything that "floats" above the app's
@@ -138,19 +113,18 @@ button { font-family: inherit; }
   border-radius: 10px;
   cursor: pointer;
 }
-.glass-btn:hover  { transform: translateY(-1px); border-color: var(--g3); box-shadow: inset 0 1px 0 var(--glass-highlight), 0 0 0 1px var(--glow-g), 0 8px 22px var(--glow-g), 0 2px 4px rgba(0,0,0,0.15); }
+.glass-btn:hover  { transform: translateY(-1px); box-shadow: inset 0 1px 0 var(--glass-highlight), 0 8px 22px rgba(20,44,102,0.16), 0 2px 4px rgba(20,44,102,0.1); }
 .glass-btn:active { transform: translateY(0); }
 
 /* Solid accent CTAs (GO LIVE, Save, Create…) keep full-strength color for
    legibility, but still pick up the glass family's specular top edge,
-   elevation, and hover lift so the whole button language feels of a piece.
-   The neon glow bloom on hover is the signature "Tokyo at night" touch. */
+   elevation, and hover lift so the whole button language feels of a piece. */
 .glass-primary {
   border-radius: 9px;
   cursor: pointer;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.35), 0 4px 14px rgba(8,4,16,0.28), 0 0 0 rgba(255,46,99,0);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.35), 0 4px 14px rgba(20,10,5,0.22);
 }
-.glass-primary:hover  { transform: translateY(-1px); filter: brightness(1.08) saturate(1.1); box-shadow: inset 0 1px 0 rgba(255,255,255,0.4), 0 8px 22px rgba(8,4,16,0.32), 0 0 22px var(--glow-p); }
+.glass-primary:hover  { transform: translateY(-1px); filter: brightness(1.05); box-shadow: inset 0 1px 0 rgba(255,255,255,0.4), 0 8px 20px rgba(20,10,5,0.28); }
 .glass-primary:active { transform: translateY(0); filter: brightness(0.98); }
 
 /* Full-width chrome bars (topbar, section nav) — blur + tint only; they

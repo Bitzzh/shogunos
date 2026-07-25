@@ -13,13 +13,11 @@ import {
   exportDatabase, importDatabase, getDatabaseStats,
   flushPendingSaves,
   getCurrentUser, updateDisplayName,
-  importQSPSongs,
   getDisplaySettings, saveDisplaySettings,
   getMediaFolders, createMediaFolder, deleteMediaFolder, addMediaItem, deleteMediaItem, getMediaItems,
   getCalendarEvents, createCalendarEvent, updateCalendarEvent, deleteCalendarEvent,
 } from './database'
-import { parseQSP } from './qsp-parser'
-import { startRemoteServer, stopRemoteServer, updateRemoteState, getRemoteInfo, kickDevice, RemoteState } from './remote-server'
+import { startRemoteServer, stopRemoteServer, updateRemoteState, getRemoteInfo, getRemoteQR, RemoteState } from './remote-server'
 
 if (started) { app.quit() }
 
@@ -448,19 +446,6 @@ app.on('ready', async () => {
   ipcMain.handle('get-db-stats',            () => getDatabaseStats())
   ipcMain.handle('get-display-settings',    () => getDisplaySettings())
   ipcMain.handle('save-display-settings',   (_e, settings: any) => { saveDisplaySettings(settings); return { success: true } })
-  ipcMain.handle('import-qsp',   (_e, base64: string, language?: string) => {
-    try {
-      const buf    = Buffer.from(base64, 'base64')
-      const parsed = parseQSP(buf, language || 'en')
-      if (!parsed.success || parsed.songs.length === 0) {
-        return { success: false, error: `No songs found. ${parsed.errors.join(', ')}` }
-      }
-      const result = importQSPSongs(parsed.songs)
-      return { parsed: parsed.parsed, ...result, errors: parsed.errors }
-    } catch (e: any) {
-      return { success: false, error: e.message }
-    }
-  })
 
   // ── AUTH ─────────────────────────────────────────────────────────────────
   // Single local operator profile — no login, no accounts.
@@ -473,10 +458,7 @@ app.on('ready', async () => {
   // polls instantly without round-tripping into the renderer per request.
   ipcMain.on('remote-state-update', (_e, s: RemoteState) => updateRemoteState(s))
   ipcMain.handle('get-remote-info', () => getRemoteInfo())
-  // getRemoteInfo() already includes the connected-devices list, so the
-  // Settings→Remote screen can show/refresh it with no extra round trip —
-  // this handler only needs to cover the disconnect action itself.
-  ipcMain.handle('kick-remote-device', (_e, token: string) => { kickDevice(token); return true })
+  ipcMain.handle('get-remote-qr', () => getRemoteQR())
 
   // ── CALENDAR ─────────────────────────────────────────────────────────────
   ipcMain.handle('calendar-get-events',    () => getCalendarEvents())
@@ -485,7 +467,7 @@ app.on('ready', async () => {
   ipcMain.handle('calendar-delete-event',  (_e, id: number) => { deleteCalendarEvent(id); return { success: true } })
 
   createWindow()
-  startRemoteServer(() => mainWindow, () => liveWindow || undefined)
+  startRemoteServer(() => mainWindow)
 
   // Watch for display changes and notify renderer with the SAME shape
   // get-displays returns (label/isPrimary included), not the raw Electron

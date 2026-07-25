@@ -497,6 +497,19 @@ export function searchSongs(query: string) {
     .filter(s => (s.source === 'hymnal' || s.source === 'hymnal-cis') && (q === '' || s.title.toLowerCase().includes(q)))
     .sort((a,b) => (a.hymn_number||999) - (b.hymn_number||999))
 }
+// Broader search across hymnal AND custom "My Songs" — used by the phone
+// Remote so a search there can go live on anything in the library, not just
+// what happens to already be sitting in the service queue.
+export function searchAllSongs(query: string) {
+  const q = query.toLowerCase().trim()
+  return db.songs
+    .filter(s => q === '' || s.title.toLowerCase().includes(q) || String(s.hymn_number||'').includes(q))
+    .sort((a,b) => (a.hymn_number||9999) - (b.hymn_number||9999))
+    .slice(0, 50)
+}
+export function getSongById(songId: number) {
+  return db.songs.find(s => s.id === songId) || null
+}
 export function getSongSections(songId: number) {
   return db.song_sections.filter(s => s.song_id === songId).sort((a,b) => a.order_num - b.order_num)
 }
@@ -723,17 +736,6 @@ export function importDatabase(json: string): { success: boolean; error?: string
     }
     save(); saveLibrary(); return { success:true, counts:{ songs:songsAdded, sections:sectionsAdded, slides:slidesAdded } }
   } catch(e:any) { return { success:false, error:`Parse error: ${e.message}` } }
-}
-export function importQSPSongs(songs: { title:string; author:string; language:string; sections:{type:string;order:number;content:string}[] }[]) {
-  let songsAdded=0, sectionsAdded=0, skipped=0
-  for (const song of songs) {
-    if (db.songs.find(s => s.title.toLowerCase()===song.title.toLowerCase())) { skipped++; continue }
-    const id=nextId()
-    db.songs.push({ id, title:song.title, language:song.language||'en', source:'custom', hymn_number:null, created_at:new Date().toISOString() })
-    for (const sec of song.sections) { db.song_sections.push({ id:nextId(), song_id:id, type:sec.type, order_num:sec.order, content:sec.content }); sectionsAdded++ }
-    songsAdded++
-  }
-  saveLibrary(); return { success:true, counts:{ songs:songsAdded, sections:sectionsAdded }, skipped }
 }
 export function getDatabaseStats() {
   return { songs:db.songs.length, custom_songs:db.songs.filter(s=>s.source==='custom').length, hymns:db.songs.filter(s=>s.source==='hymnal'||s.source==='hymnal-cis').length, sda_hymns:db.songs.filter(s=>s.source==='hymnal').length, cis_hymns:db.songs.filter(s=>s.source==='hymnal-cis').length, sections:db.song_sections.length, bible_verses:db.bible_verses.length, bible_translations:getBibleTranslations(), slides:db.slides.length, queue_items:db.service_queue.length, users:db.users.length, db_path:statePath, installation_id:db.meta.installation_id }

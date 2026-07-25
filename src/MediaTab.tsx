@@ -5,7 +5,7 @@ import React, { useState, useEffect, useCallback } from 'react'
 // the shared CSS variables (see index.css) so dark mode applies here too.
 const C = {
   bg0:'var(--bg0)', bg1:'var(--bg1)', bg2:'var(--bg2)', bg3:'var(--bg3)', bg4:'var(--bg4)', bg5:'var(--bg5)',
-  tex0:'var(--tbg0)', tex1:'var(--tbg1)', tex2:'var(--tbg2)', tex3:'var(--tbg3)', tex4:'var(--tbg4)',
+  tex0:'var(--tbg0)', tex1:'var(--tbg1)', tex2:'var(--tbg2)', tex3:'var(--tbg3)',
   b0:'var(--b0)', b1:'var(--b1)', b2:'var(--b2)',
   accent:'var(--g2)', accentL:'var(--g3)', accentD:'var(--g1)',
   gold:'var(--gold)', goldL:'var(--goldL)',
@@ -243,11 +243,11 @@ export default function MediaTab({ goLive, notify }:Props) {
               value={newName} onChange={e=>setNewName(e.target.value)}
               onKeyDown={e=>{ if(e.key==='Enter') createFolder(); if(e.key==='Escape') setCreating(false) }}
               placeholder="Folder name"
-              style={{ width:'100%', background:C.tex3, border:`1px solid ${C.b2}`, color:C.t1, padding:'6px 8px', fontSize:12, borderRadius:6, outline:'none', fontFamily:'inherit', marginBottom:6 }}
+              style={{ width:'100%', background:C.bg3, border:`1px solid ${C.b2}`, color:C.t1, padding:'6px 8px', fontSize:12, borderRadius:6, outline:'none', fontFamily:'inherit', marginBottom:6 }}
             />
             <input
               type="date" value={newDate} onChange={e=>setNewDate(e.target.value)}
-              style={{ width:'100%', background:C.tex3, border:`1px solid ${C.b2}`, color:C.t2, padding:'6px 8px', fontSize:11, borderRadius:6, outline:'none', fontFamily:'inherit', marginBottom:8 }}
+              style={{ width:'100%', background:C.bg3, border:`1px solid ${C.b2}`, color:C.t2, padding:'6px 8px', fontSize:11, borderRadius:6, outline:'none', fontFamily:'inherit', marginBottom:8 }}
             />
             <div style={{ display:'flex', gap:6 }}>
               {btn('Create', createFolder, 'primary', true)}
@@ -317,7 +317,7 @@ export default function MediaTab({ goLive, notify }:Props) {
                   <input
                     type="number" min={1} max={120} value={imageDurationSec}
                     onChange={e=>setImageDurationSec(Math.max(1, Number(e.target.value)||6))}
-                    style={{ width:38, background:C.tex3, border:`1px solid ${C.b2}`, color:C.t1, fontSize:10, borderRadius:5, padding:'3px 4px', outline:'none', fontFamily:'inherit' }}
+                    style={{ width:38, background:C.bg3, border:`1px solid ${C.b2}`, color:C.t1, fontSize:10, borderRadius:5, padding:'3px 4px', outline:'none', fontFamily:'inherit' }}
                   />
                 </div>
               </div>

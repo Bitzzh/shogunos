@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
-import QRCode from 'qrcode'
 import Splash from './Splash'
 import MediaTab from './MediaTab'
 import CalendarTab from './CalendarTab'
@@ -69,7 +68,7 @@ interface DisplaySettings {
 // of the individual C.xxx usages below.
 const C = {
   bg0: 'var(--bg0)', bg1: 'var(--bg1)', bg2: 'var(--bg2)', bg3: 'var(--bg3)', bg4: 'var(--bg4)', bg5: 'var(--bg5)',
-  tex0: 'var(--tbg0)', tex1: 'var(--tbg1)', tex2: 'var(--tbg2)', tex3: 'var(--tbg3)', tex4: 'var(--tbg4)',
+  tex0: 'var(--tbg0)', tex1: 'var(--tbg1)', tex2: 'var(--tbg2)', tex3: 'var(--tbg3)',
   b0: 'var(--b0)', b1: 'var(--b1)', b2: 'var(--b2)',
   p1: 'var(--p1)', p2: 'var(--p2)', p3: 'var(--p3)',
   g1: 'var(--g1)', g2: 'var(--g2)', g3: 'var(--g3)',
@@ -244,7 +243,7 @@ function SlidesTab({ goLive, addToQueue, notify }: {
   }
 
   const disp = editing||selected
-  const inp: React.CSSProperties = {width:'100%',background:C.tex4,border:`1px solid ${C.b1}`,color:C.t1,padding:'9px 12px',fontSize:12,outline:'none',fontFamily:'inherit',borderRadius:8}
+  const inp: React.CSSProperties = {width:'100%',background:C.bg4,border:`1px solid ${C.b1}`,color:C.t1,padding:'9px 12px',fontSize:12,outline:'none',fontFamily:'inherit',borderRadius:8}
   const lbl: React.CSSProperties = {fontSize:10,color:C.t3,fontWeight:600,marginBottom:6,display:'block',letterSpacing:'0.05em',textTransform:'uppercase' as const}
   const secHd: React.CSSProperties = {padding:'10px 14px',background:C.tex1,borderBottom:`1px solid ${C.b0}`,flexShrink:0}
   const secLbl: React.CSSProperties = {fontSize:9,fontWeight:700,letterSpacing:'0.2em',color:C.t4,textTransform:'uppercase' as const}
@@ -258,7 +257,7 @@ function SlidesTab({ goLive, addToQueue, notify }: {
             <span style={secLbl}>Slides</span>
             <span style={{fontSize:10,color:C.t4}}>{slides.length}</span>
           </div>
-          <div style={{display:'flex',alignItems:'center',background:C.tex4,border:`1px solid ${C.b1}`,borderRadius:8,padding:'0 10px',gap:6}}>
+          <div style={{display:'flex',alignItems:'center',background:C.bg4,border:`1px solid ${C.b1}`,borderRadius:8,padding:'0 10px',gap:6}}>
             <span style={{color:C.t3,fontSize:14}}>⌕</span>
             <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search..." style={{flex:1,background:'none',border:'none',color:C.t1,fontSize:12,outline:'none',padding:'7px 0',fontFamily:'inherit'}} />
           </div>
@@ -318,7 +317,7 @@ function SlidesTab({ goLive, addToQueue, notify }: {
         {(selected||isNew)&&(
           <div style={{padding:'12px 20px',background:C.tex0,borderTop:`1px solid ${C.b0}`,display:'flex',gap:8}}>
             <button className="shimmer-btn" onClick={()=>selected&&!isNew&&sendLive(selected)} disabled={!selected||isNew} style={{flex:1,padding:'12px 0',background:C.live,border:'none',color:'#fff',fontSize:12,fontWeight:700,letterSpacing:'0.08em',cursor:selected&&!isNew?'pointer':'not-allowed',fontFamily:'inherit',borderRadius:8,opacity:selected&&!isNew?1:0.35}}>GO LIVE</button>
-            <button onClick={()=>selected&&!isNew&&addToQueue(selected.title||'Slide','slide')} disabled={!selected||isNew} style={{padding:'12px 18px',background:C.tex4,border:`1px solid ${C.b2}`,color:C.t1,fontSize:11,fontWeight:600,cursor:selected&&!isNew?'pointer':'not-allowed',fontFamily:'inherit',borderRadius:8,opacity:selected&&!isNew?1:0.35}}>+ Queue</button>
+            <button onClick={()=>selected&&!isNew&&addToQueue(selected.title||'Slide','slide')} disabled={!selected||isNew} style={{padding:'12px 18px',background:C.bg4,border:`1px solid ${C.b2}`,color:C.t1,fontSize:11,fontWeight:600,cursor:selected&&!isNew?'pointer':'not-allowed',fontFamily:'inherit',borderRadius:8,opacity:selected&&!isNew?1:0.35}}>+ Queue</button>
           </div>
         )}
       </div>
@@ -376,7 +375,7 @@ function SlidesTab({ goLive, addToQueue, notify }: {
                 <input style={{...inp,width:90}} value={editing.bg_color||'#000'} onChange={e=>set('bg_color',e.target.value)}/>
               </div>
               <div style={{display:'flex',gap:4,flexWrap:'wrap'}}>
-                {['#000000','#0a0814','#140a0a','#0a0a14','#060609','#111111','#1a0a2e','#0a1a2e'].map(col=>(
+                {['#000000','#0a0814','#140a0a','#0a0a14','#060609','#111111'].map(col=>(
                   <div key={col} onClick={()=>set('bg_color',col)} style={{width:24,height:24,background:col,border:`1px solid ${editing.bg_color===col?C.g2:C.b2}`,borderRadius:4,cursor:'pointer'}}/>
                 ))}
               </div>
@@ -401,7 +400,7 @@ function SlidesTab({ goLive, addToQueue, notify }: {
                 <input style={{...inp,width:90}} value={editing.font_color||'#fff'} onChange={e=>set('font_color',e.target.value)}/>
               </div>
               <div style={{display:'flex',gap:4,flexWrap:'wrap'}}>
-                {['#ffffff','#f8f4e8','#f59e0b','#a78bfa','#7dd3fc','#86efac','#f87171','#ff2e63','#6fe8ff','#b967ff'].map(col=>(
+                {['#ffffff','#f8f4e8','#f59e0b','#a78bfa','#7dd3fc','#86efac','#f87171'].map(col=>(
                   <div key={col} onClick={()=>set('font_color',col)} style={{width:24,height:24,background:col,border:`1px solid ${editing.font_color===col?C.g2:C.b2}`,borderRadius:4,cursor:'pointer'}}/>
                 ))}
               </div>
@@ -508,19 +507,8 @@ function AnnounceTab({ goLive, notify }: { goLive:(t:string,l:string)=>void; not
     inp.click()
   }
 
-  const inp: React.CSSProperties = {width:'100%',background:C.tex4,border:`1px solid ${C.b1}`,color:C.t1,padding:'9px 12px',fontSize:12,outline:'none',fontFamily:'inherit',borderRadius:8}
+  const inp: React.CSSProperties = {width:'100%',background:C.bg4,border:`1px solid ${C.b1}`,color:C.t1,padding:'9px 12px',fontSize:12,outline:'none',fontFamily:'inherit',borderRadius:8}
   const lbl: React.CSSProperties = {fontSize:10,color:C.t3,fontWeight:600,marginBottom:6,display:'block',letterSpacing:'0.05em',textTransform:'uppercase' as const}
-
-  // Neon Tokyo one-click looks — sets bg+text together so an operator can
-  // reach for a whole signage style instead of picking two colors by hand.
-  const NEON_PRESETS = [
-    {label:'Shibuya Pink',  bg:'#0a0612', fg:'#ff2e63'},
-    {label:'Cyber Cyan',    bg:'#060b14', fg:'#6fe8ff'},
-    {label:'Vaporwave',     bg:'#12081f', fg:'#ff8fe0'},
-    {label:'Akiba Yellow',  bg:'#0c0a04', fg:'#ffd23f'},
-    {label:'Neon Noir',     bg:'#000000', fg:'#ffffff'},
-    {label:'Midori Glow',   bg:'#04120a', fg:'#39ff8f'},
-  ]
 
   return (
     <div style={{flex:1,display:'flex',overflow:'hidden',minHeight:0}}>
@@ -534,7 +522,7 @@ function AnnounceTab({ goLive, notify }: { goLive:(t:string,l:string)=>void; not
             <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
               {TEMPLATES.map(t=>(
                 <button key={t.label} onClick={()=>{setText(t.text);setTitle(t.label)}}
-                  style={{padding:'6px 12px',background:C.tex4,border:`1px solid ${C.b1}`,color:C.t2,fontSize:11,cursor:'pointer',fontFamily:'inherit',borderRadius:7}}
+                  style={{padding:'6px 12px',background:C.bg4,border:`1px solid ${C.b1}`,color:C.t2,fontSize:11,cursor:'pointer',fontFamily:'inherit',borderRadius:7}}
                   onMouseEnter={e=>{(e.currentTarget as HTMLElement).style.borderColor=C.p1;(e.currentTarget as HTMLElement).style.color=C.p2}}
                   onMouseLeave={e=>{(e.currentTarget as HTMLElement).style.borderColor=C.b1;(e.currentTarget as HTMLElement).style.color=C.t2}}
                 >{t.label}</button>
@@ -557,19 +545,6 @@ function AnnounceTab({ goLive, notify }: { goLive:(t:string,l:string)=>void; not
                 <input type="color" value={fgColor} onChange={e=>setFgColor(e.target.value)} style={{width:36,height:32,border:`1px solid ${C.b2}`,borderRadius:6,background:'none',cursor:'pointer'}}/>
                 <input style={{...inp,width:90}} value={fgColor} onChange={e=>setFgColor(e.target.value)}/>
               </div>
-            </div>
-          </div>
-          <div>
-            <label style={lbl}>Neon Presets</label>
-            <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
-              {NEON_PRESETS.map(p=>(
-                <button key={p.label} onClick={()=>{setBgColor(p.bg);setFgColor(p.fg)}}
-                  title={p.label}
-                  style={{display:'flex',alignItems:'center',gap:6,padding:'6px 10px 6px 6px',background:p.bg,border:`1px solid ${bgColor===p.bg&&fgColor===p.fg?p.fg:C.b1}`,color:p.fg,fontSize:10,fontWeight:700,cursor:'pointer',fontFamily:'inherit',borderRadius:7,letterSpacing:'0.02em'}}>
-                  <span style={{width:14,height:14,borderRadius:4,background:p.fg,boxShadow:`0 0 8px ${p.fg}`,flexShrink:0}}/>
-                  {p.label}
-                </button>
-              ))}
             </div>
           </div>
           <div>
@@ -756,7 +731,7 @@ function SongsTab({ goLive, addToQueue, notify }: { goLive:(t:string,l:string)=>
       <div style={{width:280,background:C.tex2,borderRight:`1px solid ${C.b0}`,display:'flex',flexDirection:'column',flexShrink:0}}>
         <div style={{padding:'14px 16px',background:C.tex0,borderBottom:`1px solid ${C.b0}`,flexShrink:0}}>
           <div style={{fontSize:9,fontWeight:700,letterSpacing:'0.2em',color:C.t4,marginBottom:6}}>SONG LIBRARY</div>
-          <div style={{display:'flex',alignItems:'center',background:C.tex4,border:`1px solid ${C.b1}`,borderRadius:6,padding:'0 10px',gap:6,marginBottom:10}}>
+          <div style={{display:'flex',alignItems:'center',background:C.bg4,border:`1px solid ${C.b1}`,borderRadius:6,padding:'0 10px',gap:6,marginBottom:10}}>
             <span style={{color:C.t3,fontSize:13}}>⌕</span>
             <input value={search} onChange={e=>setSearch(e.target.value)}
               placeholder="Search songs or hymn #…"
@@ -803,7 +778,7 @@ function SongsTab({ goLive, addToQueue, notify }: { goLive:(t:string,l:string)=>
                     borderBottom:`1px solid ${C.b0}`,color:C.t2,textAlign:'left' as const}}>
                   <div style={{display:'flex',alignItems:'center',gap:8}}>
                     <span style={{fontSize:10,fontWeight:700,letterSpacing:'0.12em',color:accent}}>{groupLabel(lang).toUpperCase()}</span>
-                    <span style={{fontSize:9,color:C.t4,background:C.tex3,padding:'1px 6px',borderRadius:10,border:`1px solid ${C.b1}`}}>{group.length}</span>
+                    <span style={{fontSize:9,color:C.t4,background:C.bg3,padding:'1px 6px',borderRadius:10,border:`1px solid ${C.b1}`}}>{group.length}</span>
                   </div>
                   <span style={{fontSize:9,color:C.t4}}>{isOpen?'▾':'▸'}</span>
                 </button>
@@ -880,17 +855,17 @@ function SongsTab({ goLive, addToQueue, notify }: { goLive:(t:string,l:string)=>
             <div style={{flex:1}}>
               <label style={{fontSize:10,color:C.t3,fontWeight:600,letterSpacing:'0.06em',display:'block',marginBottom:6}}>TITLE</label>
               <input value={newTitle} onChange={e=>setNewTitle(e.target.value)} placeholder="e.g. Amazing Grace" autoFocus
-                style={{width:'100%',background:C.tex3,border:`1px solid ${C.b1}`,color:C.t1,padding:'10px 12px',fontSize:13,outline:'none',fontFamily:'inherit',borderRadius:8}}/>
+                style={{width:'100%',background:C.bg3,border:`1px solid ${C.b1}`,color:C.t1,padding:'10px 12px',fontSize:13,outline:'none',fontFamily:'inherit',borderRadius:8}}/>
             </div>
             <div style={{width:110}}>
               <label style={{fontSize:10,color:C.t3,fontWeight:600,letterSpacing:'0.06em',display:'block',marginBottom:6}}>HYMN #</label>
               <input value={newHymnNum} onChange={e=>setNewHymnNum(e.target.value.replace(/[^0-9]/g,''))} placeholder="Optional"
-                style={{width:'100%',background:C.tex3,border:`1px solid ${C.b1}`,color:C.t1,padding:'10px 12px',fontSize:13,outline:'none',fontFamily:'inherit',borderRadius:8}}/>
+                style={{width:'100%',background:C.bg3,border:`1px solid ${C.b1}`,color:C.t1,padding:'10px 12px',fontSize:13,outline:'none',fontFamily:'inherit',borderRadius:8}}/>
             </div>
             <div style={{width:170}}>
               <label style={{fontSize:10,color:C.t3,fontWeight:600,letterSpacing:'0.06em',display:'block',marginBottom:6}}>LANGUAGE</label>
               <select value={newLang} onChange={e=>setNewLang(e.target.value)}
-                style={{width:'100%',background:C.tex3,border:`1px solid ${C.b1}`,color:C.t1,padding:'10px 12px',fontSize:13,outline:'none',fontFamily:'inherit',borderRadius:8}}>
+                style={{width:'100%',background:C.bg3,border:`1px solid ${C.b1}`,color:C.t1,padding:'10px 12px',fontSize:13,outline:'none',fontFamily:'inherit',borderRadius:8}}>
                 {LANG_ORDER.map(l=><option key={l} value={l}>{langLabel(l)}</option>)}
               </select>
             </div>
@@ -909,7 +884,7 @@ function SongsTab({ goLive, addToQueue, notify }: { goLive:(t:string,l:string)=>
               <div key={i} style={{background:C.tex2,border:`1px solid ${C.b1}`,borderRadius:10,padding:14}}>
                 <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:8}}>
                   <select value={sec.type} onChange={e=>updateNewSection(i,{type:e.target.value})}
-                    style={{background:C.tex4,border:`1px solid ${C.b1}`,color:C.p2,padding:'5px 8px',fontSize:10,fontWeight:700,letterSpacing:'0.05em',outline:'none',fontFamily:'inherit',borderRadius:5,textTransform:'uppercase' as const}}>
+                    style={{background:C.bg4,border:`1px solid ${C.b1}`,color:C.p2,padding:'5px 8px',fontSize:10,fontWeight:700,letterSpacing:'0.05em',outline:'none',fontFamily:'inherit',borderRadius:5,textTransform:'uppercase' as const}}>
                     {['verse','chorus','bridge','intro','outro'].map(t=><option key={t} value={t}>{t.toUpperCase()}</option>)}
                   </select>
                   <div style={{flex:1}}/>
@@ -919,7 +894,7 @@ function SongsTab({ goLive, addToQueue, notify }: { goLive:(t:string,l:string)=>
                 </div>
                 <textarea value={sec.content} onChange={e=>updateNewSection(i,{content:e.target.value})}
                   placeholder="Lyrics for this section…" rows={4}
-                  style={{width:'100%',background:C.tex3,border:`1px solid ${C.b1}`,color:C.t1,padding:'10px 12px',fontSize:13,outline:'none',fontFamily:'inherit',borderRadius:7,resize:'vertical' as const,lineHeight:1.6}}/>
+                  style={{width:'100%',background:C.bg3,border:`1px solid ${C.b1}`,color:C.t1,padding:'10px 12px',fontSize:13,outline:'none',fontFamily:'inherit',borderRadius:7,resize:'vertical' as const,lineHeight:1.6}}/>
               </div>
             ))}
           </div>
@@ -1039,28 +1014,11 @@ function SongsTab({ goLive, addToQueue, notify }: { goLive:(t:string,l:string)=>
   )
 }
 
-type RemoteDevice = { token:string; label:string; lastSeen:number }
-type RemoteInfo   = { port:number|null; pin:string; urls:string[]; devices:RemoteDevice[] }
-
-function relativeTime(ms:number):string{
-  const secs = Math.max(0, Math.round((Date.now()-ms)/1000))
-  if(secs<10) return 'just now'
-  if(secs<60) return `${secs}s ago`
-  const mins = Math.round(secs/60)
-  if(mins<60) return `${mins}m ago`
-  const hrs = Math.round(mins/60)
-  return `${hrs}h ago`
-}
-
 function RemoteTab() {
-  const [info,setInfo]     = useState<RemoteInfo|null>(null)
+  const [info,setInfo]   = useState<{port:number|null;pin:string;urls:string[]}|null>(null)
   const [loading,setLoading] = useState(true)
-  const [qrSvg,setQrSvg]    = useState<string>('')
-  const [kicking,setKicking] = useState<string|null>(null)
+  const [qr,setQr] = useState<string|null>(null)
 
-  // Keep polling (not just a one-shot load) so a freshly-connected phone
-  // shows up in "Connected Devices" without the operator having to reopen
-  // this tab, and so a device that times out drops off the list on its own.
   useEffect(()=>{
     let cancelled = false
     async function load(attempt=0){
@@ -1073,101 +1031,54 @@ function RemoteTab() {
         // few times before concluding it's genuinely unavailable.
         if(i.port==null && attempt<6){ setTimeout(()=>load(attempt+1),400); return }
         setInfo(i)
+        if(i.port!=null){ try{ setQr(await (window as any).shogunos.getRemoteQR()) }catch{} }
       } finally{ if(!cancelled) setLoading(false) }
     }
     load()
-    const iv = setInterval(load, 3000)
-    return ()=>{ cancelled = true; clearInterval(iv) }
-  },[])
-
-  // The remote page already knows how to auto-connect from a `?pin=` query
-  // param (see REMOTE_HTML in remote-server.ts), so the QR just needs to
-  // encode that same URL — scanning it is then equivalent to typing in the
-  // IP and PIN by hand, just without the typing.
-  useEffect(()=>{
-    const url = info?.urls?.[0]
-    if(!url || !info?.pin){ setQrSvg(''); return }
-    let cancelled = false
-    QRCode.toString(`${url}/?pin=${info.pin}`, { type:'svg', margin:1, width:176, color:{ dark:'#100c1e', light:'#ffffff' } })
-      .then(svg=>{ if(!cancelled) setQrSvg(svg) })
-      .catch(()=>{ if(!cancelled) setQrSvg('') })
     return ()=>{ cancelled = true }
-  },[info?.urls?.[0], info?.pin])
-
-  async function disconnectDevice(token:string){
-    setKicking(token)
-    try{
-      await (window as any).shogunos.kickRemoteDevice(token)
-      const i = await (window as any).shogunos.getRemoteInfo()
-      setInfo(i)
-    } finally{ setKicking(null) }
-  }
+  },[])
 
   return (
     <div style={{flex:1,padding:40,overflowY:'auto',background:C.tex1}}>
-      <div style={{maxWidth:640}}>
+      <div style={{maxWidth:560}}>
         <div style={{fontSize:20,fontWeight:700,color:C.t1,marginBottom:6}}>Remote Control</div>
         <div style={{fontSize:13,color:C.t3,lineHeight:1.6,marginBottom:24}}>
-          Drive the live screen from a phone or tablet on the same Wi-Fi network — advance slides, blank the screen, or send a queued item live, without touching this computer.
+          Drive the live screen from a phone or tablet on the same Wi-Fi network — advance slides, blank the screen, search the hymnal/Bible and send anything live, or send a queued item live, without touching this computer.
         </div>
 
         {loading && <div style={{fontSize:12,color:C.t3}}>Starting remote server…</div>}
 
         {!loading && (!info || info.port==null) && (
-          <div style={{background:C.tex3,borderRadius:12,padding:'16px 18px',border:`1px solid ${C.b1}`,fontSize:12,color:C.t2}}>
+          <div style={{background:C.bg3,borderRadius:12,padding:'16px 18px',border:`1px solid ${C.b1}`,fontSize:12,color:C.t2}}>
             Remote control isn't available right now — its network port couldn't be opened (something else on this computer may be using it). Everything else in ShogunOS is unaffected; try restarting the app if you need the remote.
           </div>
         )}
 
         {info && info.port!=null && (
           <>
-            <div style={{display:'flex',gap:16,marginBottom:16,flexWrap:'wrap'}}>
-              <div style={{background:C.tex3,borderRadius:12,padding:18,border:`1px solid ${C.b1}`,display:'flex',alignItems:'center',justifyContent:'center',width:176+36,height:176+36,flexShrink:0}}>
-                {qrSvg
-                  ? <div style={{width:176,height:176,borderRadius:6,overflow:'hidden'}} dangerouslySetInnerHTML={{__html:qrSvg}}/>
-                  : <div style={{fontSize:11,color:C.t4,textAlign:'center',width:176}}>QR unavailable — connect this computer to Wi-Fi first</div>}
-              </div>
-
-              <div style={{flex:1,minWidth:220,display:'flex',flexDirection:'column',gap:12}}>
-                <div style={{background:C.tex3,borderRadius:12,padding:'14px 18px',border:`1px solid ${C.b1}`}}>
-                  <div style={{fontSize:9,color:C.t4,fontWeight:700,letterSpacing:'0.15em',marginBottom:8,textTransform:'uppercase' as const}}>Scan, or connect manually to</div>
-                  {info.urls.length===0 && <div style={{fontSize:13,color:C.t3}}>No network connection detected.</div>}
-                  {info.urls.map(u=>(
-                    <div key={u} style={{fontSize:16,fontWeight:700,color:C.g2,fontFamily:'monospace',marginBottom:2}}>{u}</div>
-                  ))}
-                </div>
-                <div style={{background:C.tex3,borderRadius:12,padding:'14px 18px',border:`1px solid ${C.b1}`}}>
-                  <div style={{fontSize:9,color:C.t4,fontWeight:700,letterSpacing:'0.15em',marginBottom:8,textTransform:'uppercase' as const}}>PIN (only needed for manual entry)</div>
-                  <div style={{fontSize:28,fontWeight:900,letterSpacing:'0.3em',color:C.p2,fontFamily:'monospace'}}>{info.pin}</div>
+            {qr && info.urls.length>0 && (
+              <div style={{background:C.bg3,borderRadius:12,padding:'22px',border:`1px solid ${C.b1}`,marginBottom:16,display:'flex',gap:20,alignItems:'center'}}>
+                <img src={qr} alt="Scan to connect" style={{width:130,height:130,borderRadius:10,flexShrink:0}}/>
+                <div>
+                  <div style={{fontSize:9,color:C.t4,fontWeight:700,letterSpacing:'0.15em',marginBottom:6,textTransform:'uppercase' as const}}>Scan to connect</div>
+                  <div style={{fontSize:12,color:C.t3,lineHeight:1.6}}>Open the camera app on the phone and point it at this code — it'll open the Remote page and connect automatically, no typing needed.</div>
                 </div>
               </div>
-            </div>
-
-            <div style={{fontSize:11,color:C.t4,lineHeight:1.6,marginBottom:24}}>
-              Works over your local Wi-Fi only — no internet or account needed. Both devices must be on the same network. A new PIN is generated every time ShogunOS starts.
-            </div>
-
-            <div style={{background:C.tex3,borderRadius:12,padding:'18px 20px',border:`1px solid ${C.b1}`}}>
-              <div style={{fontSize:9,color:C.t4,fontWeight:700,letterSpacing:'0.15em',marginBottom:12,textTransform:'uppercase' as const}}>
-                Connected Devices {info.devices.length>0 && `(${info.devices.length})`}
-              </div>
-              {info.devices.length===0 && (
-                <div style={{fontSize:12,color:C.t3}}>No devices connected yet — scan the QR code above from a phone to connect one.</div>
-              )}
-              {info.devices.map(d=>(
-                <div key={d.token} style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'10px 0',borderTop:`1px solid ${C.b1}`}}>
-                  <div>
-                    <div style={{fontSize:13,color:C.t1,fontWeight:600}}>{d.label}</div>
-                    <div style={{fontSize:11,color:C.t4}}>Active {relativeTime(d.lastSeen)}</div>
-                  </div>
-                  <button
-                    onClick={()=>disconnectDevice(d.token)}
-                    disabled={kicking===d.token}
-                    style={{background:'transparent',border:`1px solid ${C.live}`,color:C.live,fontSize:11,fontWeight:700,letterSpacing:'0.05em',padding:'6px 12px',borderRadius:8,cursor:kicking===d.token?'default':'pointer',opacity:kicking===d.token?0.5:1}}>
-                    {kicking===d.token ? 'Disconnecting…' : 'Disconnect'}
-                  </button>
-                </div>
+            )}
+            <div style={{background:C.bg3,borderRadius:12,padding:'20px 22px',border:`1px solid ${C.b1}`,marginBottom:16}}>
+              <div style={{fontSize:9,color:C.t4,fontWeight:700,letterSpacing:'0.15em',marginBottom:10,textTransform:'uppercase' as const}}>Or, on your phone, connect manually to</div>
+              {info.urls.length===0 && <div style={{fontSize:13,color:C.t3}}>No network connection detected — connect this computer to Wi-Fi first.</div>}
+              {info.urls.map(u=>(
+                <div key={u} style={{fontSize:18,fontWeight:700,color:C.g2,fontFamily:'monospace',marginBottom:4}}>{u}</div>
               ))}
+            </div>
+            <div style={{background:C.bg3,borderRadius:12,padding:'20px 22px',border:`1px solid ${C.b1}`,marginBottom:16}}>
+              <div style={{fontSize:9,color:C.t4,fontWeight:700,letterSpacing:'0.15em',marginBottom:10,textTransform:'uppercase' as const}}>...and enter this PIN</div>
+              <div style={{fontSize:32,fontWeight:900,letterSpacing:'0.3em',color:C.p2,fontFamily:'monospace'}}>{info.pin}</div>
+              <div style={{fontSize:11,color:C.t3,marginTop:8}}>A new PIN is generated every time ShogunOS starts, so only someone who can see this screen can connect. Scanning the QR code above enters it for you automatically.</div>
+            </div>
+            <div style={{fontSize:11,color:C.t4,lineHeight:1.6}}>
+              Works over your local Wi-Fi only — no internet or account needed. Both devices must be on the same network.
             </div>
           </>
         )}
@@ -1208,13 +1119,13 @@ function AboutTab() {
             ['Built with','Claude AI (Anthropic)'],
             ['License','Private — All rights reserved'],
           ].map(([k,v])=>(
-            <div key={k} style={{background:C.tex3,borderRadius:10,padding:'14px 16px',border:`1px solid ${C.b1}`}}>
+            <div key={k} style={{background:C.bg3,borderRadius:10,padding:'14px 16px',border:`1px solid ${C.b1}`}}>
               <div style={{fontSize:9,color:C.t4,fontWeight:700,letterSpacing:'0.15em',marginBottom:5,textTransform:'uppercase' as const}}>{k}</div>
               <div style={{fontSize:12,color:C.t1,fontWeight:500}}>{v}</div>
             </div>
           ))}
         </div>
-        <div style={{background:C.tex3,borderRadius:12,padding:'18px 20px',border:`1px solid ${C.b1}`}}>
+        <div style={{background:C.bg3,borderRadius:12,padding:'18px 20px',border:`1px solid ${C.b1}`}}>
           <div style={{fontSize:10,color:C.t4,fontWeight:700,letterSpacing:'0.15em',marginBottom:8,textTransform:'uppercase' as const}}>About</div>
           <div style={{fontSize:13,color:C.t2,lineHeight:1.75}}>ShogunOS is a professional multimedia presentation system built for church services, schools and events. Designed and developed by Ngaatendwe Manjeya as a former student of Lingfield Advent High School, this application combines the precision of professional broadcast tools with the simplicity needed for real-world worship environments.</div>
         </div>
@@ -1225,19 +1136,16 @@ function AboutTab() {
 
 function ImportTab({ notify }: { notify:(m:string)=>void }) {
   const [importing,setImporting] = useState(false)
+  const [exporting,setExporting] = useState(false)
   const [result,setResult]       = useState<{success:boolean;message:string}|null>(null)
-  const [mode,setMode]           = useState<'json'|'qsp'>('json')
   const [dragOver,setDragOver]   = useState(false)
-  const [qspLang,setQspLang]     = useState('en')
+  const [stats,setStats]         = useState<any>(null)
+  const [sub,setSub]             = useState<'import'|'export'>('import')
   const fileRef  = useRef<HTMLInputElement>(null)
-  const qspRef   = useRef<HTMLInputElement>(null)
   const api = (window as any).shogunos
 
-  const QSP_LANGS: { id:string; label:string }[] = [
-    { id:'en', label:'English' }, { id:'sn', label:'Shona' }, { id:'nd', label:'Ndebele' },
-    { id:'fr', label:'French' }, { id:'pt', label:'Portuguese' }, { id:'sw', label:'Swahili' },
-    { id:'zu', label:'Zulu' }, { id:'xh', label:'Xhosa' }, { id:'st', label:'Sotho' },
-  ]
+  useEffect(()=>{ loadStats() },[])
+  async function loadStats(){ try{ setStats(await api.getDatabaseStats()) }catch{} }
 
   async function handleJson(file:File){
     if(!file.name.endsWith('.json')){setResult({success:false,message:'Please select a .json ShogunOS backup file'});return}
@@ -1245,71 +1153,120 @@ function ImportTab({ notify }: { notify:(m:string)=>void }) {
     try{
       const text=await file.text()
       const r=await api.importData(text)
-      if(r.success){setResult({success:true,message:`Imported — ${r.counts.songs} songs, ${r.counts.slides} slides added`});notify('Import successful')}
+      if(r.success){setResult({success:true,message:`Imported — ${r.counts.songs} songs, ${r.counts.slides} slides added`});notify('Import successful');loadStats()}
       else setResult({success:false,message:r.error||'Import failed'})
     }catch{setResult({success:false,message:'Failed to read file'})}
-    setImporting(false)
-  }
-
-  async function handleQSP(file:File){
-    if(!file.name.toLowerCase().endsWith('.qsp')){setResult({success:false,message:'Please select a .qsp Quelea file'});return}
-    setImporting(true);setResult(null)
-    try{
-      const ab=await file.arrayBuffer()
-      const u8=new Uint8Array(ab)
-      let bin='';for(let i=0;i<u8.length;i++)bin+=String.fromCharCode(u8[i])
-      const b64=btoa(bin)
-      const r=await api.importQSP(b64,qspLang)
-      if(r.success){
-        const msg=`Quelea import — ${r.counts.songs} songs added${r.skipped>0?`, ${r.skipped} duplicates skipped`:''}`
-        setResult({success:true,message:msg});notify(`QSP: ${r.counts.songs} songs imported`)
-      }else setResult({success:false,message:r.error||'QSP import failed'})
-    }catch(e:any){setResult({success:false,message:e.message})}
     setImporting(false)
   }
 
   function onDrop(e:React.DragEvent){
     e.preventDefault();setDragOver(false)
     const f=e.dataTransfer.files[0];if(!f)return
-    const lower=f.name.toLowerCase()
-    if(lower.endsWith('.qsp'))handleQSP(f)
-    else handleJson(f)
+    handleJson(f)
   }
 
+  async function handleExport(){
+    setExporting(true)
+    try{
+      const json = await api.exportData()
+      const blob = new Blob([json],{type:'application/json'})
+      const url  = URL.createObjectURL(blob)
+      const a    = document.createElement('a')
+      a.href = url; a.download = `shogunos-backup-${new Date().toISOString().split('T')[0]}.json`
+      a.click(); URL.revokeObjectURL(url)
+      notify('Backup exported')
+    }catch{ notify('Export failed') }
+    setExporting(false)
+  }
+
+  const card: React.CSSProperties = {background:C.bg3,borderRadius:12,padding:'20px 22px',border:`1px solid ${C.b1}`}
+  const lbl: React.CSSProperties = {fontSize:9,fontWeight:700,letterSpacing:'0.2em',color:C.t4,textTransform:'uppercase' as const}
+
   return (
-    <div style={{flex:1,padding:36,overflowY:'auto',background:C.tex1,display:'flex',flexDirection:'column',gap:20,maxWidth:560}}>
-      <div style={{fontSize:9,fontWeight:700,letterSpacing:'0.2em',color:C.t4,textTransform:'uppercase' as const}}>Import Data</div>
-      <div style={{display:'flex',gap:4,background:C.tex3,padding:4,borderRadius:10,border:`1px solid ${C.b1}`}}>
-        {(['json','qsp'] as const).map(m=>(
-          <button key={m} onClick={()=>{setMode(m);setResult(null)}} style={{flex:1,padding:'9px 0',fontSize:11,fontWeight:600,cursor:'pointer',fontFamily:'inherit',borderRadius:7,background:mode===m?C.bg5:'none',border:`1px solid ${mode===m?C.b2:'transparent'}`,color:mode===m?C.t1:C.t3}}>
-            {m==='json'?'ShogunOS Backup (.json)':'Quelea Song Pack (.qsp)'}
+    <div style={{flex:1,padding:36,overflowY:'auto',background:C.tex1,display:'flex',flexDirection:'column',gap:20,maxWidth:600}}>
+      <div style={lbl}>Import / Export</div>
+
+      <div style={{display:'flex',gap:4,background:C.bg3,padding:4,borderRadius:10,border:`1px solid ${C.b1}`}}>
+        {(['import','export'] as const).map(m=>(
+          <button key={m} onClick={()=>setSub(m)} style={{flex:1,padding:'9px 0',fontSize:11,fontWeight:600,cursor:'pointer',fontFamily:'inherit',borderRadius:7,background:sub===m?C.bg5:'none',border:`1px solid ${sub===m?C.b2:'transparent'}`,color:sub===m?C.t1:C.t3}}>
+            {m==='import'?'⬇ Import a Backup':'⬆ Export a Backup'}
           </button>
         ))}
       </div>
-      {mode==='qsp'&&(
-        <div style={{padding:'12px 16px',background:`color-mix(in srgb, ${C.p1} 7%, transparent)`,border:`1px solid color-mix(in srgb, ${C.p1} 27%, transparent)`,borderRadius:10}}>
-          <div style={{fontSize:11,color:C.p2,fontWeight:700,marginBottom:4}}>Quelea Song Pack Import</div>
-          <div style={{fontSize:12,color:C.t3,lineHeight:1.6,marginBottom:12}}>In Quelea, go to <strong style={{color:C.t2}}>Database → Export → Song Pack (.qsp)</strong>, then drop the file below.</div>
-          <label style={{fontSize:10,color:C.t3,fontWeight:600,letterSpacing:'0.05em',textTransform:'uppercase' as const,display:'block',marginBottom:6}}>Tag all songs in this pack as</label>
-          <select value={qspLang} onChange={e=>setQspLang(e.target.value)}
-            style={{width:'100%',background:C.tex4,border:`1px solid ${C.b1}`,color:C.t1,padding:'9px 12px',fontSize:12,outline:'none',fontFamily:'inherit',borderRadius:8}}>
-            {QSP_LANGS.map(l=><option key={l.id} value={l.id}>{l.label}</option>)}
-          </select>
-          <div style={{fontSize:10,color:C.t4,marginTop:6,lineHeight:1.5}}>Quelea song packs don't store a language, so pick the one that matches this pack — it'll be used to group these songs in the Hymnal and My Songs views.</div>
-        </div>
+
+      {sub==='import' && (
+        <>
+          <div style={{fontSize:12,color:C.t3,lineHeight:1.6}}>Bring in songs, slides, and the service queue from a <strong style={{color:C.t2}}>.json</strong> backup exported by another ShogunOS install — nothing existing gets overwritten, only new items are added.</div>
+          <div onDragOver={e=>{e.preventDefault();setDragOver(true)}} onDragLeave={()=>setDragOver(false)} onDrop={onDrop} onClick={()=>fileRef.current?.click()}
+            style={{border:`2px dashed ${dragOver?C.p1:C.b1}`,background:dragOver?`color-mix(in srgb, ${C.p1} 3%, transparent)`:C.tex2,borderRadius:12,padding:'40px 24px',textAlign:'center',cursor:'pointer',transition:'all 0.15s'}}>
+            <div style={{fontSize:28,marginBottom:10,opacity:0.4}}>📂</div>
+            <div style={{fontSize:14,color:dragOver?C.p2:C.t2,fontWeight:600,marginBottom:4}}>{importing?'Importing…':'Drop your backup file'}</div>
+            <div style={{fontSize:11,color:C.t4}}>or click to browse — accepts .json ShogunOS backups</div>
+          </div>
+          <input ref={fileRef} type="file" accept=".json" onChange={e=>{const f=e.target.files?.[0];if(f)handleJson(f);e.target.value=''}} style={{display:'none'}}/>
+          {result&&(
+            <div style={{padding:'14px 18px',background:result.success?`color-mix(in srgb, ${C.safe} 6%, transparent)`:`color-mix(in srgb, ${C.live} 6%, transparent)`,border:`1px solid ${result.success?C.safe:C.live}44`,borderRadius:10}}>
+              <div style={{fontSize:12,color:result.success?C.safe:C.live,fontWeight:600}}>{result.success?'✓ ':'✗ '}{result.message}</div>
+            </div>
+          )}
+          <div style={card}>
+            <div style={{...lbl,marginBottom:12}}>How import works</div>
+            {[
+              ['Safe merge','Existing data is never deleted or changed — only genuinely new items are added.'],
+              ['Duplicate handling','Songs and slides with a matching title are skipped, so importing the same backup twice is harmless.'],
+              ['Bible data','Not included — it loads from the built-in translations bundled with the app.'],
+              ['User accounts','Not imported, for security.'],
+            ].map(([t,d])=>(
+              <div key={t} style={{marginBottom:10}}>
+                <div style={{fontSize:11,color:C.p2,fontWeight:700,marginBottom:2}}>{t}</div>
+                <div style={{fontSize:11,color:C.t3,lineHeight:1.5}}>{d}</div>
+              </div>
+            ))}
+          </div>
+        </>
       )}
-      <div onDragOver={e=>{e.preventDefault();setDragOver(true)}} onDragLeave={()=>setDragOver(false)} onDrop={onDrop} onClick={()=>mode==='qsp'?qspRef.current?.click():fileRef.current?.click()}
-        style={{border:`2px dashed ${dragOver?C.p1:C.b1}`,background:dragOver?`color-mix(in srgb, ${C.p1} 3%, transparent)`:C.tex2,borderRadius:12,padding:'40px 24px',textAlign:'center',cursor:'pointer',transition:'all 0.15s'}}>
-        <div style={{fontSize:28,marginBottom:10,opacity:0.4}}>{mode==='qsp'?'🎵':'📂'}</div>
-        <div style={{fontSize:14,color:dragOver?C.p2:C.t2,fontWeight:600,marginBottom:4}}>{importing?'Importing…':mode==='qsp'?'Drop your .qsp file':'Drop your backup file'}</div>
-        <div style={{fontSize:11,color:C.t4}}>or click to browse</div>
-      </div>
-      <input ref={fileRef} type="file" accept=".json" onChange={e=>{const f=e.target.files?.[0];if(f)handleJson(f);e.target.value=''}} style={{display:'none'}}/>
-      <input ref={qspRef} type="file" accept=".qsp" onChange={e=>{const f=e.target.files?.[0];if(f)handleQSP(f);e.target.value=''}} style={{display:'none'}}/>
-      {result&&(
-        <div style={{padding:'14px 18px',background:result.success?`color-mix(in srgb, ${C.safe} 6%, transparent)`:`color-mix(in srgb, ${C.live} 6%, transparent)`,border:`1px solid ${result.success?C.safe:C.live}44`,borderRadius:10}}>
-          <div style={{fontSize:12,color:result.success?C.safe:C.live,fontWeight:600}}>{result.success?'✓ ':'✗ '}{result.message}</div>
-        </div>
+
+      {sub==='export' && (
+        <>
+          <div style={{fontSize:12,color:C.t3,lineHeight:1.6}}>Save everything in this library to a single <strong style={{color:C.t2}}>.json</strong> file — perfect for backing up before an update, or handing your song library to another campus running ShogunOS.</div>
+
+          {stats && (
+            <div style={card}>
+              <div style={{...lbl,marginBottom:14}}>Database Contents</div>
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:10}}>
+                {[
+                  {label:'Hymns',      val:stats.hymns,        c:C.g2},
+                  {label:'My Songs',   val:stats.custom_songs, c:C.p2},
+                  {label:'Slides',     val:stats.slides,       c:C.p1},
+                  {label:'Bible Verses',val:stats.bible_verses,c:'#7DD3FC'},
+                  {label:'Queue Items',val:stats.queue_items,  c:C.g1},
+                  {label:'Users',      val:stats.users,        c:C.live},
+                ].map(({label,val,c})=>(
+                  <div key={label} style={{background:C.bg4,border:`1px solid ${C.b1}`,borderRadius:8,padding:'10px 12px'}}>
+                    <div style={{fontSize:20,fontWeight:200,color:c}}>{val}</div>
+                    <div style={{fontSize:9,color:C.t4,letterSpacing:'0.05em',marginTop:2}}>{label}</div>
+                  </div>
+                ))}
+              </div>
+              <button onClick={loadStats} style={{marginTop:12,width:'100%',padding:'8px 0',background:'none',border:`1px solid ${C.b1}`,color:C.t3,fontSize:10,fontWeight:700,letterSpacing:'0.08em',cursor:'pointer',fontFamily:'inherit',borderRadius:7}}>↻ Refresh</button>
+            </div>
+          )}
+
+          <div style={card}>
+            <div style={{...lbl,marginBottom:10}}>What's included</div>
+            <div style={{fontSize:11,color:C.t3,lineHeight:2}}>
+              <div>✓ All hymns and custom songs</div>
+              <div>✓ All slides</div>
+              <div>✓ Service queue</div>
+              <div style={{opacity:0.5}}>✗ Bible data — too large; reloads from the built-in files automatically</div>
+              <div style={{opacity:0.5}}>✗ User passwords — kept local for security</div>
+            </div>
+            <button onClick={handleExport} disabled={exporting}
+              style={{marginTop:16,width:'100%',padding:'12px 0',background:`linear-gradient(135deg,${C.p1},${C.g2})`,border:'none',color:'#fff',fontSize:12,fontWeight:700,letterSpacing:'0.08em',cursor:exporting?'not-allowed':'pointer',fontFamily:'inherit',borderRadius:8,opacity:exporting?0.6:1}}>
+              {exporting?'Exporting…':'⬇ Export Backup'}
+            </button>
+          </div>
+        </>
       )}
     </div>
   )
@@ -1318,7 +1275,7 @@ function ImportTab({ notify }: { notify:(m:string)=>void }) {
 function DisplaySettingsTab({ settings, onChange, notify }: { settings:DisplaySettings; onChange:(s:DisplaySettings)=>void; notify:(m:string)=>void }) {
   function set(k:keyof DisplaySettings,v:any){onChange({...settings,[k]:v})}
   const lbl: React.CSSProperties = {fontSize:10,color:C.t3,fontWeight:600,marginBottom:6,display:'block',letterSpacing:'0.05em',textTransform:'uppercase' as const}
-  const inp: React.CSSProperties = {width:'100%',background:C.tex4,border:`1px solid ${C.b1}`,color:C.t1,padding:'9px 12px',fontSize:12,outline:'none',fontFamily:'inherit',borderRadius:8}
+  const inp: React.CSSProperties = {width:'100%',background:C.bg4,border:`1px solid ${C.b1}`,color:C.t1,padding:'9px 12px',fontSize:12,outline:'none',fontFamily:'inherit',borderRadius:8}
 
   const FONTS = [
     // Serif — classic worship feel
@@ -1377,15 +1334,15 @@ function DisplaySettingsTab({ settings, onChange, notify }: { settings:DisplaySe
   return (
     <div style={{flex:1,padding:32,overflowY:'auto',background:C.tex1,display:'flex',flexDirection:'column',gap:20,maxWidth:520}}>
       <div style={{fontSize:9,fontWeight:700,letterSpacing:'0.2em',color:C.t4,textTransform:'uppercase' as const}}>Display Settings</div>
-      <div style={{fontSize:12,color:C.t3,lineHeight:1.6,padding:'12px 16px',background:C.tex3,borderRadius:10,border:`1px solid ${C.b1}`}}>These settings apply to hymns and Bible verses sent live. Slides use their own individual settings.</div>
+      <div style={{fontSize:12,color:C.t3,lineHeight:1.6,padding:'12px 16px',background:C.bg3,borderRadius:10,border:`1px solid ${C.b1}`}}>These settings apply to hymns and Bible verses sent live. Slides use their own individual settings.</div>
 
-      <div style={{padding:'16px',background:settings.highVisibility?`color-mix(in srgb, ${C.warn} 10%, transparent)`:C.bg3,border:`1px solid ${settings.highVisibility?C.warn:C.b1}`,borderRadius:10,display:'flex',flexDirection:'column',gap:12}}>
+      <div style={{padding:'16px',background:settings.highVisibility?'color-mix(in srgb, #f59e0b 10%, transparent)':C.bg3,border:`1px solid ${settings.highVisibility?'#f59e0b':C.b1}`,borderRadius:10,display:'flex',flexDirection:'column',gap:12}}>
         <div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
           <div>
             <div style={{fontSize:12,fontWeight:700,color:C.t1}}>☀ Sunlight Mode</div>
             <div style={{fontSize:10,color:C.t3,marginTop:2,maxWidth:340,lineHeight:1.5}}>Maximizes contrast for rooms fighting daylight glare on the projector — a bright, high-contrast, bold-weight look with no background image. This can't add brightness a projector doesn't have, but it's the closest software gets to fighting a washed-out screen.</div>
           </div>
-          <div onClick={()=>set('highVisibility',!settings.highVisibility)} style={{width:44,height:24,borderRadius:12,background:settings.highVisibility?C.warn:C.b2,position:'relative',cursor:'pointer',flexShrink:0,transition:'background 0.15s'}}>
+          <div onClick={()=>set('highVisibility',!settings.highVisibility)} style={{width:44,height:24,borderRadius:12,background:settings.highVisibility?'#f59e0b':C.b2,position:'relative',cursor:'pointer',flexShrink:0,transition:'background 0.15s'}}>
             <div style={{width:18,height:18,borderRadius:'50%',background:'#fff',position:'absolute',top:3,left:settings.highVisibility?23:3,transition:'left 0.15s'}}/>
           </div>
         </div>
@@ -1393,8 +1350,8 @@ function DisplaySettingsTab({ settings, onChange, notify }: { settings:DisplaySe
           <div>
             <label style={lbl}>Polarity</label>
             <div style={{display:'flex',gap:4}}>
-              <button onClick={()=>set('highVisibilityInvert',false)} style={{flex:1,padding:'8px 0',fontSize:10,fontWeight:700,border:`1px solid ${!settings.highVisibilityInvert?C.warn:C.b1}`,color:!settings.highVisibilityInvert?C.warn:C.t3,background:!settings.highVisibilityInvert?`color-mix(in srgb, ${C.warn} 10%, transparent)`:'none',cursor:'pointer',fontFamily:'inherit',borderRadius:6}}>Black on White</button>
-              <button onClick={()=>set('highVisibilityInvert',true)} style={{flex:1,padding:'8px 0',fontSize:10,fontWeight:700,border:`1px solid ${settings.highVisibilityInvert?C.warn:C.b1}`,color:settings.highVisibilityInvert?C.warn:C.t3,background:settings.highVisibilityInvert?`color-mix(in srgb, ${C.warn} 10%, transparent)`:'none',cursor:'pointer',fontFamily:'inherit',borderRadius:6}}>White on Black</button>
+              <button onClick={()=>set('highVisibilityInvert',false)} style={{flex:1,padding:'8px 0',fontSize:10,fontWeight:700,border:`1px solid ${!settings.highVisibilityInvert?'#f59e0b':C.b1}`,color:!settings.highVisibilityInvert?'#f59e0b':C.t3,background:!settings.highVisibilityInvert?'color-mix(in srgb, #f59e0b 10%, transparent)':'none',cursor:'pointer',fontFamily:'inherit',borderRadius:6}}>Black on White</button>
+              <button onClick={()=>set('highVisibilityInvert',true)} style={{flex:1,padding:'8px 0',fontSize:10,fontWeight:700,border:`1px solid ${settings.highVisibilityInvert?'#f59e0b':C.b1}`,color:settings.highVisibilityInvert?'#f59e0b':C.t3,background:settings.highVisibilityInvert?'color-mix(in srgb, #f59e0b 10%, transparent)':'none',cursor:'pointer',fontFamily:'inherit',borderRadius:6}}>White on Black</button>
             </div>
             <div style={{fontSize:9,color:C.t4,marginTop:6,lineHeight:1.5}}>Black-on-white usually reads best in bright rooms — a projector's "black" is never fully dark, so a light background hides that better than a dark one.</div>
           </div>
@@ -1407,7 +1364,7 @@ function DisplaySettingsTab({ settings, onChange, notify }: { settings:DisplaySe
           <input style={{...inp,width:110}} value={settings.bgColor} onChange={e=>set('bgColor',e.target.value)}/>
         </div>
         <div style={{display:'flex',gap:4}}>
-          {['#000000','#0a0814','#140a0a','#0a0a14','#060609','#111111','#1a0a2e','#0a1a2e'].map(c=>(
+          {['#000000','#0a0814','#140a0a','#0a0a14','#060609','#111111'].map(c=>(
             <div key={c} onClick={()=>set('bgColor',c)} style={{width:28,height:28,background:c,border:`1px solid ${settings.bgColor===c?C.g2:C.b2}`,borderRadius:5,cursor:'pointer'}}/>
           ))}
         </div>
@@ -1449,7 +1406,7 @@ function DisplaySettingsTab({ settings, onChange, notify }: { settings:DisplaySe
           <input style={{...inp,width:110}} value={settings.fontColor} onChange={e=>set('fontColor',e.target.value)}/>
         </div>
         <div style={{display:'flex',gap:4}}>
-          {['#ffffff','#f8f4e8','#f59e0b','#a78bfa','#7dd3fc','#86efac','#ff2e63','#6fe8ff','#b967ff'].map(c=>(
+          {['#ffffff','#f8f4e8','#f59e0b','#a78bfa','#7dd3fc','#86efac'].map(c=>(
             <div key={c} onClick={()=>set('fontColor',c)} style={{width:28,height:28,background:c,border:`1px solid ${settings.fontColor===c?C.g2:C.b2}`,borderRadius:5,cursor:'pointer'}}/>
           ))}
         </div>
@@ -1680,7 +1637,7 @@ export default function App() {
     try{ const v=localStorage.getItem('shogun_preview_width'); return v?parseInt(v):null }catch{return null}
   })
   const [theme,setTheme] = useState<'light'|'dark'>(()=>{
-    try{ return (localStorage.getItem('shogun_theme') as 'light'|'dark') || 'dark' }catch{ return 'dark' }
+    try{ return (localStorage.getItem('shogun_theme') as 'light'|'dark') || 'light' }catch{ return 'light' }
   })
   useEffect(()=>{
     document.documentElement.setAttribute('data-theme',theme)
@@ -1777,56 +1734,23 @@ export default function App() {
       currentSection, totalSections: sections.length,
       sectionPreview: (sections[currentSection]?.content || selectedVerse?.text || '').slice(0,240),
       queue,
-      // The text preview box on the remote page falls back to this (colors +
-      // font) whenever a real screenshot isn't available yet — e.g. right
-      // after connecting, or if capturing the live window ever fails.
-      style: { bgColor: displaySettings.bgColor, fontColor: displaySettings.fontColor, fontSize: displaySettings.fontSize, textAlign: displaySettings.textAlign, fontFamily: displaySettings.fontFamily },
+      bibleVersion,
     })
-  },[showSplash,live,blankScreen,currentSection,sections,selectedVerse,queue,displaySettings])
+  },[showSplash,live,blankScreen,currentSection,sections,selectedVerse,queue,bibleVersion])
 
   // ── REMOTE CONTROL: receive commands ────────────────────────────────────
   // Mirrors the keyboard shortcuts above (Space/Arrows/B/Escape) so a phone
-  // behaves exactly like an operator standing at the booth. Previously this
-  // only wired up next/prev/blank/clear/queue-go — the remote page could
-  // already *send* song-live/media-live/announce/queue-remove/queue-move
-  // (see remote-server.ts), but nothing here was listening for them, so
-  // opening a hymn, sending an announcement, or reordering the queue from a
-  // phone silently did nothing. All of those are handled now, plus the new
-  // verse-live/queue-add actions for Scripture control and add-to-queue.
+  // behaves exactly like an operator standing at the booth.
   useEffect(()=>{
-    (window as any).shogunos.onRemoteCommand(async (data:any)=>{
-      const {action,id,dir,text}=data
+    (window as any).shogunos.onRemoteCommand(async ({action,id,title,content}:{action:string;id?:string;title?:string;content?:string})=>{
       if(action==='next'&&sections.length) handleSectionClick(Math.min(currentSection+1,sections.length-1))
       else if(action==='prev'&&sections.length) handleSectionClick(Math.max(currentSection-1,0))
       else if(action==='blank') handleBlank()
       else if(action==='clear') handleClear()
       else if(action==='queue-go'&&id) goLiveFromQueueItem(id)
-      else if(action==='queue-remove'&&id) removeFromQueue(id)
-      else if(action==='queue-add'&&data.title) addToQueue(data.title,data.itemType||'song')
-      else if(action==='queue-move'&&id&&dir){
-        const idx=queue.findIndex(q=>q.id===id)
-        const swapWith=dir==='up'?idx-1:idx+1
-        if(idx===-1||swapWith<0||swapWith>=queue.length) return
-        const next=[...queue]
-        ;[next[idx],next[swapWith]]=[next[swapWith],next[idx]]
-        reorderQueueItems(next)
-      }
-      else if(action==='announce'&&text) goLive('Announcement',text)
-      else if(action==='song-live'){
-        const song:Song={id:data.songId,title:data.title,hymn_number:0,source:'hymnal',language:''}
-        setSelected(song);setSections(data.sections||[]);setCurrentSection(data.index||0)
-        goLive(data.title,data.sections?.[data.index]?.content||'')
-      }
-      else if(action==='media-live'){
-        setLive(data.title);setBlankScreen(false)
-        await (window as any).shogunos.goLiveMedia({type:data.mediaType,filePath:data.filePath,title:data.title,loop:false,muted:false,fitMode:'contain'})
-      }
-      else if(action==='verse-live'){
-        setSelectedVerse({id:0,book:data.book,chapter:data.chapter,verse:data.verseNum,text:data.text,version:data.version||bibleVersion} as BibleVerse)
-        goLive(`${data.book} ${data.chapter}:${data.verseNum}`,data.text)
-      }
+      else if(action==='content-go'&&title!=null&&content!=null) goLive(title,content)
     })
-  },[sections,currentSection,queue,bibleVersion])
+  },[sections,currentSection,queue])
 
   async function goLiveFromQueueItem(id:string){
     const item = queue.find(q=>q.id===id)
@@ -2237,7 +2161,7 @@ export default function App() {
               <div style={{fontSize:24,lineHeight:1.9,color:C.t1,fontWeight:300,fontStyle:'italic',flex:1,fontFamily:"'Yu Mincho','Hiragino Mincho ProN','MS Mincho','Noto Serif CJK JP',Georgia,serif"}}>"{selectedVerse.text}"</div>
               <div style={{display:'flex',gap:10}}>
                 <button className="shimmer-btn glass-primary" onClick={()=>goLive(`${selectedVerse.book} ${selectedVerse.chapter}:${selectedVerse.verse}`,selectedVerse.text)} style={{padding:'11px 28px',background:`linear-gradient(135deg,${C.live},${C.p1})`,border:'none',color:'#fff',fontSize:12,fontWeight:700,cursor:'pointer',fontFamily:'inherit'}}>GO LIVE</button>
-                <button onClick={()=>addToQueue(`${selectedVerse.book} ${selectedVerse.chapter}:${selectedVerse.verse}`,'verse')} style={{padding:'11px 18px',background:C.tex4,border:`1px solid ${C.b2}`,color:C.t1,fontSize:11,fontWeight:600,cursor:'pointer',fontFamily:'inherit',borderRadius:9}}>+ Queue</button>
+                <button onClick={()=>addToQueue(`${selectedVerse.book} ${selectedVerse.chapter}:${selectedVerse.verse}`,'verse')} style={{padding:'11px 18px',background:C.bg4,border:`1px solid ${C.b2}`,color:C.t1,fontSize:11,fontWeight:600,cursor:'pointer',fontFamily:'inherit',borderRadius:9}}>+ Queue</button>
               </div>
             </>:(
               <div style={{flex:1,display:'flex',alignItems:'center',justifyContent:'center',flexDirection:'column',gap:10,color:C.t4}}>
@@ -2258,7 +2182,7 @@ export default function App() {
             <div style={{fontSize:17,fontWeight:700,color:C.t1}}>{selected.title}</div>
             <div style={{fontSize:11,color:C.t4,marginTop:2}}>{selected.hymn_number?`Hymn #${selected.hymn_number}`:'Custom'} · {sections.length} sections</div>
           </div>
-          <button onClick={()=>addToQueue(selected.title,'song')} style={{padding:'7px 16px',background:C.tex4,border:`1px solid ${C.b2}`,color:C.t1,fontSize:11,fontWeight:600,cursor:'pointer',fontFamily:'inherit',borderRadius:8}}>+ Queue</button>
+          <button onClick={()=>addToQueue(selected.title,'song')} style={{padding:'7px 16px',background:C.bg4,border:`1px solid ${C.b2}`,color:C.t1,fontSize:11,fontWeight:600,cursor:'pointer',fontFamily:'inherit',borderRadius:8}}>+ Queue</button>
         </div>
         <div style={{display:'flex',gap:8,padding:'12px 20px',background:C.tex2,borderBottom:`1px solid ${C.b0}`,flexShrink:0,overflowX:'auto'}}>
           {sections.map((s,i)=>(
@@ -2324,7 +2248,7 @@ export default function App() {
                       borderBottom:`1px solid ${C.b0}`,color:C.t2,textAlign:'left' as const}}>
                     <div style={{display:'flex',alignItems:'center',gap:8}}>
                       <span style={{fontSize:11,fontWeight:700,letterSpacing:'0.1em',color:accent}}>{groupLabel(lang).toUpperCase()}</span>
-                      <span style={{fontSize:9,color:C.t4,background:C.tex3,padding:'1px 7px',borderRadius:10,border:`1px solid ${C.b1}`}}>{group.length}</span>
+                      <span style={{fontSize:9,color:C.t4,background:C.bg3,padding:'1px 7px',borderRadius:10,border:`1px solid ${C.b1}`}}>{group.length}</span>
                     </div>
                     <span style={{fontSize:9,color:C.t4}}>{isOpen?'▾':'▸'}</span>
                   </button>
@@ -2555,7 +2479,7 @@ export default function App() {
           {/* Library / group content — always-visible bottom pane, like Quelea's Songs/Bibles/Images */}
           <div style={{flex:1,display:'flex',flexDirection:'column',minHeight:0,overflow:'hidden'}}>
             {toast&&(
-              <div className="toast-anim" style={{padding:'6px 14px',background:C.tex3,borderBottom:`1px solid ${C.b0}`,fontSize:11,color:C.t2,flexShrink:0,display:'flex',alignItems:'center',gap:6}}>
+              <div className="toast-anim" style={{padding:'6px 14px',background:C.bg3,borderBottom:`1px solid ${C.b0}`,fontSize:11,color:C.t2,flexShrink:0,display:'flex',alignItems:'center',gap:6}}>
                 <div style={{width:4,height:4,borderRadius:'50%',background:C.g2,flexShrink:0}}/>
                 {toast}
               </div>
@@ -2682,7 +2606,7 @@ export default function App() {
               ].map(([key,desc])=>(
                 <div key={key} style={{display:'flex',alignItems:'center',justifyContent:'space-between',fontSize:12.5}}>
                   <span style={{color:C.t2}}>{desc}</span>
-                  <span style={{padding:'3px 10px',background:C.tex3,border:`1px solid ${C.b1}`,borderRadius:5,color:C.t1,fontSize:11,fontWeight:600,fontFamily:'ui-monospace,monospace'}}>{key}</span>
+                  <span style={{padding:'3px 10px',background:C.bg3,border:`1px solid ${C.b1}`,borderRadius:5,color:C.t1,fontSize:11,fontWeight:600,fontFamily:'ui-monospace,monospace'}}>{key}</span>
                 </div>
               ))}
             </div>
@@ -2706,7 +2630,7 @@ export default function App() {
             </div>
             <div style={{fontSize:11,color:C.t3,marginBottom:6,fontWeight:600,letterSpacing:'0.05em',textTransform:'uppercase' as const}}>Label</div>
             <input value={timerLabel} onChange={e=>setTimerLabel(e.target.value)} placeholder="e.g. Service starts in"
-              style={{width:'100%',padding:'10px 12px',background:C.tex3,border:`1px solid ${C.b1}`,borderRadius:5,color:C.t1,fontSize:13,fontFamily:'inherit',marginBottom:18}}/>
+              style={{width:'100%',padding:'10px 12px',background:C.bg3,border:`1px solid ${C.b1}`,borderRadius:5,color:C.t1,fontSize:13,fontFamily:'inherit',marginBottom:18}}/>
             <div style={{fontSize:11,color:C.t3,marginBottom:6,fontWeight:600,letterSpacing:'0.05em',textTransform:'uppercase' as const}}>Duration (minutes)</div>
             <div style={{display:'flex',gap:8,marginBottom:24}}>
               {[1,5,10,15,30].map(m=>(
@@ -2716,7 +2640,7 @@ export default function App() {
                     border:`1px solid ${timerMinutes===m?C.g2:C.b1}`}}>{m}</button>
               ))}
               <input type="number" min={1} value={timerMinutes} onChange={e=>setTimerMinutes(Math.max(1,Number(e.target.value)||1))}
-                style={{width:60,padding:'9px 6px',background:C.tex3,border:`1px solid ${C.b1}`,borderRadius:5,color:C.t1,fontSize:13,fontFamily:'inherit',textAlign:'center'}}/>
+                style={{width:60,padding:'9px 6px',background:C.bg3,border:`1px solid ${C.b1}`,borderRadius:5,color:C.t1,fontSize:13,fontFamily:'inherit',textAlign:'center'}}/>
             </div>
             <div style={{display:'flex',gap:8}}>
               <button onClick={startCountdown}
@@ -2747,7 +2671,7 @@ export default function App() {
               <>
                 <div style={{fontSize:11,color:C.g2,marginBottom:12}}>{dailyVerse.book} {dailyVerse.chapter}:{dailyVerse.verse} — {dailyVerse.version}</div>
                 <div style={{fontSize:20,lineHeight:1.9,color:C.t1,fontStyle:'italic',fontWeight:300,fontFamily:"'Yu Mincho','Hiragino Mincho ProN','MS Mincho','Noto Serif CJK JP',Georgia,serif",marginBottom:20}}>"{dailyVerse.text}"</div>
-                <div style={{padding:'12px 16px',background:C.tex3,borderRadius:5,border:`1px solid ${C.b1}`,marginBottom:24,fontSize:12,color:C.t3,lineHeight:1.7,fontStyle:'italic'}}>
+                <div style={{padding:'12px 16px',background:C.bg3,borderRadius:5,border:`1px solid ${C.b1}`,marginBottom:24,fontSize:12,color:C.t3,lineHeight:1.7,fontStyle:'italic'}}>
                   May this word guide your service today. You are doing good work.
                 </div>
                 <div style={{display:'flex',gap:8}}>

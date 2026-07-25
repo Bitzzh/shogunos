@@ -80,7 +80,6 @@ contextBridge.exposeInMainWorld('shogunos', {
   exportData:          () => ipcRenderer.invoke('export-data'),
   importData:          (json: string) => ipcRenderer.invoke('import-data', json),
   getDatabaseStats:    () => ipcRenderer.invoke('get-db-stats'),
-  importQSP:           (base64: string, language?: string) => ipcRenderer.invoke('import-qsp', base64, language),
   getDisplaySettings:  () => ipcRenderer.invoke('get-display-settings'),
   saveDisplaySettings: (settings: any) => ipcRenderer.invoke('save-display-settings', settings),
 
@@ -90,9 +89,9 @@ contextBridge.exposeInMainWorld('shogunos', {
 
   // ── REMOTE CONTROL ───────────────────────────────────────────────────────────
   getRemoteInfo:      () => ipcRenderer.invoke('get-remote-info'),
+  getRemoteQR:        () => ipcRenderer.invoke('get-remote-qr'),
   pushRemoteState:    (state: any) => ipcRenderer.send('remote-state-update', state),
-  onRemoteCommand:    (cb: (data: { action: string; id?: string }) => void) => ipcRenderer.on('remote-command', (_e: any, d: any) => cb(d)),
-  kickRemoteDevice:   (token: string) => ipcRenderer.invoke('kick-remote-device', token),
+  onRemoteCommand:    (cb: (data: { action: string; id?: string; title?: string; content?: string }) => void) => ipcRenderer.on('remote-command', (_e: any, d: any) => cb(d)),
 
   // ── CALENDAR ───────────────────────────────────────────────────────────────
   getCalendarEvents:    () => ipcRenderer.invoke('calendar-get-events'),
