@@ -43,13 +43,6 @@ contextBridge.exposeInMainWorld('shogunos', {
   onLiveDisplayChanged: (cb: (info: any) => void) => ipcRenderer.on('live-display-changed', (_e: any, d: any) => cb(d)),
 
   // ── STAGE MONITOR ────────────────────────────────────────────────────────
-  // Bridges the stage/confidence-monitor IPC channels registered in
-  // main.ts (open-stage-monitor, close-stage-monitor, move-stage-to-display,
-  // is-stage-monitor-open, stage-state-update, update-stage, stage-closed,
-  // stage-display-changed). Was previously missing from this file even
-  // though main.ts and App.tsx both already assumed it existed, which is
-  // what caused window.shogunos.onStageClosed/pushStageState to be
-  // undefined and crash the renderer on mount.
   openStageMonitor:     (displayId?: number) => ipcRenderer.invoke('open-stage-monitor', displayId),
   closeStageMonitor:    () => ipcRenderer.invoke('close-stage-monitor'),
   moveStageToDisplay:   (displayId: number) => ipcRenderer.invoke('move-stage-to-display', displayId),
@@ -99,9 +92,6 @@ contextBridge.exposeInMainWorld('shogunos', {
   getDatabaseStats:    () => ipcRenderer.invoke('get-db-stats'),
   getDisplaySettings:  () => ipcRenderer.invoke('get-display-settings'),
   saveDisplaySettings: (settings: any) => ipcRenderer.invoke('save-display-settings', settings),
-  // Dedicated last-live-image store — see main.ts for why this isn't
-  // folded into getDisplaySettings/saveDisplaySettings above.
-  getLastLiveImage:    () => ipcRenderer.invoke('get-last-live-image'),
 
   // ── LOCAL OPERATOR ───────────────────────────────────────────────────────────
   getCurrentUser:     () => ipcRenderer.invoke('get-current-user'),

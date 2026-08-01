@@ -43,23 +43,6 @@ let mainWindow: BrowserWindow
 let liveWindow: BrowserWindow | null = null
 let stageWindow: BrowserWindow | null = null
 
-// Dedicated storage for the "sticky" last-live image — kept as its own
-// small JSON file in userData rather than folded into the generic
-// display_settings store. That store's schema is fixed to the
-// DisplaySettings shape (bgColor/fontColor/etc.), so an extra key like
-// lastLiveImage written through saveDisplaySettings() was silently
-// dropped on the next read — which is why it appeared to "forget" the
-// image immediately on every tab switch. This file has no schema to
-// collide with, so it can't be silently discarded the same way.
-const lastLiveImagePath = path.join(app.getPath('userData'), 'last-live-image.json')
-type LastLiveImage = { filePath: string; fitMode: string; title: string | null }
-function readLastLiveImage(): LastLiveImage | null {
-  try { return JSON.parse(fs.readFileSync(lastLiveImagePath, 'utf-8')) } catch { return null }
-}
-function writeLastLiveImage(data: LastLiveImage) {
-  try { fs.writeFileSync(lastLiveImagePath, JSON.stringify(data)) } catch (err) { console.error('Failed to save last-live-image:', err) }
-}
-
 // ── MEDIA PLAYLIST (folder loop) ────────────────────────────────────────
 // Drives "Loop Folder" in the Media tab: instead of looping a single video
 // forever, this cycles through every playable item in a folder — images
@@ -514,15 +497,14 @@ app.on('ready', async () => {
       broadcastLive(data)
     }
     // Quelea-style behavior: once an image is put live, remember it — file
-    // path + fit mode — until a different image is chosen. Its own
-    // dedicated file (see readLastLiveImage/writeLastLiveImage above), not
-    // the generic display_settings bag — that store previously dropped
-    // this key silently on every read.
+    // path + fit mode — until a different image is chosen. Stored in the
+    // same generic display_settings bag, so it survives app restarts.
     if (data?.type === 'image' && data.filePath) {
-      writeLastLiveImage({ filePath: data.filePath, fitMode: data.fitMode || 'contain', title: data.title || null })
+      saveDisplaySettings({
+        lastLiveImage: { filePath: data.filePath, fitMode: data.fitMode || 'contain', title: data.title || null },
+      })
     }
   })
-  ipcMain.handle('get-last-live-image', () => readLastLiveImage())
 
   // Media: loop (interchange) through every playable item in a folder,
   // instead of only being able to loop a single video forever.

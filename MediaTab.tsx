@@ -114,8 +114,8 @@ export default function MediaTab({ goLive, notify }:Props) {
   useEffect(() => {
     (async () => {
       try {
-        const img = await api.getLastLiveImage?.()
-        if (img) setLastLiveImage(img)
+        const ds = await api.getDisplaySettings?.()
+        if (ds?.lastLiveImage) setLastLiveImage(ds.lastLiveImage)
       } catch {}
     })()
   }, [])
@@ -136,7 +136,7 @@ export default function MediaTab({ goLive, notify }:Props) {
   // If the selected file is the one remembered as last-live, restore the fit
   // mode it was shown with rather than defaulting back to "contain".
   useEffect(() => {
-    if (activeItem && lastLiveImage && activeItem.file_path === lastLiveImage.filePath && lastLiveImage.fitMode) {
+    if (activeItem && lastLiveImage && activeItem.id === lastLiveImage.itemId && lastLiveImage.fitMode) {
       setFitMode(lastLiveImage.fitMode as 'contain'|'fill')
     }
   }, [activeItem, lastLiveImage])
@@ -351,7 +351,7 @@ export default function MediaTab({ goLive, notify }:Props) {
                       <div style={{ fontSize:9, color:C.t4, marginTop:1, display:'flex', alignItems:'center', gap:6 }}>
                         <span>{item.mime_type.split('/')[1]?.toUpperCase()} · {fileSizeLabel(item.file_size)}</span>
                         {playlistActive && playlistItemId===item.id && <span style={{ color:C.red, fontWeight:800 }}>▶ PLAYING</span>}
-                        {!playlistActive && lastLiveImage?.filePath===item.file_path && <span style={{ color:C.gold, fontWeight:800 }}>● LAST LIVE</span>}
+                        {!playlistActive && lastLiveImage?.itemId===item.id && <span style={{ color:C.gold, fontWeight:800 }}>● LAST LIVE</span>}
                       </div>
                     </div>
                     <button onClick={e=>{e.stopPropagation();deleteItem(item.id)}} style={{ background:'none',border:'none',color:C.t4,cursor:'pointer',fontSize:14,padding:0,opacity:0.5,lineHeight:1 }}>×</button>

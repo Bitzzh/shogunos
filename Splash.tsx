@@ -21,23 +21,12 @@ const C = {
 // on most Linux distros) before falling back to a plain serif.
 const SERIF_STACK = "'Yu Mincho','Hiragino Mincho ProN','MS Mincho','Noto Serif CJK JP','Inter','Segoe UI',serif"
 
-// Loading-line rotation — short, command-themed phrases in keeping with the
-// shogun/general motif of the mark above. Picked once per launch so it
-// doesn't flicker between phrases during the ~2s splash window.
-const LOADING_LINES = [
-  'Preparing the hall…',
-  'Assembling the room…',
-  'Commanding the field…',
-  'Every voice, one command…',
-]
-
 export default function Splash({ onDone }: Props) {
   const [phase, setPhase]   = useState(0)
   const [user, setUser]     = useState<{ display_name: string } | null>(null)
   const [embers, setEmbers] = useState<{ x:number;y:number;size:number;speed:number;opacity:number;gold:boolean }[]>([])
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const animRef   = useRef<number>(0)
-  const loadingLine = useRef(LOADING_LINES[Math.floor(Math.random() * LOADING_LINES.length)]).current
 
   // Ember / ash particle system
   useEffect(() => {
@@ -187,7 +176,7 @@ export default function Splash({ onDone }: Props) {
         <div style={{ ...trans(phase >= 3, 0.1), display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
           <span style={{ animation: 'spin 1s linear infinite', display: 'inline-block', fontSize: 14, color: C.gold }}>◌</span>
           <span style={{ fontSize: 12, color: C.t3, letterSpacing: '0.14em' }}>
-            {phase >= 4 ? `Welcome back, ${user?.display_name || 'Operator'}` : loadingLine}
+            {phase >= 4 ? `Welcome back, ${user?.display_name || 'Operator'}` : 'Preparing the hall…'}
           </span>
         </div>
       </div>

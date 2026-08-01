@@ -13,7 +13,7 @@ type QueueItem  = { id: string; title: string; type: string }
 type NavGroup   = 'library' | 'present' | 'media' | 'calendar' | 'service' | 'settings'
 type LibTab     = 'hymnal' | 'bible' | 'daily' | 'songs'
 type PresentTab = 'slides' | 'announce'
-type SettingsTab = 'display' | 'branding' | 'import' | 'remote' | 'about'
+type SettingsTab = 'display' | 'import' | 'remote' | 'about'
 
 // ── HYMNAL GROUPING (module-level — pure, never changes per-render) ────────
 // Used to group songs by hymnal collection/language. Kept outside the
@@ -60,22 +60,6 @@ interface DisplaySettings {
   iconColor: string
   iconSize: number
   iconPos: string
-}
-
-// Church/org branding shown on the live projector output — separate from
-// DisplaySettings (which styles individual slides) since this is a
-// persistent overlay that sits on top of every slide regardless of type.
-interface BrandingSettings {
-  orgName: string
-  orgLogo: string | null       // data URL of an uploaded image, or null to use the default flame icon
-  showOrgBrand: boolean        // top-left church identity
-  showAppWatermark: boolean    // bottom-right "ShogunOS" credit
-  watermarkPos: 'bottom-right' | 'bottom-left'
-  watermarkOpacity: number     // 0–1
-}
-const DEFAULT_BRANDING: BrandingSettings = {
-  orgName: '', orgLogo: null, showOrgBrand: true, showAppWatermark: true,
-  watermarkPos: 'bottom-right', watermarkOpacity: 0.55,
 }
 
 // Shogun palette — modern minimal: paper canvas, ink text, indigo accent, red reserved for LIVE only
@@ -146,56 +130,6 @@ function SlideCanvas({ slide, small = false }: { slide: Partial<Slide>; small?: 
             : <div style={{ fontSize:small?8:12, color:'rgba(255,255,255,0.2)', textAlign:'center' }}>EMPTY SLIDE</div>
         }
       </div>
-    </div>
-  )
-}
-
-// Simplified flame-over-open-book mark — evokes the classic Adventist emblem
-// in silhouette (three flame licks over a book) without tracing the official
-// trademarked artwork. Churches wanting the exact denominational logo should
-// upload it via Settings → Branding instead; this is only the built-in default.
-function DefaultOrgMark({ size = 22, color = '#7ee8ff' }: { size?: number; color?: string }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 48 48" fill="none">
-      <path d="M24 4c3 6 3 11 0 15-3-4-3-9 0-15z" fill={color}/>
-      <path d="M17 10c2.5 6 2.5 12-1 17-2.5-5-2-13 1-17z" fill={color} opacity="0.85"/>
-      <path d="M31 10c2.5 6 3 12-1 17 2.5-5 1-13 1-17z" fill={color} opacity="0.85" transform="scale(-1,1) translate(-62,0)"/>
-      <path d="M8 34l16-6 16 6-16 5-16-5z" fill={color}/>
-    </svg>
-  )
-}
-
-// Branding overlay for the live/projector output — church identity top-left,
-// app watermark in a corner. Rendered on top of whatever slide is showing;
-// purely visual, never intercepts clicks.
-function BrandOverlay({ branding, small = false }: { branding: BrandingSettings; small?: boolean }) {
-  const scale = small ? 0.4 : 1
-  return (
-    <div style={{ position:'absolute', inset:0, pointerEvents:'none' }}>
-      {branding.showOrgBrand && (branding.orgName || branding.orgLogo) && (
-        <div style={{ position:'absolute', top:16*scale, left:16*scale, display:'flex', alignItems:'center', gap:8*scale }}>
-          {branding.orgLogo
-            ? <img src={branding.orgLogo} alt="" style={{ height:22*scale, width:'auto' }} />
-            : <DefaultOrgMark size={22*scale} />}
-          {branding.orgName && (
-            <span style={{ color:'#fff', fontSize:15*scale, fontWeight:600, fontStyle:'italic', fontFamily:'Georgia, serif', textShadow:'0 1px 3px rgba(0,0,0,0.6)' }}>
-              {branding.orgName}
-            </span>
-          )}
-        </div>
-      )}
-      {branding.showAppWatermark && (
-        <div style={{
-          position:'absolute', bottom:14*scale, [branding.watermarkPos==='bottom-right'?'right':'left']:16*scale,
-          display:'flex', alignItems:'center', gap:5*scale, opacity:branding.watermarkOpacity,
-        }}>
-          <svg width={14*scale} height={14*scale} viewBox="0 0 100 100">
-            <circle cx="50" cy="50" r="48" fill="#1a1630" stroke="#ff2d87" strokeWidth="3"/>
-            <text x="50" y="66" textAnchor="middle" fontSize="46" fill="#ffd23f" fontFamily="serif" fontWeight="700">将</text>
-          </svg>
-          <span style={{ color:'#cabfe8', fontSize:10*scale, letterSpacing:'0.06em' }}>ShogunOS</span>
-        </div>
-      )}
     </div>
   )
 }
@@ -562,18 +496,6 @@ function AnnounceTab({ goLive, notify }: { goLive:(t:string,l:string)=>void; not
     {label:'Closing',  text:'Thank you for joining us.\nGod bless you.'},
   ]
 
-  // ShogunOS's own signature templates — dark ground, gold text, the same
-  // palette as the splash screen — for the moments that are about the
-  // system itself (opening/closing the service, crediting the software)
-  // rather than church content. Kept separate from TEMPLATES above since
-  // these also carry a style, not just text.
-  const SHOGUN_STYLE = { bgColor:'#08070f', fgColor:'#ffd23f' }
-  const SHOGUN_TEMPLATES = [
-    { label:'ShogunOS Intro',   title:'Welcome',  text:'将軍OS\nMultimedia Presentation System' },
-    { label:'ShogunOS Credits', title:'Credits',  text:'Presented with ShogunOS\nDesigned by Ngaatendwe Manjeya' },
-    { label:'ShogunOS Outro',   title:'Closing',  text:'将軍OS\nSee you next time.' },
-  ]
-
   function send(){
     if(!text.trim()){notify('Type a message first');return}
     goLive(title||'Announcement',text)
@@ -607,30 +529,6 @@ function AnnounceTab({ goLive, notify }: { goLive:(t:string,l:string)=>void; not
                 >{t.label}</button>
               ))}
             </div>
-          </div>
-          <div>
-            <label style={lbl}>ShogunOS Templates</label>
-            <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:10}}>
-              {SHOGUN_TEMPLATES.map(t=>(
-                <button key={t.label} onClick={()=>{setText(t.text);setTitle(t.title);setBgColor(SHOGUN_STYLE.bgColor);setFgColor(SHOGUN_STYLE.fgColor);setBgImage(null)}}
-                  style={{
-                    position:'relative',padding:'14px 12px 12px',background:'#0e0c1a',
-                    border:`1px solid ${C.b1}`,borderRadius:9,cursor:'pointer',fontFamily:'inherit',
-                    textAlign:'left',overflow:'hidden',transition:'transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease',
-                  }}
-                  onMouseEnter={e=>{const el=e.currentTarget as HTMLElement;el.style.borderColor=C.g2;el.style.transform='translateY(-2px)';el.style.boxShadow=`0 8px 20px rgba(0,194,255,0.18)`}}
-                  onMouseLeave={e=>{const el=e.currentTarget as HTMLElement;el.style.borderColor=C.b1;el.style.transform='translateY(0)';el.style.boxShadow='none'}}
-                >
-                  <div style={{position:'absolute',top:0,left:0,right:0,height:2,background:`linear-gradient(to right,${C.p2},${C.gold},${C.g2})`}}/>
-                  <div style={{fontSize:16,marginBottom:8,filter:`drop-shadow(0 0 4px ${C.gold}88)`}}>
-                    {t.label.includes('Intro')?'⛩':t.label.includes('Credits')?'✦':'終'}
-                  </div>
-                  <div style={{fontSize:11.5,fontWeight:700,color:'#f2eefc',marginBottom:2}}>{t.label.replace('ShogunOS ','')}</div>
-                  <div style={{fontSize:9.5,color:'#8b80b8',letterSpacing:'0.04em'}}>ShogunOS</div>
-                </button>
-              ))}
-            </div>
-            <div style={{fontSize:10.5,color:C.t4,marginTop:8,lineHeight:1.5}}>Applies the signature dark/gold look, styled like the splash screen — for moments about the system itself rather than church content.</div>
           </div>
           <div><label style={lbl}>Title (optional)</label><input style={inp} value={title} onChange={e=>setTitle(e.target.value)} placeholder="e.g. Welcome"/></div>
           <div><label style={lbl}>Message</label><textarea value={text} onChange={e=>setText(e.target.value)} placeholder="Type your announcement..." rows={6} style={{...inp,resize:'vertical',lineHeight:1.7}}/></div>
@@ -1233,11 +1131,6 @@ function AboutTab() {
           <div style={{fontSize:10,color:C.t4,fontWeight:700,letterSpacing:'0.15em',marginBottom:8,textTransform:'uppercase' as const}}>About</div>
           <div style={{fontSize:13,color:C.t2,lineHeight:1.75}}>ShogunOS is a professional multimedia presentation system built for church services, schools and events. Designed and developed by Ngaatendwe Manjeya as a former student of Lingfield Advent High School, this application combines the precision of professional broadcast tools with the simplicity needed for real-world worship environments.</div>
         </div>
-        <div style={{marginTop:20,padding:'18px 20px',borderLeft:`2px solid ${C.g2}`,background:C.tex2,borderRadius:'0 10px 10px 0'}}>
-          <div style={{fontSize:14,color:C.t1,fontStyle:'italic',lineHeight:1.7,fontFamily:"'Yu Mincho','Hiragino Mincho ProN','MS Mincho','Noto Serif CJK JP',Georgia,serif"}}>
-            "Command the room as the general commands the field — with clarity, not noise."
-          </div>
-        </div>
       </div>
     </div>
   )
@@ -1445,20 +1338,6 @@ function DisplaySettingsTab({ settings, onChange, notify }: { settings:DisplaySe
       <div style={{fontSize:9,fontWeight:700,letterSpacing:'0.2em',color:C.t4,textTransform:'uppercase' as const}}>Display Settings</div>
       <div style={{fontSize:12,color:C.t3,lineHeight:1.6,padding:'12px 16px',background:C.bg3,borderRadius:10,border:`1px solid ${C.b1}`}}>These settings apply to hymns and Bible verses sent live. Slides use their own individual settings.</div>
 
-      <div style={{position:'relative',padding:'16px 18px',background:'#08070f',border:`1px solid ${C.b1}`,borderRadius:10,overflow:'hidden',display:'flex',alignItems:'center',gap:14}}>
-        <div style={{position:'absolute',top:0,left:0,right:0,height:2,background:`linear-gradient(to right,${C.p2},#ffd23f,${C.g2})`}}/>
-        <svg width="32" height="32" viewBox="0 0 100 100" style={{flexShrink:0,filter:`drop-shadow(0 0 6px ${C.p2}66) drop-shadow(0 0 10px ${C.g2}44)`}}>
-          <circle cx="50" cy="50" r="48" fill="#1a1630" stroke="#ffd23f" strokeWidth="2"/>
-          <text x="50" y="66" textAnchor="middle" fontSize="46" fill="#ffd23f" fontFamily="serif" fontWeight="700">将</text>
-        </svg>
-        <div style={{flex:1,minWidth:0}}>
-          <div style={{fontSize:12,fontWeight:700,color:'#ffd23f'}}>将軍OS signature theme</div>
-          <div style={{fontSize:10.5,color:'#8b80b8',marginTop:2}}>Dark ground, gold text, Yu Mincho serif — the app's own look</div>
-        </div>
-        <button onClick={()=>{onChange({...settings,bgColor:'#08070f',fontColor:'#ffd23f',fontFamily:"'Yu Mincho','Hiragino Mincho ProN','MS Mincho','Noto Serif CJK JP',serif",bgImage:null})}}
-          style={{padding:'8px 16px',background:'linear-gradient(135deg,#ffd23f,#d4a017)',border:'none',color:'#1a1630',fontSize:11,fontWeight:700,cursor:'pointer',fontFamily:'inherit',borderRadius:7,flexShrink:0}}>Apply</button>
-      </div>
-
       <div style={{padding:'16px',background:settings.highVisibility?'color-mix(in srgb, #f59e0b 10%, transparent)':C.bg3,border:`1px solid ${settings.highVisibility?'#f59e0b':C.b1}`,borderRadius:10,display:'flex',flexDirection:'column',gap:12}}>
         <div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
           <div>
@@ -1609,94 +1488,6 @@ function DisplaySettingsTab({ settings, onChange, notify }: { settings:DisplaySe
   )
 }
 
-function BrandingSettingsTab({ branding, onChange, notify }: { branding:BrandingSettings; onChange:(b:BrandingSettings)=>void; notify:(m:string)=>void }) {
-  function set<K extends keyof BrandingSettings>(k:K, v:BrandingSettings[K]) { onChange({ ...branding, [k]: v }) }
-  const lbl: React.CSSProperties = {fontSize:10,color:C.t3,fontWeight:600,marginBottom:6,display:'block',letterSpacing:'0.05em',textTransform:'uppercase' as const}
-  const inp: React.CSSProperties = {width:'100%',background:C.bg4,border:`1px solid ${C.b1}`,color:C.t1,padding:'9px 12px',fontSize:12,outline:'none',fontFamily:'inherit',borderRadius:8}
-  const fileRef = useRef<HTMLInputElement>(null)
-
-  function handleLogoFile(f: File) {
-    if (f.size > 2*1024*1024) { notify('Logo image should be under 2MB'); return }
-    const r = new FileReader()
-    r.onload = () => { set('orgLogo', r.result as string); notify('Logo updated') }
-    r.readAsDataURL(f)
-  }
-
-  return (
-    <div style={{flex:1,padding:32,overflowY:'auto',background:C.tex1}}>
-      <div style={{maxWidth:520,display:'flex',flexDirection:'column',gap:22}}>
-        <div>
-          <div style={{fontSize:15,fontWeight:700,color:C.t1,marginBottom:4}}>Live output branding</div>
-          <div style={{fontSize:12,color:C.t3,lineHeight:1.6}}>Shown as an overlay on top of every slide sent to the projector. Turn either piece off if it's not the right fit for a service.</div>
-        </div>
-
-        <div>
-          <label style={lbl}>Organization name</label>
-          <input style={inp} value={branding.orgName} onChange={e=>set('orgName', e.target.value)} placeholder="e.g. Lingfield Advent Church" />
-        </div>
-
-        <div>
-          <label style={lbl}>Organization logo</label>
-          <div style={{display:'flex',alignItems:'center',gap:14}}>
-            <div style={{width:56,height:56,borderRadius:10,background:C.bg3,border:`1px solid ${C.b1}`,display:'flex',alignItems:'center',justifyContent:'center',overflow:'hidden',flexShrink:0}}>
-              {branding.orgLogo ? <img src={branding.orgLogo} alt="" style={{maxWidth:'100%',maxHeight:'100%'}} /> : <DefaultOrgMark size={26} color={C.g2 as any} />}
-            </div>
-            <div style={{display:'flex',flexDirection:'column',gap:8}}>
-              <button className="glass-btn" onClick={()=>fileRef.current?.click()} style={{padding:'8px 14px',border:`1px solid ${C.b1}`,color:C.t1,fontSize:11,cursor:'pointer',fontFamily:'inherit'}}>Upload logo</button>
-              {branding.orgLogo && <button onClick={()=>set('orgLogo', null)} style={{background:'none',border:'none',color:C.t4,fontSize:11,cursor:'pointer',fontFamily:'inherit',textAlign:'left',padding:0}}>Remove — use default mark</button>}
-            </div>
-            <input ref={fileRef} type="file" accept="image/*" style={{display:'none'}} onChange={e=>{const f=e.target.files?.[0]; if(f) handleLogoFile(f)}} />
-          </div>
-        </div>
-
-        <label style={{display:'flex',alignItems:'center',gap:10,cursor:'pointer'}}>
-          <input type="checkbox" checked={branding.showOrgBrand} onChange={e=>set('showOrgBrand', e.target.checked)} />
-          <span style={{fontSize:12,color:C.t2}}>Show church name/logo (top-left)</span>
-        </label>
-
-        <div style={{height:1,background:C.b0}} />
-
-        <label style={{display:'flex',alignItems:'center',gap:10,cursor:'pointer'}}>
-          <input type="checkbox" checked={branding.showAppWatermark} onChange={e=>set('showAppWatermark', e.target.checked)} />
-          <span style={{fontSize:12,color:C.t2}}>Show ShogunOS watermark</span>
-        </label>
-
-        {branding.showAppWatermark && (
-          <>
-            <div>
-              <label style={lbl}>Watermark position</label>
-              <div style={{display:'flex',gap:8}}>
-                {(['bottom-right','bottom-left'] as const).map(pos=>(
-                  <button key={pos} onClick={()=>set('watermarkPos', pos)}
-                    style={{flex:1,padding:'9px 0',borderRadius:6,fontSize:11,cursor:'pointer',fontFamily:'inherit',
-                      background:branding.watermarkPos===pos?C.g2:'none',color:branding.watermarkPos===pos?'#fff':C.t1,
-                      border:`1px solid ${branding.watermarkPos===pos?C.g2:C.b1}`}}>{pos==='bottom-right'?'Bottom right':'Bottom left'}</button>
-                ))}
-              </div>
-            </div>
-            <div>
-              <label style={lbl}>Watermark opacity — {Math.round(branding.watermarkOpacity*100)}%</label>
-              <input type="range" min={0.15} max={1} step={0.05} value={branding.watermarkOpacity}
-                onChange={e=>set('watermarkOpacity', Number(e.target.value))} style={{width:'100%'}} />
-            </div>
-          </>
-        )}
-
-        {/* Live preview */}
-        <div>
-          <label style={lbl}>Preview</label>
-          <div style={{position:'relative',aspectRatio:'16/9',background:'#0a0812',borderRadius:8,overflow:'hidden',border:`1px solid ${C.b1}`}}>
-            <div style={{position:'absolute',inset:0,display:'flex',alignItems:'center',justifyContent:'center'}}>
-              <div style={{color:'#f2eefc',fontSize:15,textAlign:'center',fontStyle:'italic',fontFamily:'Georgia, serif',opacity:0.85}}>"Amazing grace, how sweet the sound"</div>
-            </div>
-            <BrandOverlay branding={branding} small />
-          </div>
-        </div>
-      </div>
-    </div>
-  )
-}
-
 // The header clock used to be App-level state ticking every second with
 // setInterval, which meant App — and every heavy child reachable from its
 // render tree, including whichever library/present tab was currently mounted
@@ -1769,10 +1560,6 @@ export default function App() {
   const [showShortcuts,setShowShortcuts] = useState(false)
   const [toast,setToast]                 = useState('')
   const [displaySettings,setDisplaySettings] = useState<DisplaySettings>({bgColor:'#000000',bgImage:null,fontColor:'#ffffff',fontSize:52,textAlign:'center',fontFamily:'Georgia, serif',borderWidth:0,borderColor:'#ffffff',borderStyle:'solid',borderRadius:0,highVisibility:false,highVisibilityInvert:false,icon:null,iconColor:'#ffffff',iconSize:64,iconPos:'top-center'})
-  const [branding,setBranding] = useState<BrandingSettings>(()=>{
-    try{ const v=localStorage.getItem('shogun_branding'); return v?{...DEFAULT_BRANDING,...JSON.parse(v)}:DEFAULT_BRANDING }catch{ return DEFAULT_BRANDING }
-  })
-  useEffect(()=>{ try{ localStorage.setItem('shogun_branding', JSON.stringify(branding)) }catch{} }, [branding])
   const toastTimer = useRef<any>(null)
   // Bible chapter browser state
   const [hymnLangFilter,setHymnLangFilter] = useState<string>('all')
@@ -1940,7 +1727,7 @@ export default function App() {
         return d.find(x=>!x.isPrimary)?.id ?? d[0]?.id
       })
     })
-    ;(window as any).shogunos.onStageClosed?.(()=>setStageMonitorOpen(false))
+    ;(window as any).shogunos.onStageClosed(()=>setStageMonitorOpen(false))
   },[showSplash])
 
   // ── REMOTE CONTROL: push state out ──────────────────────────────────────
@@ -2310,7 +2097,6 @@ export default function App() {
     }
     if(navGroup==='settings'){
       if(settingsTab==='display') return <DisplaySettingsTab settings={displaySettings} onChange={setDisplaySettings} notify={notify}/>
-      if(settingsTab==='branding') return <BrandingSettingsTab branding={branding} onChange={setBranding} notify={notify}/>
       if(settingsTab==='import') return <ImportTab notify={notify}/>
       if(settingsTab==='remote') return <RemoteTab/>
       if(settingsTab==='about')  return <AboutTab/>
@@ -2555,7 +2341,7 @@ export default function App() {
     media:    [],
     calendar: [],
     service:  [{id:'queue',label:'Queue'}],
-    settings: [{id:'display',label:'Display'},{id:'branding',label:'Branding'},{id:'import',label:'Import'},{id:'remote',label:'Remote'},{id:'about',label:'About'}],
+    settings: [{id:'display',label:'Display'},{id:'import',label:'Import'},{id:'remote',label:'Remote'},{id:'about',label:'About'}],
   }
 
   const NAV_ICONS: Record<NavGroup,string> = {
